@@ -6,6 +6,7 @@ plugins {
 dependencies {
     api(project(":core:common"))
     api(project(":tools:registry"))
+    implementation(libs.jgit)
     testImplementation(libs.junit4)
 }
 

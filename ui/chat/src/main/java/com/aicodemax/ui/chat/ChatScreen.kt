@@ -15,11 +15,16 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,9 +35,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.aicodemax.data.conversations.ChatMessage
+import com.aicodemax.data.conversations.Conversation
 import com.aicodemax.data.conversations.MessageRole
 import com.aicodemax.ui.designsystem.LocalSpacing
 import com.aicodemax.ui.designsystem.StatusKind
@@ -42,13 +49,77 @@ import kotlinx.coroutines.launch
 @Composable
 fun ChatRoute(viewModel: ChatViewModel) {
     val state by viewModel.state.collectAsState()
-    LaunchedEffect(Unit) { viewModel.ensureOpen() }
-    ChatScreen(
-        messages = state.messages,
-        sending = state.sending,
-        error = state.error,
-        onSend = viewModel::send,
+    val conversations by viewModel.conversationsList.collectAsState()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        viewModel.ensureOpen()
+        viewModel.refreshConversations()
+    }
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                ConversationDrawer(
+                    conversations = conversations,
+                    activeId = state.conversationId,
+                    onNew = {
+                        scope.launch { drawerState.close() }
+                        viewModel.newChat()
+                    },
+                    onSelect = { id ->
+                        scope.launch { drawerState.close() }
+                        viewModel.openConversation(id)
+                    },
+                    onDelete = { id -> viewModel.deleteConversation(id) },
+                )
+            }
+        },
+        content = {
+            ChatScreen(
+                messages = state.messages,
+                sending = state.sending,
+                error = state.error,
+                onSend = viewModel::send,
+                onMenu = { scope.launch { drawerState.open() } },
+                onNewChat = viewModel::newChat,
+            )
+        },
     )
+}
+
+@Composable
+private fun ConversationDrawer(
+    conversations: List<Conversation>,
+    activeId: String?,
+    onNew: () -> Unit,
+    onSelect: (String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    val spacing = LocalSpacing.current
+    Column(modifier = Modifier.padding(spacing.sm)) {
+        Text(
+            text = "บทสนทนา",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(spacing.sm),
+        )
+        TextButton(onClick = onNew) { Text("＋ แชทใหม่") }
+        if (conversations.isEmpty()) {
+            Text(
+                text = "ยังไม่มีบทสนทนาที่บันทึก",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(spacing.sm),
+            )
+        }
+        for (conv in conversations) {
+            NavigationDrawerItem(
+                label = { Text(conv.title.ifBlank { "(ไม่มีชื่อ)" }, maxLines = 1) },
+                selected = conv.id == activeId,
+                onClick = { onSelect(conv.id) },
+                badge = { TextButton(onClick = { onDelete(conv.id) }) { Text("ลบ") } },
+            )
+        }
+    }
 }
 
 @Composable
@@ -57,6 +128,8 @@ fun ChatScreen(
     sending: Boolean,
     error: String?,
     onSend: (String) -> Unit,
+    onMenu: () -> Unit,
+    onNewChat: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
     var input by remember { mutableStateOf("") }
@@ -70,6 +143,11 @@ fun ChatScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onMenu) { Text("☰") }
+            Spacer(modifier = Modifier.weight(1f))
+            TextButton(onClick = onNewChat) { Text("＋ แชทใหม่") }
+        }
         if (messages.isEmpty()) {
             EmptyChat(modifier = Modifier.weight(1f), onSuggest = onSend)
         } else {

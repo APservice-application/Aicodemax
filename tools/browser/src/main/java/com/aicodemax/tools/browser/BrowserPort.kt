@@ -25,15 +25,18 @@ interface BrowserPort {
 fun browserDescriptorToday(): ToolDescriptor = ToolDescriptor(
     toolId = "browser",
     displayName = "Browser",
-    version = "0.1.0",
+    version = "0.2.0",
     layers = listOf(
-        LayerCapability(CapabilityLayer.UI, CapabilityStatus.MISSING, "Browser Center UI in Phase 24"),
-        LayerCapability(CapabilityLayer.CONTROLLER, CapabilityStatus.MISSING, "wires in Phase 19"),
+        LayerCapability(
+            CapabilityLayer.UI, CapabilityStatus.PARTIAL,
+            "Browser Center: tabs + WebView (history resets on tab switch)",
+        ),
+        LayerCapability(CapabilityLayer.CONTROLLER, CapabilityStatus.AVAILABLE, "BrowserPort"),
         LayerCapability(CapabilityLayer.CAPABILITY_API, CapabilityStatus.AVAILABLE, "BrowserPort"),
-        LayerCapability(CapabilityLayer.RUNTIME, CapabilityStatus.MISSING, "browser engine in Phase 19"),
-        LayerCapability(CapabilityLayer.EXECUTION, CapabilityStatus.MISSING, "no runtime yet"),
-        LayerCapability(CapabilityLayer.VERIFICATION, CapabilityStatus.MISSING, "with runtime"),
-        LayerCapability(CapabilityLayer.RECOVERY, CapabilityStatus.MISSING, "with runtime"),
+        LayerCapability(CapabilityLayer.RUNTIME, CapabilityStatus.AVAILABLE, "WebView + InMemoryBrowserPort"),
+        LayerCapability(CapabilityLayer.EXECUTION, CapabilityStatus.AVAILABLE, "via ToolGateway"),
+        LayerCapability(CapabilityLayer.VERIFICATION, CapabilityStatus.PARTIAL, "page title read-back only"),
+        LayerCapability(CapabilityLayer.RECOVERY, CapabilityStatus.MISSING, "no session restore yet"),
     ),
     permissions = listOf("android.permission.INTERNET"),
 )

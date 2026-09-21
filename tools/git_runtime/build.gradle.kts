@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aicodemax.tools.browser"
+    namespace = "com.aicodemax.tools.git_runtime"
     compileSdk = 34
 
     defaultConfig {
@@ -22,7 +22,9 @@ android {
 
 dependencies {
     api(project(":core:common"))
-    api(project(":tools:registry"))
+    implementation(project(":tools:registry"))
+    implementation(project(":tools:git"))
+    implementation(project(":tools:gateway"))
     implementation(libs.coroutines.android)
     testImplementation(libs.junit4)
 }

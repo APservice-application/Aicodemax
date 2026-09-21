@@ -39,6 +39,8 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
         )
     }
 
+    val auditCount = remember { services.audit.count() }
+    val browserTabs = remember { services.browser.tabs.value.size }
     val tools = remember { services.toolRegistry.all() }
     val runnable = tools.count { it.isRunnable() }
     val tasks = remember { services.tasks.list() }
@@ -68,6 +70,16 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             title = "งาน",
             line = if (tasks.isEmpty()) "ยังไม่มีงาน" else "กำลังทำ $activeTasks งาน (ทั้งหมด ${tasks.size})",
             action = "ดู" to { onOpen(Routes.TASKS) },
+        )
+        StatusCard(
+            title = "เบราว์เซอร์",
+            line = if (browserTabs == 0) "ยังไม่มีแท็บ" else "$browserTabs แท็บ",
+            action = "เปิด" to { onOpen(Routes.BROWSER) },
+        )
+        StatusCard(
+            title = "ตรวจสอบ",
+            line = "$auditCount รายการ",
+            action = "ดู" to { onOpen(Routes.AUDIT) },
         )
         StatusCard(title = "เครื่อง", line = resourceLine, action = null)
     }

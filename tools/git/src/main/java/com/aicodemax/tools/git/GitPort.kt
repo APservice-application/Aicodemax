@@ -21,9 +21,11 @@ data class GitCommit(
     val timestamp: Long,
 )
 
-/** Port to Git runtime (JGit/CLI wires in Phase 18). */
+/** Git runtime port. Real implementation: [JGitGitPort] (Eclipse JGit, pure Java). */
 interface GitPort {
     fun descriptor(): ToolDescriptor
+    /** Creates a repo at [repoDir] when missing; no-op when one already exists. */
+    fun ensureRepo(repoDir: String): Outcome<Unit>
     fun status(repoDir: String): Outcome<GitStatus>
     fun log(repoDir: String, limit: Int = 20): Outcome<List<GitCommit>>
     fun stageAll(repoDir: String): Outcome<Unit>
@@ -34,17 +36,20 @@ interface GitPort {
 fun gitDescriptorToday(): ToolDescriptor = ToolDescriptor(
     toolId = "git",
     displayName = "Git",
-    version = "0.1.0",
+    version = "0.2.0",
     layers = listOf(
-        LayerCapability(CapabilityLayer.UI, CapabilityStatus.MISSING, "Git Center UI wires in Phase 24"),
-        LayerCapability(CapabilityLayer.CONTROLLER, CapabilityStatus.MISSING, "wires in Phase 18"),
         LayerCapability(
-            CapabilityLayer.CAPABILITY_API, CapabilityStatus.AVAILABLE,
-            "GitPort contract",
+            CapabilityLayer.UI, CapabilityStatus.PARTIAL,
+            "status line in Projects; full Git Center in Phase 24",
         ),
-        LayerCapability(CapabilityLayer.RUNTIME, CapabilityStatus.MISSING, "JGit/CLI wires in Phase 18"),
-        LayerCapability(CapabilityLayer.EXECUTION, CapabilityStatus.MISSING, "no runtime yet"),
-        LayerCapability(CapabilityLayer.VERIFICATION, CapabilityStatus.MISSING, "diff/status checks with runtime"),
-        LayerCapability(CapabilityLayer.RECOVERY, CapabilityStatus.MISSING, "stash/rollback with runtime"),
+        LayerCapability(CapabilityLayer.CONTROLLER, CapabilityStatus.AVAILABLE, "GitPort"),
+        LayerCapability(CapabilityLayer.CAPABILITY_API, CapabilityStatus.AVAILABLE, "GitPort"),
+        LayerCapability(CapabilityLayer.RUNTIME, CapabilityStatus.AVAILABLE, "JGitGitPort (JGit)"),
+        LayerCapability(CapabilityLayer.EXECUTION, CapabilityStatus.AVAILABLE, "via ToolGateway"),
+        LayerCapability(
+            CapabilityLayer.VERIFICATION, CapabilityStatus.AVAILABLE,
+            "status/log read-back checks",
+        ),
+        LayerCapability(CapabilityLayer.RECOVERY, CapabilityStatus.PARTIAL, "no stash/rollback UI yet"),
     ),
 )
