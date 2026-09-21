@@ -1,7 +1,11 @@
 package com.aicodemax.app
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -13,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,6 +25,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.aicodemax.core.common.Ids
 import com.aicodemax.core.common.fold
+import com.aicodemax.tools.gateway.ApprovalRequest
+import com.aicodemax.tools.gateway.PermissionDecision
 import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.ui.chat.ChatRoute
 import com.aicodemax.ui.chat.ChatViewModel
@@ -93,6 +100,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
         },
         bottomBar = { AicodeBottomBar(route) { nav.navigateSingle(it) } },
     ) { padding ->
+        ApprovalOverlay(services)
         NavHost(navController = nav, startDestination = Routes.HOME, modifier = Modifier.padding(padding)) {
             composable(Routes.HOME) {
                 HomeScreen(
@@ -180,6 +188,51 @@ private fun rememberGrantSnapshot(services: ServiceLocator): Pair<String, List<S
     val snapshot = services.permissionGrants.snapshot()
     val line = "ให้แล้ว: งาน ${snapshot.taskGrants} • ครั้งเดียว ${snapshot.oneShots} • ปฏิเสธถาวร ${snapshot.denies.size}"
     return line to snapshot.denies
+}
+
+/** CP-05: global WHAT/WHY/SCOPE/RISK approval dialog (one at a time, FIFO). */
+@Composable
+private fun ApprovalOverlay(services: ServiceLocator) {
+    val pending by services.approvals.pending.collectAsState()
+    val current = pending.firstOrNull() ?: return
+    ApprovalDialog(
+        request = current,
+        onDecide = { services.approvals.decide(current.id, it) },
+    )
+}
+
+@Composable
+private fun ApprovalDialog(request: ApprovalRequest, onDecide: (PermissionDecision) -> Unit) {
+    AlertDialog(
+        onDismissRequest = { },
+        title = { Text("AI ขอสิทธิ์") },
+        text = {
+            Column {
+                ApprovalRow("WHAT", request.what)
+                ApprovalRow("WHY", request.why)
+                ApprovalRow("SCOPE", request.scope)
+                ApprovalRow("RISK", "${request.risk.level.name} — ${request.risk.reason}")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onDecide(PermissionDecision.ALLOW_ONCE) }) { Text("ครั้งเดียว") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = { onDecide(PermissionDecision.DENY) }) { Text("ปฏิเสธ") }
+                TextButton(onClick = { onDecide(PermissionDecision.ALLOW_FOR_TASK) }) { Text("ทั้งงาน") }
+            }
+        },
+    )
+}
+
+@Composable
+private fun ApprovalRow(label: String, value: String) {
+    Text(
+        text = "$label: $value",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(vertical = 2.dp),
+    )
 }
 
 @Composable

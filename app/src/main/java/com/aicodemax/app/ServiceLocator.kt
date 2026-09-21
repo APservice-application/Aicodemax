@@ -51,6 +51,7 @@ import com.aicodemax.tools.files.FilePort
 import com.aicodemax.tools.files.FilesToolExecutor
 import com.aicodemax.tools.files.SandboxFileStore
 import com.aicodemax.tools.files.filesDescriptorToday
+import com.aicodemax.tools.gateway.ApprovalCenter
 import com.aicodemax.tools.gateway.AutonomyPermissionGate
 import com.aicodemax.tools.gateway.DefaultToolGateway
 import com.aicodemax.tools.gateway.InMemoryPermissionManager
@@ -88,6 +89,7 @@ class ServiceLocator(context: Context) {
 
     val toolRegistry: ToolRegistry = InMemoryToolRegistry()
     val permissionGrants: PermissionManager = InMemoryPermissionManager()
+    val approvals: ApprovalCenter = ApprovalCenter(permissionGrants)
     val gateway: ToolGateway
     val capabilities: CapabilityResolver
 
@@ -123,7 +125,9 @@ class ServiceLocator(context: Context) {
 
         gateway = DefaultToolGateway(
             toolRegistry,
-            AutonomyPermissionGate({ autonomyLevel }, permissionGrants),
+            AutonomyPermissionGate({ autonomyLevel }, permissionGrants, { call ->
+                approvals.requestApproval(call)
+            }),
             audit,
             bus,
         )
