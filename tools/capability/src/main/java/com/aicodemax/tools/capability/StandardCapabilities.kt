@@ -40,6 +40,11 @@ object StandardCapabilities {
         CapabilityBinding("git.diff", "git", "diff", AdapterKind.NATIVE),
         CapabilityBinding("git.stash", "git", "stash", AdapterKind.NATIVE),
         CapabilityBinding("git.stash-pop", "git", "stash-pop", AdapterKind.NATIVE),
+        CapabilityBinding("git.merge", "git", "merge", AdapterKind.NATIVE),
+        CapabilityBinding("git.conflicts", "git", "conflicts", AdapterKind.NATIVE),
+        CapabilityBinding("git.push", "git", "push", AdapterKind.NATIVE),
+        CapabilityBinding("git.pull", "git", "pull", AdapterKind.NATIVE),
+        CapabilityBinding("git.clone", "git", "clone", AdapterKind.NATIVE),
         // Browser engine (native, WebView).
         CapabilityBinding("browser.open", "browser", "open", AdapterKind.NATIVE),
         CapabilityBinding("browser.close", "browser", "close", AdapterKind.NATIVE),

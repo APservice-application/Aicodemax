@@ -6,7 +6,11 @@ import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.gateway.ToolResult
 import com.aicodemax.tools.git.GitBranch
 import com.aicodemax.tools.git.GitCommit
+import com.aicodemax.tools.git.GitCredentials
+import com.aicodemax.tools.git.GitMergeResult
 import com.aicodemax.tools.git.GitPort
+import com.aicodemax.tools.git.PullSummary
+import com.aicodemax.tools.git.PushSummary
 import com.aicodemax.tools.git.GitStatus
 import com.aicodemax.tools.git.gitDescriptorToday
 import com.aicodemax.tools.registry.ToolDescriptor
@@ -51,6 +55,15 @@ class FakeGitPort(var status: GitStatus = GitStatus("main", true)) : GitPort {
     override fun diff(repoDir: String, maxChars: Int): Outcome<String> = Outcome.Success("@@ fake diff")
     override fun stash(repoDir: String, message: String): Outcome<String> = Outcome.Success("stash@{0}")
     override fun stashPop(repoDir: String): Outcome<Unit> = Outcome.Success(Unit)
+    override fun merge(repoDir: String, branch: String): Outcome<GitMergeResult> =
+        Outcome.Success(GitMergeResult(true, "FAST_FORWARD"))
+    override fun conflicts(repoDir: String): Outcome<List<String>> = Outcome.Success(emptyList())
+    override fun push(repoDir: String, remote: String, credentials: GitCredentials?): Outcome<PushSummary> =
+        Outcome.Success(PushSummary(remote, listOf("refs/heads/main")))
+    override fun pull(repoDir: String, remote: String, credentials: GitCredentials?): Outcome<PullSummary> =
+        Outcome.Success(PullSummary(remote, true, true))
+    override fun clone(url: String, destDir: String, credentials: GitCredentials?): Outcome<Unit> =
+        Outcome.Success(Unit)
 }
 
 class GitToolExecutorTest {
@@ -110,7 +123,11 @@ class GitToolExecutorTest {
         assertFalse(noRepo.ok)
         assertTrue(noRepo.error.contains("repo"))
 
-        val unknown = run(ToolCall("c2", "git", "push", mapOf("repo" to "/r")))
+        val pushed = run(ToolCall("c2", "git", "push", mapOf("repo" to "/r")))
+        assertTrue(pushed.ok)
+        assertTrue(pushed.output.contains("origin"))
+
+        val unknown = run(ToolCall("c3", "git", "rebase", mapOf("repo" to "/r")))
         assertFalse(unknown.ok)
         assertTrue(unknown.error.contains("unknown action"))
     }

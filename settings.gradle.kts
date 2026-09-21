@@ -36,6 +36,7 @@ include(
     ":tools:project",
     ":tools:tester",
     ":tools:debug",
+    ":tools:github",
     ":tools:browser",
     ":tools:browser_runtime",
     ":data:checkpoint",

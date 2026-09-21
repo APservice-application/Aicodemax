@@ -26,6 +26,7 @@ jobs:
           :tools:registry:test :tools:terminal:test :tools:git:test :tools:capability:test
           :tools:runtime:test
           :tools:project:test :tools:tester:test :tools:debug:test
+          :tools:github:test
           :ai:tasks:test
           :data:checkpoint:test :data:audit:test :data:memory:test :data:conversations:test
           :data:backup:test

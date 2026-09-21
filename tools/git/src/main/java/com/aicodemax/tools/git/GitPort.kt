@@ -42,7 +42,37 @@ interface GitPort {
     fun diff(repoDir: String, maxChars: Int = 8000): Outcome<String>
     fun stash(repoDir: String, message: String = ""): Outcome<String>
     fun stashPop(repoDir: String): Outcome<Unit>
+    fun merge(repoDir: String, branch: String): Outcome<GitMergeResult>
+    fun conflicts(repoDir: String): Outcome<List<String>>
+    fun push(repoDir: String, remote: String = "origin", credentials: GitCredentials? = null): Outcome<PushSummary>
+    fun pull(repoDir: String, remote: String = "origin", credentials: GitCredentials? = null): Outcome<PullSummary>
+    fun clone(url: String, destDir: String, credentials: GitCredentials? = null): Outcome<Unit>
 }
+
+/** Never logged, never persisted by the git engine — passed per call. */
+data class GitCredentials(
+    val username: String,
+    val secret: String,
+)
+
+data class GitMergeResult(
+    val merged: Boolean,
+    val status: String,
+    val conflicts: List<String> = emptyList(),
+)
+
+data class PushSummary(
+    val remote: String,
+    val pushed: List<String>,
+    val messages: String = "",
+)
+
+data class PullSummary(
+    val remote: String,
+    val successful: Boolean,
+    val merged: Boolean,
+    val conflicts: List<String> = emptyList(),
+)
 
 /** Honest capability snapshot of the git tool *today* (100% contract). */
 fun gitDescriptorToday(): ToolDescriptor = ToolDescriptor(

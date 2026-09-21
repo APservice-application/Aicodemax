@@ -6,6 +6,7 @@ import com.aicodemax.tools.registry.ToolDescriptor
 import java.io.ByteArrayOutputStream
 import java.io.File
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 
 /** Real Git runtime on Eclipse JGit (pure Java — runs on JVM and Android). */
 class JGitGitPort : GitPort {
@@ -98,6 +99,83 @@ class JGitGitPort : GitPort {
         withGit(repoDir, "GIT_STASH") { git ->
             git.stashApply().call()
             Unit
+        }
+
+    override fun merge(repoDir: String, branch: String): Outcome<GitMergeResult> =
+        withGit(repoDir, "GIT_MERGE") { git ->
+            check(branch.isNotBlank()) { "branch name is blank" }
+            val ref = git.repository.resolve(branch.trim())
+                ?: throw IllegalArgumentException("branch not found: '$branch'")
+            val result = git.merge().include(ref).call()
+            val status = result.mergeStatus.name
+            val conflicts = result.conflicts?.keys?.sorted().orEmpty()
+            GitMergeResult(
+                merged = result.mergeStatus.isSuccessful,
+                status = status,
+                conflicts = conflicts,
+            )
+        }
+
+    override fun conflicts(repoDir: String): Outcome<List<String>> =
+        withGit(repoDir, "GIT_STATUS") { git ->
+            git.status().call().conflicting.sorted()
+        }
+
+    override fun push(repoDir: String, remote: String, credentials: GitCredentials?): Outcome<PushSummary> =
+        withGit(repoDir, "GIT_PUSH") { git ->
+            val command = git.push().setRemote(remote)
+            if (credentials != null) {
+                command.setCredentialsProvider(
+                    UsernamePasswordCredentialsProvider(credentials.username, credentials.secret),
+                )
+            }
+            val results = command.call()
+            val pushed = mutableListOf<String>()
+            val messages = StringBuilder()
+            for (result in results) {
+                messages.append(result.messages)
+                for (update in result.remoteUpdates) {
+                    if (update.status == org.eclipse.jgit.transport.RemoteRefUpdate.Status.OK) {
+                        pushed.add(update.remoteName)
+                    } else {
+                        messages.append(update.remoteName).append(": ").append(update.status.name).append("; ")
+                    }
+                }
+            }
+            if (pushed.isEmpty()) throw IllegalStateException(messages.toString().ifBlank { "push rejected" })
+            PushSummary(remote, pushed.sorted(), messages.toString().trim())
+        }
+
+    override fun pull(repoDir: String, remote: String, credentials: GitCredentials?): Outcome<PullSummary> =
+        withGit(repoDir, "GIT_PULL") { git ->
+            val command = git.pull().setRemote(remote)
+            if (credentials != null) {
+                command.setCredentialsProvider(
+                    UsernamePasswordCredentialsProvider(credentials.username, credentials.secret),
+                )
+            }
+            val result = command.call()
+            val mergeResult = result.mergeResult
+            PullSummary(
+                remote = remote,
+                successful = result.isSuccessful,
+                merged = mergeResult?.mergeStatus?.isSuccessful == true,
+                conflicts = mergeResult?.conflicts?.keys?.sorted().orEmpty(),
+            )
+        }
+
+    override fun clone(url: String, destDir: String, credentials: GitCredentials?): Outcome<Unit> =
+        runOutcome("GIT_CLONE") {
+            check(url.isNotBlank()) { "clone url is blank" }
+            val dest = File(destDir)
+            check(!dest.exists() || dest.list()?.isEmpty() == true) { "destination not empty: '$destDir'" }
+            val command = Git.cloneRepository().setURI(url).setDirectory(dest)
+            if (credentials != null) {
+                command.setCredentialsProvider(
+                    UsernamePasswordCredentialsProvider(credentials.username, credentials.secret),
+                )
+            }
+            command.call().use { }
         }
 
     override fun commit(repoDir: String, message: String): Outcome<GitCommit> =
