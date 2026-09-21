@@ -41,6 +41,8 @@ fun ProjectsScreen(services: ServiceLocator) {
     var entries by remember { mutableStateOf<List<FileEntry>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var viewing by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var gitLine by remember { mutableStateOf<String?>(null) }
+    var gitMissing by remember { mutableStateOf(false) }
 
     fun load(dir: String) {
         scope.launch {
@@ -51,7 +53,26 @@ fun ProjectsScreen(services: ServiceLocator) {
         }
     }
 
-    LaunchedEffect(Unit) { load("") }
+    fun loadGit() {
+        scope.launch {
+            services.git.status(services.workspaceDir.path).fold(
+                onSuccess = { st ->
+                    gitLine = if (st.clean) {
+                        "⎇ ${st.branch} • clean"
+                    } else {
+                        "⎇ ${st.branch} • ${st.changedFiles.size} ไฟล์เปลี่ยน"
+                    }
+                    gitMissing = false
+                },
+                onFailure = { gitLine = null; gitMissing = true },
+            )
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        load("")
+        loadGit()
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(spacing.md)) {
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -68,6 +89,34 @@ fun ProjectsScreen(services: ServiceLocator) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
+        }
+        Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            if (gitLine != null) {
+                Text(
+                    text = gitLine!!,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            } else if (gitMissing) {
+                Text(
+                    text = "ยังไม่ใช่ git repo",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            services.git.ensureRepo(services.workspaceDir.path).fold(
+                                onSuccess = { loadGit() },
+                                onFailure = { error = it.message },
+                            )
+                        }
+                    },
+                ) { Text("Init repo") }
+            }
         }
         if (error != null) {
             Text(error!!, color = MaterialTheme.colorScheme.error)

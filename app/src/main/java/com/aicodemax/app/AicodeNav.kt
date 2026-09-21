@@ -33,6 +33,8 @@ object Routes {
     const val TOOLS = "tools"
     const val SETTINGS = "settings"
     const val ABOUT = "about"
+    const val AUDIT = "audit"
+    const val BROWSER = "browser"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -52,6 +54,8 @@ private fun titleFor(route: String): String = when (route) {
     Routes.TOOLS -> "เครื่องมือ"
     Routes.SETTINGS -> "ตั้งค่า"
     Routes.ABOUT -> "เกี่ยวกับ"
+    Routes.AUDIT -> "ตรวจสอบ"
+    Routes.BROWSER -> "เบราว์เซอร์"
     else -> "Aicodemax"
 }
 
@@ -95,6 +99,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                     tools = services.toolRegistry.all(),
                     onOpenTool = { toolId ->
                         if (toolId == "files" || toolId == "editor") nav.navigateSingle(Routes.PROJECTS)
+                        if (toolId == "browser") nav.navigateSingle(Routes.BROWSER)
                     },
                 )
             }
@@ -102,6 +107,8 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                 SettingsRoute(services.settings, onOpenAbout = { nav.navigateSingle(Routes.ABOUT) })
             }
             composable(Routes.ABOUT) { AboutScreen() }
+            composable(Routes.AUDIT) { AuditScreen(services) }
+            composable(Routes.BROWSER) { BrowserScreen(services) }
         }
     }
 }

@@ -29,7 +29,9 @@ import com.aicodemax.data.memory.FileMemoryStore
 import com.aicodemax.data.memory.MemoryStore
 import com.aicodemax.data.settings.DataStoreSettingsRepository
 import com.aicodemax.data.settings.SettingsRepository
+import com.aicodemax.tools.browser.InMemoryBrowserPort
 import com.aicodemax.tools.browser.browserDescriptorToday
+import com.aicodemax.tools.browser_runtime.BrowserToolExecutor
 import com.aicodemax.tools.builder.buildDescriptorToday
 import com.aicodemax.tools.editor.EditorPort
 import com.aicodemax.tools.editor.EditorToolExecutor
@@ -42,7 +44,10 @@ import com.aicodemax.tools.files.filesDescriptorToday
 import com.aicodemax.tools.gateway.AutonomyPermissionGate
 import com.aicodemax.tools.gateway.DefaultToolGateway
 import com.aicodemax.tools.gateway.ToolGateway
+import com.aicodemax.tools.git.GitPort
+import com.aicodemax.tools.git.JGitGitPort
 import com.aicodemax.tools.git.gitDescriptorToday
+import com.aicodemax.tools.git_runtime.GitToolExecutor
 import com.aicodemax.tools.registry.InMemoryToolRegistry
 import com.aicodemax.tools.registry.ToolRegistry
 import com.aicodemax.tools.terminal.terminalDescriptorToday
@@ -67,8 +72,11 @@ class ServiceLocator(context: Context) {
     val toolRegistry: ToolRegistry = InMemoryToolRegistry()
     val gateway: ToolGateway
 
-    val files: FilePort = SandboxFileStore(File(appContext.filesDir, "workspace"))
+    val workspaceDir: File = File(appContext.filesDir, "workspace")
+    val files: FilePort = SandboxFileStore(workspaceDir)
     val editor: EditorPort = FileBackedEditor(files)
+    val git: GitPort = JGitGitPort()
+    val browser: InMemoryBrowserPort = InMemoryBrowserPort()
 
     val tasks: TaskEngine = DefaultTaskEngine(bus)
     val models: ModelRegistry = InMemoryModelRegistry()
@@ -88,6 +96,8 @@ class ServiceLocator(context: Context) {
         gateway = DefaultToolGateway(toolRegistry, AutonomyPermissionGate { autonomyLevel }, audit, bus)
         gateway.registerExecutor(FilesToolExecutor(files))
         gateway.registerExecutor(EditorToolExecutor(editor))
+        gateway.registerExecutor(GitToolExecutor(git))
+        gateway.registerExecutor(BrowserToolExecutor(browser))
 
         val agent = LocalAgentRunner(gateway)
         orchestrator = BootstrapOrchestrator(tasks, RuleBasedPlanner(), agent, RuleVerifier(), checkpoints, conversations)
