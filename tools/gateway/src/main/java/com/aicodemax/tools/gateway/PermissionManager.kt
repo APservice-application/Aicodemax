@@ -12,6 +12,12 @@ enum class PermissionDecision { ALLOW_ONCE, ALLOW_FOR_TASK, DENY }
  * - DENY: explicit blacklist — denies even under AUTO_ALL.
  * The UI (CP-46) records decisions here; the gate consults them.
  */
+data class PermissionSnapshot(
+    val denies: List<String>,
+    val taskGrants: Int,
+    val oneShots: Int,
+)
+
 interface PermissionManager {
     fun decide(toolId: String, action: String, taskId: String, decision: PermissionDecision): Outcome<Unit>
     fun isDenied(toolId: String, action: String): Boolean
@@ -19,6 +25,12 @@ interface PermissionManager {
     /** Returns true when a stored grant covers this call (consumes one-shots). */
     fun consumeGrant(toolId: String, action: String, taskId: String): Boolean
     fun revokeTask(taskId: String)
+
+    /** Read model for the permission UI (CP-46). */
+    fun snapshot(): PermissionSnapshot
+
+    /** Clears every grant and deny (user action). */
+    fun revokeAll()
 }
 
 class InMemoryPermissionManager : PermissionManager {
@@ -65,5 +77,19 @@ class InMemoryPermissionManager : PermissionManager {
     override fun revokeTask(taskId: String) {
         taskGrants.removeIf { it.taskId == taskId }
         oneShots.removeIf { it.taskId == taskId }
+    }
+
+    @Synchronized
+    override fun snapshot(): PermissionSnapshot = PermissionSnapshot(
+        denies = denies.map { "${it.first}.${it.second}" }.sorted(),
+        taskGrants = taskGrants.size,
+        oneShots = oneShots.size,
+    )
+
+    @Synchronized
+    override fun revokeAll() {
+        denies.clear()
+        taskGrants.clear()
+        oneShots.clear()
     }
 }

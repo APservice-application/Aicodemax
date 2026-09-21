@@ -18,6 +18,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.aicodemax.core.common.Ids
+import com.aicodemax.core.common.fold
+import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.ui.chat.ChatRoute
 import com.aicodemax.ui.chat.ChatViewModel
 import com.aicodemax.ui.settings.AboutScreen
@@ -35,6 +38,10 @@ object Routes {
     const val ABOUT = "about"
     const val AUDIT = "audit"
     const val BROWSER = "browser"
+    const val TERMINAL = "terminal"
+    const val AGENTS = "agents"
+    const val GIT = "git"
+    const val BUILD = "build"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -56,6 +63,10 @@ private fun titleFor(route: String): String = when (route) {
     Routes.ABOUT -> "เกี่ยวกับ"
     Routes.AUDIT -> "ตรวจสอบ"
     Routes.BROWSER -> "เบราว์เซอร์"
+    Routes.TERMINAL -> "เทอร์มินัล"
+    Routes.AGENTS -> "เอเจนต์"
+    Routes.GIT -> "Git"
+    Routes.BUILD -> "Build & Test"
     else -> "Aicodemax"
 }
 
@@ -90,8 +101,14 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                     onNewChat = { chatViewModel.newChat(); nav.navigateSingle(Routes.CHAT) },
                 )
             }
-            composable(Routes.CHAT) { ChatRoute(chatViewModel) }
-            composable(Routes.PROJECTS) { ProjectsScreen(services) }
+            composable(Routes.CHAT) {
+                ChatRoute(
+                    chatViewModel,
+                    onOpenTasks = { nav.navigateSingle(Routes.TASKS) },
+                    workingSet = services.workingSet,
+                )
+            }
+            composable(Routes.PROJECTS) { ProjectsScreen(services, onOpen = { nav.navigateSingle(it) }) }
             composable(Routes.TASKS) { TasksScreen(services) }
             composable(Routes.MODELS) { ModelsScreen(services) }
             composable(Routes.TOOLS) {
@@ -100,17 +117,69 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                     onOpenTool = { toolId ->
                         if (toolId == "files" || toolId == "editor") nav.navigateSingle(Routes.PROJECTS)
                         if (toolId == "browser") nav.navigateSingle(Routes.BROWSER)
+                        if (toolId == "git") nav.navigateSingle(Routes.GIT)
+                        if (toolId == "terminal") nav.navigateSingle(Routes.TERMINAL)
+                        if (toolId == "build") nav.navigateSingle(Routes.BUILD)
                     },
+                    onSelfTest = { toolId -> selfTest(services, toolId) },
                 )
             }
             composable(Routes.SETTINGS) {
-                SettingsRoute(services.settings, onOpenAbout = { nav.navigateSingle(Routes.ABOUT) })
+                val grants = rememberGrantSnapshot(services)
+                SettingsRoute(
+                    services.settings,
+                    onOpenAbout = { nav.navigateSingle(Routes.ABOUT) },
+                    permissionLine = grants.first,
+                    denies = grants.second,
+                    onRevokeAll = { services.permissionGrants.revokeAll() },
+                    onOpenAudit = { nav.navigateSingle(Routes.AUDIT) },
+                )
             }
             composable(Routes.ABOUT) { AboutScreen() }
             composable(Routes.AUDIT) { AuditScreen(services) }
-            composable(Routes.BROWSER) { BrowserScreen(services) }
+            composable(Routes.BROWSER) {
+                BrowserScreen(
+                    services,
+                    onHandToChat = { prompt ->
+                        services.workingSet.handPrompt(prompt)
+                        nav.navigateSingle(Routes.CHAT)
+                    },
+                )
+            }
+            composable(Routes.TERMINAL) { TerminalScreen(services) }
+            composable(Routes.AGENTS) { AgentsScreen(services) }
+            composable(Routes.GIT) { GitScreen(services) }
+            composable(Routes.BUILD) { BuildScreen(services) }
         }
     }
+}
+
+/** Harmless live probes — a tool passes when its executor answers through the gateway. */
+private suspend fun selfTest(services: ServiceLocator, toolId: String): String {
+    val call = when (toolId) {
+        "files" -> ToolCall(Ids.newId("selftest"), "files", "list", emptyMap(), actor = "USER")
+        "editor" -> ToolCall(Ids.newId("selftest"), "editor", "preview", emptyMap(), actor = "USER")
+        "git" -> ToolCall(
+            Ids.newId("selftest"), "git", "status",
+            mapOf("repo" to services.workspaceDir.path), actor = "USER",
+        )
+        "browser" -> ToolCall(Ids.newId("selftest"), "browser", "list", emptyMap(), actor = "USER")
+        else -> return "ยังไม่มี self-test (ไม่มี executor ให้ทดสอบ)"
+    }
+    return services.gateway.call(call).fold(
+        onSuccess = {
+            if (it.ok) "✓ ตอบสนอง: ${it.output.take(120)}"
+            else "ตอบสนอง (คาดได้): ${it.error.take(120)}"
+        },
+        onFailure = { "✕ ${it.message}" },
+    )
+}
+
+@Composable
+private fun rememberGrantSnapshot(services: ServiceLocator): Pair<String, List<String>> {
+    val snapshot = services.permissionGrants.snapshot()
+    val line = "ให้แล้ว: งาน ${snapshot.taskGrants} • ครั้งเดียว ${snapshot.oneShots} • ปฏิเสธถาวร ${snapshot.denies.size}"
+    return line to snapshot.denies
 }
 
 @Composable

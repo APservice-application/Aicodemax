@@ -26,11 +26,19 @@ import com.aicodemax.ui.designsystem.LocalSpacing
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsRoute(repository: SettingsRepository, onOpenAbout: () -> Unit) {
+fun SettingsRoute(
+    repository: SettingsRepository,
+    onOpenAbout: () -> Unit,
+    permissionLine: String = "",
+    denies: List<String> = emptyList(),
+    onRevokeAll: () -> Unit = {},
+    onOpenAudit: () -> Unit = {},
+) {
     val theme by repository.theme.collectAsState(initial = ThemeMode.SYSTEM)
     val autonomy by repository.autonomy.collectAsState(initial = AutonomyLevel.ASK_ALWAYS)
     val model by repository.activeModelId.collectAsState(initial = null)
     val scope = rememberCoroutineScope()
+    var revokedTick by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
     SettingsScreen(
         theme = theme,
         autonomy = autonomy,
@@ -38,6 +46,11 @@ fun SettingsRoute(repository: SettingsRepository, onOpenAbout: () -> Unit) {
         onTheme = { scope.launch { repository.setTheme(it) } },
         onAutonomy = { scope.launch { repository.setAutonomy(it) } },
         onOpenAbout = onOpenAbout,
+        permissionLine = permissionLine,
+        denies = denies,
+        revokedTick = revokedTick,
+        onRevokeAll = { onRevokeAll(); revokedTick += 1 },
+        onOpenAudit = onOpenAudit,
     )
 }
 
@@ -49,6 +62,11 @@ fun SettingsScreen(
     onTheme: (ThemeMode) -> Unit,
     onAutonomy: (AutonomyLevel) -> Unit,
     onOpenAbout: () -> Unit,
+    permissionLine: String = "",
+    denies: List<String> = emptyList(),
+    revokedTick: Int = 0,
+    onRevokeAll: () -> Unit = {},
+    onOpenAudit: () -> Unit = {},
 ) {
     val spacing = LocalSpacing.current
     Column(
@@ -85,6 +103,35 @@ fun SettingsScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.secondary,
         )
+        Text("ความปลอดภัยและสิทธิ์", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = "AI ขอสิทธิ์ก่อนทำทุกงานที่เสี่ยง — งานที่ถูกบล็อกจะบันทึกใน audit เสมอ",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        if (permissionLine.isNotBlank()) {
+            Text(permissionLine, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (denies.isNotEmpty()) {
+            for (deny in denies.take(10)) {
+                Text(
+                    "✕ ปฏิเสธถาวร: $deny",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+        if (revokedTick > 0) {
+            Text(
+                "ล้างสิทธิ์ทั้งหมดแล้ว",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
+        Row {
+            TextButton(onClick = onRevokeAll) { Text("ล้างสิทธิ์ทั้งหมด") }
+            TextButton(onClick = onOpenAudit) { Text("ดู audit") }
+        }
         TextButton(onClick = onOpenAbout) { Text("เกี่ยวกับ / ลิขสิทธิ์") }
     }
 }
