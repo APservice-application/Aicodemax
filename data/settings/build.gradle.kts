@@ -22,6 +22,7 @@ android {
 
 dependencies {
     api(project(":core:common"))
+    api(project(":core:state"))
     implementation(libs.datastore.preferences)
     implementation(libs.coroutines.android)
 }

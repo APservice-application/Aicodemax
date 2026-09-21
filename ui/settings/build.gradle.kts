@@ -27,6 +27,7 @@ android {
 
 dependencies {
     api(project(":core:common"))
+    implementation(project(":core:state"))
     implementation(project(":ui:designsystem"))
     implementation(project(":data:settings"))
     implementation(libs.coroutines.android)

@@ -23,5 +23,6 @@ android {
 dependencies {
     api(project(":core:common"))
     api(project(":tools:registry"))
+    implementation(project(":tools:gateway"))
     implementation(libs.coroutines.android)
 }

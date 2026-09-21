@@ -18,7 +18,7 @@
 | :tools:files | 3 | [AND] | 14 | โครงสร้าง §16 |
 | :tools:editor | 3 | [AND] | 15 | โครงสร้าง §17 |
 | :tools:terminal | 3 | [JVM→AND] | 16 | TERMINAL_PLAN, ฝ1.3 §6 |
-| :tools:build | 3 | [AND] | 17 | โครงสร้าง §19 (Build/Test) |
+| :tools:builder | 3 | [AND] | 17 | โครงสร้าง §19 (Build/Test) |
 | :tools:git | 3 | [JVM→AND] | 18 | โครงสร้าง §38 |
 | :tools:browser | 3 | [AND] | 19 | ฝ1.3 §5, 1.1 §5–10 |
 | :core:common | 4 | [JVM] | 2 | โครงสร้าง §44–45 |

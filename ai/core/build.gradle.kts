@@ -28,5 +28,6 @@ dependencies {
     api(project(":tools:registry"))
     implementation(project(":data:memory"))
     implementation(project(":data:conversations"))
+    implementation(project(":data:checkpoint"))
     implementation(libs.coroutines.android)
 }

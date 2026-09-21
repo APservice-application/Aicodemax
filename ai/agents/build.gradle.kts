@@ -23,6 +23,7 @@ android {
 dependencies {
     api(project(":core:common"))
     api(project(":ai:core"))
+    implementation(project(":tools:gateway"))
     implementation(project(":ai:tasks"))
     implementation(libs.coroutines.android)
 }
