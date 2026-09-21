@@ -10,12 +10,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Gateway executor for git (actions: ensure/status/log/stage/commit). */
-class GitToolExecutor(private val git: GitPort) : ToolExecutor {
+class GitToolExecutor(
+    private val git: GitPort,
+    private val defaultRepo: String = "",
+) : ToolExecutor {
     override val toolId: String = "git"
 
     override suspend fun execute(call: ToolCall): Outcome<ToolResult> =
         withContext(Dispatchers.IO) {
-            val repo = call.args["repo"] ?: return@withContext done(false, error = "missing arg: repo")
+            val repoArg = call.args["repo"].orEmpty()
+            val repo = repoArg.ifBlank { defaultRepo }
+            if (repo.isBlank()) return@withContext done(false, error = "missing arg: repo")
             when (call.action) {
                 "ensure" -> git.ensureRepo(repo).fold(
                     onSuccess = { done(true, "repo ready at $repo") },

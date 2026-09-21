@@ -115,18 +115,56 @@ class RuleBasedPlanner : Planner {
             IntentType.RUN_COMMAND -> Outcome.Failure(
                 AppError("PLAN_UNAVAILABLE", "terminal runtime wires in Phase 16 — commands cannot run yet"),
             )
-            IntentType.OPEN_URL -> Outcome.Failure(
-                AppError("PLAN_UNAVAILABLE", "browser runtime wires in Phase 19"),
-            )
+            IntentType.OPEN_URL -> {
+                val url = intent.parameters["url"]?.trim().orEmpty()
+                if (url.isBlank()) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_URL", "please include a URL, e.g. เปิดเว็บ example.com"),
+                    )
+                }
+                Outcome.Success(
+                    Plan(
+                        listOf(
+                            PlanStep(
+                                Ids.newId("step"), "browser", "open",
+                                mapOf("url" to url),
+                                description = "open $url",
+                            ),
+                        ),
+                    ),
+                )
+            }
             IntentType.BUILD_PROJECT -> Outcome.Failure(
                 AppError("PLAN_UNAVAILABLE", "on-device build wires in Phase 17"),
             )
             IntentType.RUN_TESTS -> Outcome.Failure(
                 AppError("PLAN_UNAVAILABLE", "on-device test wires in Phase 17"),
             )
-            IntentType.GIT_ACTION -> Outcome.Failure(
-                AppError("PLAN_UNAVAILABLE", "git runtime wires in Phase 18"),
-            )
+            IntentType.GIT_ACTION -> {
+                val action = intent.parameters["action"] ?: "status"
+                val repo = intent.parameters["repo"] ?: ""
+                fun step(toolAction: String, extra: Map<String, String> = emptyMap()) = PlanStep(
+                    Ids.newId("step"), "git", toolAction,
+                    mapOf("repo" to repo) + extra,
+                    description = "git $toolAction",
+                )
+                when (action) {
+                    "status", "log", "ensure", "stage" ->
+                        Outcome.Success(Plan(listOf(step(action))))
+                    "commit" -> {
+                        val message = intent.parameters["message"]?.trim().orEmpty()
+                        if (message.isBlank()) {
+                            return Outcome.Failure(
+                                AppError("PLAN_NO_MESSAGE", "please include a message, e.g. git commit -m \"done\""),
+                            )
+                        }
+                        Outcome.Success(Plan(listOf(step("stage"), step("commit", mapOf("message" to message)))))
+                    }
+                    else -> Outcome.Failure(
+                        AppError("PLAN_UNSUPPORTED", "git $action ยังไม่รองรับ (รองรับ: status / log / commit)"),
+                    )
+                }
+            }
             IntentType.CHAT, IntentType.UNKNOWN -> Outcome.Failure(
                 AppError("PLAN_NOT_ACTIONABLE", "nothing to plan for chat"),
             )

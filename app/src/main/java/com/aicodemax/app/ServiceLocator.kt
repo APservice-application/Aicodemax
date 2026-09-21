@@ -96,7 +96,7 @@ class ServiceLocator(context: Context) {
         gateway = DefaultToolGateway(toolRegistry, AutonomyPermissionGate { autonomyLevel }, audit, bus)
         gateway.registerExecutor(FilesToolExecutor(files))
         gateway.registerExecutor(EditorToolExecutor(editor))
-        gateway.registerExecutor(GitToolExecutor(git))
+        gateway.registerExecutor(GitToolExecutor(git, workspaceDir.path))
         gateway.registerExecutor(BrowserToolExecutor(browser))
 
         val agent = LocalAgentRunner(gateway)

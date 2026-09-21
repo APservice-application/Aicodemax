@@ -41,6 +41,26 @@ class IntentParserTest {
     }
 
     @Test
+    fun politeWrappersStillParse() {
+        val create = IntentParser.parse("ช่วยสร้างไฟล์ notes.txt: สวัสดี หน่อยครับ")
+        assertEquals(IntentType.CREATE_FILE, create.type)
+        assertEquals("notes.txt", create.parameters["path"])
+        assertEquals("สวัสดี", create.parameters["content"])
+
+        val read = IntentParser.parse("รบกวนอ่านไฟล์ a.txt ด้วยค่ะ")
+        assertEquals(IntentType.READ_FILE, read.type)
+        assertEquals("a.txt", read.parameters["path"])
+
+        val git = IntentParser.parse("git commit -m \"done\"")
+        assertEquals(IntentType.GIT_ACTION, git.type)
+        assertEquals("commit", git.parameters["action"])
+        assertEquals("done", git.parameters["message"])
+
+        val status = IntentParser.parse("git status")
+        assertEquals("status", status.parameters["action"])
+    }
+
+    @Test
     fun everythingElseIsChat() {
         assertEquals(IntentType.CHAT, IntentParser.parse("สวัสดี").type)
         assertEquals(IntentType.CHAT, IntentParser.parse("hello there").type)

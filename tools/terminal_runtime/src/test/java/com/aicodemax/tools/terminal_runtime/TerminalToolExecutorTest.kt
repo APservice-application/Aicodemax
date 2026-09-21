@@ -78,6 +78,15 @@ class TerminalToolExecutorTest {
     }
 
     @Test
+    fun bannedCommandsAreBlocked() {
+        val blocked = resultOf(
+            ToolCall("c1", "terminal", "exec", mapOf("sessionId" to "s1", "command" to "rm -rf /")),
+        )
+        assertFalse(blocked.ok)
+        assertTrue(blocked.error.contains("TERMINAL_COMMAND_BLOCKED"))
+    }
+
+    @Test
     fun missingArgsAndUnknownActionFailHonestly() {
         val missing = resultOf(ToolCall("c1", "terminal", "exec", mapOf("command" to "ls")))
         assertFalse(missing.ok)
