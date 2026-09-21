@@ -19,7 +19,7 @@
 | 13 | Tool Gateway | 🟡 | pipeline จริง (permission impl บนเครื่อง) |
 | 14 | File System | 🟡 | impl จริงบน app-storage (รอเทสบนเครื่อง) |
 | 15 | Code Editor | 🟡 | session contract + file-backed buffer |
-| 16 | Terminal | 🟡 | port + AIControlAPI + แผน submodule (ต่อ Termux รอบหน้า) |
+| 16 | Terminal | 🟡 | port + AIControlAPI + wiring doc + executor+เทส (เสียบ submodule รอบหน้า) |
 | 17 | Build/Test | 🟡 | contracts (on-device build รอบหน้า) |
 | 18 | Git/GitHub | 🟡 | contracts (JGit/CLI รอบหน้า) |
 | 19 | Browser Runtime | 🟡 | tab/session contracts (WebView impl รอบหน้า) |
