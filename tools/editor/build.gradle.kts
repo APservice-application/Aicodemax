@@ -26,4 +26,5 @@ dependencies {
     implementation(project(":tools:gateway"))
     implementation(project(":tools:files"))
     implementation(libs.coroutines.android)
+    testImplementation(libs.junit4)
 }

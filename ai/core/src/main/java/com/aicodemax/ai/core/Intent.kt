@@ -25,7 +25,7 @@ data class UserIntent(
 /** Rule-based v0 intent parser (ML understanding plugs in behind [UserIntent] later). */
 object IntentParser {
     private val fileNamePattern = Regex("[\\w\\-.]+\\.[A-Za-z0-9]{1,5}")
-    private val dirPattern = Regex("(?:folder|โฟลเดอร์|dir)\\s+([\\w\\-.]+)", RegexOption.IGNORE_CASE)
+    private val dirPattern = Regex("(?:^|\\s)(?:folder|โฟลเดอร์|dir)\\s+([\\w\\-.]+)", RegexOption.IGNORE_CASE)
 
     fun parse(text: String): UserIntent {
         val t = text.trim()
@@ -51,8 +51,13 @@ object IntentParser {
                 lower == "ls" || lower.startsWith("ls ") ->
                 UserIntent(IntentType.LIST_FILES, t, params("path" to (dir ?: "")))
             lower.startsWith("สร้างโฟลเดอร์") || lower.startsWith("make dir") ||
-                lower.startsWith("mkdir") ->
-                UserIntent(IntentType.MAKE_DIR, t, params("path" to (dir ?: file)))
+                lower.startsWith("mkdir") -> {
+                // Strip the command word, then an optional "folder" word, then take the name.
+                val after = t.substringAfter(" ", "").trim()
+                    .removePrefix("folder ").removePrefix("โฟลเดอร์ ").removePrefix("dir ").trim()
+                val name = after.split(Regex("\\s+")).firstOrNull()?.trim().orEmpty()
+                UserIntent(IntentType.MAKE_DIR, t, params("path" to name.ifBlank { dir ?: file }))
+            }
             lower.startsWith("ลบไฟล์") || lower.startsWith("delete ") ->
                 UserIntent(IntentType.DELETE_PATH, t, params("path" to (file ?: dir)))
             lower.startsWith("รัน") || lower.startsWith("run ") ||
