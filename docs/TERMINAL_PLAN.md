@@ -50,4 +50,5 @@ Aicodemax (GPLv3)
 
 ## สถานะตอนนี้
 - [x] มติ + แผน + LICENSE + attribution ครบ
-- [ ] ยังไม่ clone submodule ลง workspace (รอ Phase 1/16 — ประหยัดพื้นที่ 128MB + ยังไม่มีโครงแอปให้ต่อ)
+- [x] ผังเสียบละเอียด (`docs/TERMINAL_WIRING.md` — ศึกษา Termux API จริงแล้ว) + โมดูล `:tools:terminal_runtime` (executor จริง + เทสเขียว)
+- [ ] เสียบ submodule + เขียน `TermuxTerminalPort` ของจริง (ทำบนเครื่อง dev/CI ตามเช็กลิสต์ใน TERMINAL_WIRING.md — ไม่ทำใน workspace 128MB นี้)
