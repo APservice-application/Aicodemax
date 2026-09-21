@@ -26,8 +26,8 @@ jobs:
           :data:checkpoint:test :data:audit:test :data:memory:test :data:conversations:test
           --stacktrace
 
-  assemble:
-    name: Assemble debug APK
+  android:
+    name: Android unit tests + assemble debug APK
     runs-on: ubuntu-latest
     needs: jvm-tests
     steps:
@@ -36,8 +36,20 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v3
+      - name: Install Android SDK packages
+        run: |
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          which sdkmanager
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      - name: Run Android unit tests
+        run: >
+          ./gradlew
+          :ai:core:testDebugUnitTest :ai:models:testDebugUnitTest
+          :tools:gateway:testDebugUnitTest :tools:files:testDebugUnitTest :tools:editor:testDebugUnitTest
+          --stacktrace
       - name: Assemble
         run: ./gradlew assembleDebug --stacktrace
       - name: Upload APK
