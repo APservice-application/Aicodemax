@@ -24,4 +24,5 @@ dependencies {
     api(project(":core:common"))
     api(project(":tools:registry"))
     implementation(libs.coroutines.android)
+    testImplementation(libs.junit4)
 }
