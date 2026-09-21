@@ -11,6 +11,13 @@ data class AiTask(
     val maxAttempts: Int = 3,
     /** Opaque JSON payload (plan steps, tool calls, observations). */
     val payloadJson: String = "{}",
+    val goal: String = "",
+    val currentStep: String = "",
+    val agentId: String = "",
+    val modelId: String = "",
+    val capabilityId: String = "",
+    val verificationNote: String = "",
+    val checkpointId: String = "",
     val resultSummary: String = "",
     val lastError: String = "",
 )

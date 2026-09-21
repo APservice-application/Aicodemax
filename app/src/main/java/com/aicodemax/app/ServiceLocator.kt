@@ -45,6 +45,8 @@ import com.aicodemax.tools.files.SandboxFileStore
 import com.aicodemax.tools.files.filesDescriptorToday
 import com.aicodemax.tools.gateway.AutonomyPermissionGate
 import com.aicodemax.tools.gateway.DefaultToolGateway
+import com.aicodemax.tools.gateway.InMemoryPermissionManager
+import com.aicodemax.tools.gateway.PermissionManager
 import com.aicodemax.tools.gateway.ToolGateway
 import com.aicodemax.tools.git.GitPort
 import com.aicodemax.tools.git.JGitGitPort
@@ -72,6 +74,7 @@ class ServiceLocator(context: Context) {
     val resources: ResourceMonitor = AndroidResourceMonitor(appContext)
 
     val toolRegistry: ToolRegistry = InMemoryToolRegistry()
+    val permissionGrants: PermissionManager = InMemoryPermissionManager()
     val gateway: ToolGateway
     val capabilities: CapabilityResolver
 
@@ -96,7 +99,12 @@ class ServiceLocator(context: Context) {
         toolRegistry.register(buildDescriptorToday())
         toolRegistry.register(gitDescriptorToday())
 
-        gateway = DefaultToolGateway(toolRegistry, AutonomyPermissionGate { autonomyLevel }, audit, bus)
+        gateway = DefaultToolGateway(
+            toolRegistry,
+            AutonomyPermissionGate({ autonomyLevel }, permissionGrants),
+            audit,
+            bus,
+        )
         gateway.registerExecutor(FilesToolExecutor(files))
         gateway.registerExecutor(EditorToolExecutor(editor))
         gateway.registerExecutor(GitToolExecutor(git, workspaceDir.path))

@@ -14,9 +14,19 @@ interface PermissionGate {
  */
 class AutonomyPermissionGate(
     private val autonomy: () -> AutonomyLevel,
+    private val grants: PermissionManager? = null,
 ) : PermissionGate {
     override suspend fun check(call: ToolCall): Outcome<Unit> {
         if (!call.needsPermission) return Outcome.Success(Unit)
+        val taskId = call.args["taskId"].orEmpty()
+        if (grants?.isDenied(call.toolId, call.action) == true) {
+            return Outcome.Failure(
+                AppError("PERMISSION_DENIED", "user denied '${call.toolId}.${call.action}'"),
+            )
+        }
+        if (grants?.consumeGrant(call.toolId, call.action, taskId) == true) {
+            return Outcome.Success(Unit)
+        }
         return when (autonomy()) {
             AutonomyLevel.AUTO_ALL -> Outcome.Success(Unit)
             AutonomyLevel.AUTO_SAFE, AutonomyLevel.ASK_ALWAYS -> Outcome.Failure(

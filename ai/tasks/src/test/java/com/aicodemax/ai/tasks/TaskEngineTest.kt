@@ -102,6 +102,30 @@ class TaskEngineTest {
     }
 
     @Test
+    fun pauseResumeLoop() {
+        val engine = engine()
+        val id = engine.create("pausable").task().id
+        engine.transition(id, TaskState.QUEUED)
+        engine.transition(id, TaskState.PLANNING)
+        engine.transition(id, TaskState.READY)
+        engine.transition(id, TaskState.RUNNING)
+
+        assertTrue(engine.pause(id).isSuccess())
+        assertEquals(TaskState.PAUSED, engine.get(id).task().state)
+        assertTrue(engine.resume(id).isSuccess())
+        assertEquals(TaskState.RUNNING, engine.get(id).task().state)
+
+        assertTrue(engine.pause(id).isSuccess())
+        assertTrue(engine.cancel(id).isSuccess())
+        assertEquals(TaskState.CANCELLED, engine.get(id).task().state)
+
+        val badPause = engine.pause(id)
+        assertTrue(badPause.isFailure())
+        val badResume = engine.resume(id)
+        assertTrue(badResume.isFailure())
+    }
+
+    @Test
     fun waitingAndBlockedLoops() {
         val engine = engine()
         val id = engine.create("loops").task().id

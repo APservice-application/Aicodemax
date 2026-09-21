@@ -26,4 +26,5 @@ dependencies {
     implementation(project(":tools:gateway"))
     implementation(project(":ai:tasks"))
     implementation(libs.coroutines.android)
+    testImplementation(libs.junit4)
 }

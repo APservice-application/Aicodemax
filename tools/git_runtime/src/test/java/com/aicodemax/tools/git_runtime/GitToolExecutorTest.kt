@@ -4,6 +4,7 @@ import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
 import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.gateway.ToolResult
+import com.aicodemax.tools.git.GitBranch
 import com.aicodemax.tools.git.GitCommit
 import com.aicodemax.tools.git.GitPort
 import com.aicodemax.tools.git.GitStatus
@@ -35,12 +36,43 @@ class FakeGitPort(var status: GitStatus = GitStatus("main", true)) : GitPort {
             Outcome.Success(GitCommit("id$message", message, "t", 1L))
         }
     }
+    var branches = mutableListOf(GitBranch("main", true))
+    override fun branches(repoDir: String): Outcome<List<GitBranch>> = Outcome.Success(branches.toList())
+    override fun createBranch(repoDir: String, name: String, checkout: Boolean): Outcome<GitBranch> {
+        branches.replaceAll { it.copy(current = false) }
+        val branch = GitBranch(name, checkout)
+        branches.add(branch)
+        return Outcome.Success(branch)
+    }
+    override fun checkout(repoDir: String, name: String): Outcome<GitBranch> {
+        branches.replaceAll { it.copy(current = it.name == name) }
+        return Outcome.Success(GitBranch(name, true))
+    }
+    override fun diff(repoDir: String, maxChars: Int): Outcome<String> = Outcome.Success("@@ fake diff")
+    override fun stash(repoDir: String, message: String): Outcome<String> = Outcome.Success("stash@{0}")
+    override fun stashPop(repoDir: String): Outcome<Unit> = Outcome.Success(Unit)
 }
 
 class GitToolExecutorTest {
     private fun run(call: ToolCall, port: FakeGitPort = FakeGitPort()): ToolResult {
         val executor = GitToolExecutor(port)
         return runBlocking { executor.execute(call) as Outcome.Success<ToolResult> }.value
+    }
+
+    @Test
+    fun branchDiffStashActions() {
+        val port = FakeGitPort()
+        val listed = run(ToolCall("c1", "git", "branch", mapOf("repo" to "/r")), port)
+        assertTrue(listed.ok)
+        assertTrue(listed.output.contains("* main"))
+        val created = run(ToolCall("c2", "git", "branch", mapOf("repo" to "/r", "name" to "feat")), port)
+        assertTrue(created.ok)
+        val diff = run(ToolCall("c3", "git", "diff", mapOf("repo" to "/r")), port)
+        assertTrue(diff.output.contains("@@"))
+        val stashed = run(ToolCall("c4", "git", "stash", mapOf("repo" to "/r")), port)
+        assertTrue(stashed.ok)
+        val popped = run(ToolCall("c5", "git", "stash-pop", mapOf("repo" to "/r")), port)
+        assertTrue(popped.ok)
     }
 
     @Test

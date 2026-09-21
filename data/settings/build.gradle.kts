@@ -25,4 +25,5 @@ dependencies {
     api(project(":core:state"))
     implementation(libs.datastore.preferences)
     implementation(libs.coroutines.android)
+    testImplementation(libs.junit4)
 }

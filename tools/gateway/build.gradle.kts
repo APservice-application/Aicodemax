@@ -24,6 +24,7 @@ dependencies {
     api(project(":core:common"))
     api(project(":core:state"))
     api(project(":tools:registry"))
+    api(project(":tools:capability"))
     implementation(project(":data:audit"))
     implementation(libs.coroutines.android)
     testImplementation(libs.junit4)

@@ -41,6 +41,39 @@ class JGitGitPortTest {
     }
 
     @Test
+    fun branchDiffStashFlow() {
+        val dir = tmp.newFolder("repo")
+        val git: GitPort = JGitGitPort()
+        git.ensureRepo(dir.absolutePath)
+        File(dir, "a.txt").writeText("v1\n")
+        git.stageAll(dir.absolutePath)
+        git.commit(dir.absolutePath, "first")
+
+        val created = (git.createBranch(dir.absolutePath, "feat") as Outcome.Success<GitBranch>).value
+        assertEquals("feat", created.name)
+        assertTrue(created.current)
+        val branches = (git.branches(dir.absolutePath) as Outcome.Success<List<GitBranch>>).value
+        assertEquals(2, branches.size)
+
+        val back = (git.checkout(dir.absolutePath, branches.first { !it.current }.name)
+            as Outcome.Success<GitBranch>).value
+        assertTrue(back.current)
+
+        File(dir, "a.txt").writeText("v2\n")
+        val diff = (git.diff(dir.absolutePath) as Outcome.Success<String>).value
+        assertTrue(diff.contains("@@"))
+        assertTrue(diff.contains("v2"))
+
+        val stashId = (git.stash(dir.absolutePath, "wip") as Outcome.Success<String>).value
+        assertTrue(stashId.isNotBlank())
+        assertTrue((git.status(dir.absolutePath) as Outcome.Success<GitStatus>).value.clean)
+        assertEquals("(clean)", (git.diff(dir.absolutePath) as Outcome.Success<String>).value)
+
+        assertTrue(git.stashPop(dir.absolutePath) is Outcome.Success)
+        assertEquals("v2\n", File(dir, "a.txt").readText())
+    }
+
+    @Test
     fun nonRepoFailsHonestly() {
         val dir = tmp.newFolder("plain")
         val git: GitPort = JGitGitPort()

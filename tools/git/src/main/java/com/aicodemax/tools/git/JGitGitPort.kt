@@ -3,6 +3,7 @@ package com.aicodemax.tools.git
 import com.aicodemax.core.common.Outcome
 import com.aicodemax.core.common.runOutcome
 import com.aicodemax.tools.registry.ToolDescriptor
+import java.io.ByteArrayOutputStream
 import java.io.File
 import org.eclipse.jgit.api.Git
 
@@ -49,6 +50,53 @@ class JGitGitPort : GitPort {
     override fun stageAll(repoDir: String): Outcome<Unit> =
         withGit(repoDir, "GIT_STAGE") { git ->
             git.add().addFilepattern(".").call()
+            Unit
+        }
+
+    override fun branches(repoDir: String): Outcome<List<GitBranch>> =
+        withGit(repoDir, "GIT_BRANCH") { git ->
+            val current = git.repository.branch
+            git.branchList().call().map { ref ->
+                val name = ref.name.removePrefix("refs/heads/")
+                GitBranch(name, name == current)
+            }.sortedBy { it.name }
+        }
+
+    override fun createBranch(repoDir: String, name: String, checkout: Boolean): Outcome<GitBranch> =
+        withGit(repoDir, "GIT_BRANCH") { git ->
+            check(name.isNotBlank()) { "branch name is blank" }
+            git.branchCreate().setName(name.trim()).call()
+            if (checkout) git.checkout().setName(name.trim()).call()
+            GitBranch(name.trim(), checkout || git.repository.branch == name.trim())
+        }
+
+    override fun checkout(repoDir: String, name: String): Outcome<GitBranch> =
+        withGit(repoDir, "GIT_CHECKOUT") { git ->
+            check(name.isNotBlank()) { "branch name is blank" }
+            git.checkout().setName(name.trim()).call()
+            GitBranch(name.trim(), true)
+        }
+
+    override fun diff(repoDir: String, maxChars: Int): Outcome<String> =
+        withGit(repoDir, "GIT_DIFF") { git ->
+            // NOTE: DiffCommand must format via setOutputStream — a manual
+            // DiffFormatter cannot resolve workdir blobs ("Missing blob").
+            val out = ByteArrayOutputStream()
+            val entries = git.diff().setOutputStream(out).call()
+            if (entries.isEmpty()) return@withGit "(clean)"
+            val text = out.toString(Charsets.UTF_8.name())
+            if (text.length > maxChars.coerceAtLeast(256)) text.take(maxChars) + "\n…[truncated]" else text
+        }
+
+    override fun stash(repoDir: String, message: String): Outcome<String> =
+        withGit(repoDir, "GIT_STASH") { git ->
+            val commit = git.stashCreate().setWorkingDirectoryMessage(message.ifBlank { "aicodemax stash" }).call()
+            commit?.name ?: "(nothing to stash)"
+        }
+
+    override fun stashPop(repoDir: String): Outcome<Unit> =
+        withGit(repoDir, "GIT_STASH") { git ->
+            git.stashApply().call()
             Unit
         }
 

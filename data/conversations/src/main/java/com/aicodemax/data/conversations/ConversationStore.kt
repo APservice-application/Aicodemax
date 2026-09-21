@@ -46,6 +46,9 @@ interface ConversationStore {
     ): Outcome<ChatMessage>
 
     fun getMessages(conversationId: String): Outcome<List<ChatMessage>>
+
+    /** Replaces the full message list (used by pruning). */
+    fun replaceMessages(conversationId: String, messages: List<ChatMessage>): Outcome<Unit>
     fun delete(conversationId: String): Boolean
 }
 
@@ -134,6 +137,25 @@ class FileConversationStore(
             file.readLines()
                 .filter { it.isNotBlank() }
                 .map { json.decodeFromString(ChatMessage.serializer(), it) }
+        }
+
+    @Synchronized
+    override fun replaceMessages(conversationId: String, messages: List<ChatMessage>): Outcome<Unit> =
+        runOutcome("CONV_WRITE") {
+            get(conversationId).fold(
+                onSuccess = { conv ->
+                    File(messagesDir, "$conversationId.jsonl").writeText(
+                        messages.joinToString("\n", postfix = "\n") {
+                            json.encodeToString(ChatMessage.serializer(), it.copy(conversationId = conversationId))
+                        },
+                    )
+                    val all = readIndex()
+                    val index = all.indexOfFirst { it.id == conversationId }
+                    all[index] = conv.copy(updatedAt = clock.nowMillis())
+                    writeIndex(all)
+                },
+                onFailure = { throw NoSuchElementException("conversation '$conversationId' not found") },
+            )
         }
 
     @Synchronized

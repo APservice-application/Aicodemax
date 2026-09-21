@@ -58,6 +58,45 @@ class GitToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "branch" -> {
+                    val name = call.args["name"]
+                    if (name == null) {
+                        git.branches(repo).fold(
+                            onSuccess = { branches ->
+                                done(true, branches.joinToString("\n") {
+                                    (if (it.current) "* " else "  ") + it.name
+                                }.ifBlank { "(no branches)" })
+                            },
+                            onFailure = { done(false, error = it.message) },
+                        )
+                    } else {
+                        git.createBranch(repo, name).fold(
+                            onSuccess = { done(true, "branch '${it.name}' created and checked out") },
+                            onFailure = { done(false, error = it.message) },
+                        )
+                    }
+                }
+                "checkout" -> {
+                    val name = call.args["name"] ?: return@withContext done(false, error = "missing arg: name")
+                    git.checkout(repo, name).fold(
+                        onSuccess = { done(true, "checked out '${it.name}'") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "diff" -> git.diff(repo).fold(
+                    onSuccess = { done(true, it) },
+                    onFailure = { done(false, error = it.message) },
+                )
+                "stash" -> {
+                    git.stash(repo, call.args["message"].orEmpty()).fold(
+                        onSuccess = { done(true, "stashed: $it") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "stash-pop" -> git.stashPop(repo).fold(
+                    onSuccess = { done(true, "stash applied") },
+                    onFailure = { done(false, error = it.message) },
+                )
                 else -> done(false, error = "unknown action '${call.action}'")
             }
         }

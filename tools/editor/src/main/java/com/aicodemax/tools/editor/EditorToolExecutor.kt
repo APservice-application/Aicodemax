@@ -32,6 +32,32 @@ class EditorToolExecutor(private val editor: EditorPort) : ToolExecutor {
                 editor.close(path)
                 done(true, "closed $path")
             }
+            "preview", "patch" -> {
+                val start = call.args["startLine"]?.toIntOrNull()
+                val end = call.args["endLine"]?.toIntOrNull()
+                if (start == null || end == null) {
+                    return done(false, error = "missing args: startLine/endLine (1-based, end exclusive)")
+                }
+                val replacement = call.args["replacement"] ?: ""
+                editor.open(path).fold(
+                    onSuccess = { buffer ->
+                        PatchEngine.apply(buffer.content, listOf(EditOp(start, end, replacement))).fold(
+                            onSuccess = { updated ->
+                                if (call.action == "preview") {
+                                    done(true, PatchEngine.previewDiff(buffer.content, updated))
+                                } else {
+                                    editor.setContent(path, updated).fold(
+                                        onSuccess = { done(true, "patched $path (unsaved — call save)") },
+                                        onFailure = { done(false, error = it.message) },
+                                    )
+                                }
+                            },
+                            onFailure = { done(false, error = it.message) },
+                        )
+                    },
+                    onFailure = { done(false, error = it.message) },
+                )
+            }
             else -> done(false, error = "unknown action '${call.action}'")
         }
     }

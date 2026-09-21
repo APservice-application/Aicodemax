@@ -8,19 +8,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.aicodemax.core.state.AutonomyLevel
 import com.aicodemax.core.state.ThemeMode
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-
-interface SettingsRepository {
-    val theme: Flow<ThemeMode>
-    val autonomy: Flow<AutonomyLevel>
-    val activeModelId: Flow<String?>
-    suspend fun setTheme(theme: ThemeMode)
-    suspend fun setAutonomy(level: AutonomyLevel)
-    suspend fun setActiveModel(modelId: String?)
-}
 
 class DataStoreSettingsRepository(private val context: Context) : SettingsRepository {
     private object Keys {
