@@ -4,7 +4,15 @@ Native Android (Kotlin) AI Operating Environment:
 Chat เป็นศูนย์กลางสั่งงาน + Workspace/Tools/Runtime ที่ใช้งานจริงได้
 (AI Runtime + Tool Runtime + Project Runtime + Workspace + UI)
 
-> ไม่ใช่ Chatbot / API Client / WebView Wrapper / Termux Wrapper
+> ไม่ใช่ Chatbot / API Client / WebView Wrapper
+
+**พันธกิจ:** ฟรี + Open Source เพื่อให้ผู้ใช้สายฟรีทั่วโลกใช้ทำงานเขียนโค้ดได้
+รายได้ในอนาคตมาจากฟีเจอร์พิเศษแยก (เช่น ไฟล์ skill) — ตัวแอปหลักฟรีเสมอ
+
+## ลิขสิทธิ์
+- โปรเจกต์นี้ใช้ **GNU GPLv3** (ดูไฟล์ `LICENSE`)
+- Terminal ฝังในแอปโดยใช้ Termux ตามข้อกำหนด GPLv3 (ดู `docs/TERMINAL_PLAN.md`
+  และ `docs/THIRD_PARTY.md`)
 
 ## เริ่มตรงไหน
 1. อ่าน `docs/MASTER_CONTRACT.md` (สัญญาหลัก)
