@@ -44,6 +44,7 @@ dependencies {
     implementation(project(":ai:agents"))
     implementation(project(":ai:models"))
     implementation(project(":tools:registry"))
+    implementation(project(":tools:capability"))
     implementation(project(":tools:gateway"))
     implementation(project(":tools:files"))
     implementation(project(":tools:editor"))

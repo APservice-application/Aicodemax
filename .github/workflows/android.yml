@@ -21,7 +21,7 @@ jobs:
         run: >
           ./gradlew
           :core:common:test :core:state:test
-          :tools:registry:test :tools:terminal:test :tools:git:test
+          :tools:registry:test :tools:terminal:test :tools:git:test :tools:capability:test
           :ai:tasks:test
           :data:checkpoint:test :data:audit:test :data:memory:test :data:conversations:test
           --stacktrace

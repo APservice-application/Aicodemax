@@ -31,6 +31,8 @@ import com.aicodemax.data.settings.DataStoreSettingsRepository
 import com.aicodemax.data.settings.SettingsRepository
 import com.aicodemax.tools.browser.InMemoryBrowserPort
 import com.aicodemax.tools.browser.browserDescriptorToday
+import com.aicodemax.tools.capability.CapabilityResolver
+import com.aicodemax.tools.capability.StandardCapabilities
 import com.aicodemax.tools.browser_runtime.BrowserToolExecutor
 import com.aicodemax.tools.builder.buildDescriptorToday
 import com.aicodemax.tools.editor.EditorPort
@@ -71,6 +73,7 @@ class ServiceLocator(context: Context) {
 
     val toolRegistry: ToolRegistry = InMemoryToolRegistry()
     val gateway: ToolGateway
+    val capabilities: CapabilityResolver
 
     val workspaceDir: File = File(appContext.filesDir, "workspace")
     val files: FilePort = SandboxFileStore(workspaceDir)
@@ -99,8 +102,10 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(GitToolExecutor(git, workspaceDir.path))
         gateway.registerExecutor(BrowserToolExecutor(browser))
 
+        capabilities = StandardCapabilities.overRegistry(toolRegistry)
+
         val agent = LocalAgentRunner(gateway)
-        orchestrator = BootstrapOrchestrator(tasks, RuleBasedPlanner(), agent, RuleVerifier(), checkpoints, conversations)
+        orchestrator = BootstrapOrchestrator(tasks, RuleBasedPlanner(capabilities), agent, RuleVerifier(), checkpoints, conversations)
     }
 
     fun refreshAutonomy(level: AutonomyLevel) {

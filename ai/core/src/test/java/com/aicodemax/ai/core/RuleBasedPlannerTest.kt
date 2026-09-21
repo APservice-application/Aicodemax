@@ -64,10 +64,16 @@ class RuleBasedPlannerTest {
 
     @Test
     fun unavailableRuntimesReportHonestly() = runBlocking {
-        for (type in listOf(IntentType.RUN_COMMAND, IntentType.BUILD_PROJECT, IntentType.RUN_TESTS)) {
+        // Terminal CLI adapter exists but is unrunnable today → honest BLOCKED.
+        val run = planner.plan(UserIntent(IntentType.RUN_COMMAND, "t", mapOf("command" to "ls")))
+        assertTrue(run is Outcome.Failure)
+        assertEquals("CAPABILITY_BLOCKED", (run as Outcome.Failure).error.code)
+
+        // No build/test engines registered yet → honest UNKNOWN.
+        for (type in listOf(IntentType.BUILD_PROJECT, IntentType.RUN_TESTS)) {
             val result = planner.plan(UserIntent(type, "t"))
             assertTrue("$type", result is Outcome.Failure)
-            assertEquals("PLAN_UNAVAILABLE", (result as Outcome.Failure).error.code)
+            assertEquals("CAPABILITY_UNKNOWN", (result as Outcome.Failure).error.code)
         }
         val chat = planner.plan(UserIntent(IntentType.CHAT, "hi"))
         assertEquals("PLAN_NOT_ACTIONABLE", (chat as Outcome.Failure).error.code)
