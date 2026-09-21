@@ -27,7 +27,7 @@ include(
     ":tools:files",
     ":tools:editor",
     ":tools:terminal",
-    ":tools:build",
+    ":tools:builder",
     ":tools:git",
     ":tools:browser",
     ":data:checkpoint",
