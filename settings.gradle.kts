@@ -27,6 +27,7 @@ include(
     ":tools:files",
     ":tools:editor",
     ":tools:terminal",
+    ":tools:terminal_runtime",
     ":tools:builder",
     ":tools:git",
     ":tools:browser",
