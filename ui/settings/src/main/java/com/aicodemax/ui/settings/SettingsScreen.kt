@@ -1,0 +1,138 @@
+package com.aicodemax.ui.settings
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import com.aicodemax.core.state.AutonomyLevel
+import com.aicodemax.core.state.ThemeMode
+import com.aicodemax.data.settings.SettingsRepository
+import com.aicodemax.ui.designsystem.LocalSpacing
+import kotlinx.coroutines.launch
+
+@Composable
+fun SettingsRoute(repository: SettingsRepository, onOpenAbout: () -> Unit) {
+    val theme by repository.theme.collectAsState(initial = ThemeMode.SYSTEM)
+    val autonomy by repository.autonomy.collectAsState(initial = AutonomyLevel.ASK_ALWAYS)
+    val model by repository.activeModelId.collectAsState(initial = null)
+    val scope = rememberCoroutineScope()
+    SettingsScreen(
+        theme = theme,
+        autonomy = autonomy,
+        activeModel = model,
+        onTheme = { scope.launch { repository.setTheme(it) } },
+        onAutonomy = { scope.launch { repository.setAutonomy(it) } },
+        onOpenAbout = onOpenAbout,
+    )
+}
+
+@Composable
+fun SettingsScreen(
+    theme: ThemeMode,
+    autonomy: AutonomyLevel,
+    activeModel: String?,
+    onTheme: (ThemeMode) -> Unit,
+    onAutonomy: (AutonomyLevel) -> Unit,
+    onOpenAbout: () -> Unit,
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing.md),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Text("รูปลักษณ์", style = MaterialTheme.typography.titleMedium)
+        for (option in ThemeMode.values()) {
+            RadioRow(
+                label = when (option) {
+                    ThemeMode.LIGHT -> "สว่าง"
+                    ThemeMode.DARK -> "มืด"
+                    ThemeMode.SYSTEM -> "ตามระบบ"
+                },
+                selected = theme == option,
+                onClick = { onTheme(option) },
+            )
+        }
+        Text("ความเป็นอิสระของ AI", style = MaterialTheme.typography.titleMedium)
+        for (option in AutonomyLevel.values()) {
+            RadioRow(
+                label = when (option) {
+                    AutonomyLevel.ASK_ALWAYS -> "ถามก่อนทุกงานที่ต้องขอสิทธิ์"
+                    AutonomyLevel.AUTO_SAFE -> "ทำเองเฉพาะงานปลอดภัย"
+                    AutonomyLevel.AUTO_ALL -> "ทำเองทั้งหมด"
+                },
+                selected = autonomy == option,
+                onClick = { onAutonomy(option) },
+            )
+        }
+        Text("โมเดล", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = activeModel ?: "ยังไม่มีโมเดลที่พร้อมใช้",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        TextButton(onClick = onOpenAbout) { Text("เกี่ยวกับ / ลิขสิทธิ์") }
+    }
+}
+
+@Composable
+private fun RadioRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** Appropriate Legal Notices (AMENDMENT-002): GPLv3 + Termux attribution. */
+@Composable
+fun AboutScreen() {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing.md),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Text("Aicodemax", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "OWN AI APPLICATION — free software. Version 0.1.0 (foundation).",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text("ลิขสิทธิ์", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "This program is free software: you can redistribute it and/or modify it " +
+                "under the terms of the GNU General Public License as published by the Free " +
+                "Software Foundation, either version 3 of the License, or (at your option) " +
+                "any later version. This program comes with ABSOLUTELY NO WARRANTY. " +
+                "Full license: LICENSE file in the source repository.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text("ซอฟต์แวร์บุคคลที่สาม", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "• Termux (https://github.com/termux/termux-app) — GPLv3, embedded terminal " +
+                "stack for the in-app terminal tool.\n" +
+                "• Android-Terminal-Emulator lineage — Apache 2.0.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            "Source code: https://github.com/APservice-application/Aicodemax",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+    }
+}
