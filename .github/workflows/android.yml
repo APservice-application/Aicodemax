@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Ensure gradlew is executable
+        run: chmod +x gradlew
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -32,6 +34,8 @@ jobs:
     needs: jvm-tests
     steps:
       - uses: actions/checkout@v4
+      - name: Ensure gradlew is executable
+        run: chmod +x gradlew
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
