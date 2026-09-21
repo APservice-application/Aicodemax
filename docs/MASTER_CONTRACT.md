@@ -30,6 +30,10 @@
 - ทำตาม Phase 0→30 ห้ามข้ามถ้า interface ยังไม่เสถียร
 - ของใหม่ต้องผ่าน 10 ขั้น (เช็กซ้ำซ้อน/layer/dependency/compat + task/test/checkpoint + docs)
 
+## คำชี้ขาดเพิ่มเติม
+- ดู `docs/AMENDMENTS.md` (ต่อท้ายเท่านั้น ห้ามแก้ของเก่า) — ปัจจุบันมี AMENDMENT-001:
+  "ห้ามพึ่ง Termux" = ห้ามบังคับผู้ใช้ติดตั้งแอปแยก แต่ฝัง Terminal ไว้ในแอปได้
+
 ## กติกาทำงาน (Agent เขียน → กฤษรีวิว)
 - Agent ทำงานบน feature branch (`phase-X/...` หรือ `feature/...`) แล้ว push
 - กฤษรีวิวก่อน merge เข้า `main`
