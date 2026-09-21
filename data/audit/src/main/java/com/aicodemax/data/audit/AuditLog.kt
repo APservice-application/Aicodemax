@@ -21,6 +21,16 @@ data class AuditEntry(
     val allowed: Boolean = true,
 )
 
+/** Filters for audit investigation (CP-05 Permission+Security backfill; MASTER §27). */
+data class AuditQuery(
+    val actor: String? = null,
+    val actionPrefix: String = "",
+    val allowedOnly: Boolean = false,
+    val deniedOnly: Boolean = false,
+    val sinceMillis: Long = 0,
+    val limit: Int = 100,
+)
+
 interface AuditLog {
     fun append(
         actor: String,
@@ -32,6 +42,16 @@ interface AuditLog {
 
     /** Newest first. */
     fun query(limit: Int = 100): Outcome<List<AuditEntry>>
+
+    /** Newest first, filtered. */
+    fun queryFiltered(query: AuditQuery): Outcome<List<AuditEntry>>
+
+    /**
+     * Archives the active log when it exceeds [maxBytes] (rename to
+     * audit-<timestamp>.log). Never deletes: retention is a user action.
+     * Returns the archived file, or null when no rotation was needed.
+     */
+    fun rotate(maxBytes: Long): Outcome<File?>
     fun count(): Long
 }
 
@@ -66,6 +86,34 @@ class FileAuditLog(
             .takeLast(limit.coerceAtLeast(0))
             .map { json.decodeFromString(AuditEntry.serializer(), it) }
             .reversed()
+    }
+
+    @Synchronized
+    override fun queryFiltered(query: AuditQuery): Outcome<List<AuditEntry>> =
+        runOutcome("AUDIT_READ") {
+            readAll()
+                .filter { query.actor == null || it.actor == query.actor }
+                .filter { it.action.startsWith(query.actionPrefix) }
+                .filter { !query.allowedOnly || it.allowed }
+                .filter { !query.deniedOnly || !it.allowed }
+                .filter { it.timestamp >= query.sinceMillis }
+                .sortedByDescending { it.timestamp }
+                .take(query.limit.coerceAtLeast(0))
+        }
+
+    @Synchronized
+    override fun rotate(maxBytes: Long): Outcome<File?> = runOutcome("AUDIT_ROTATE") {
+        if (!file.exists() || file.length() <= maxBytes) return@runOutcome null
+        val archive = File(file.parentFile, "audit-${clock.nowMillis()}.log")
+        check(file.renameTo(archive)) { "rotation rename failed" }
+        archive
+    }
+
+    private fun readAll(): List<AuditEntry> {
+        if (!file.exists()) return emptyList()
+        return file.readLines()
+            .filter { it.isNotBlank() }
+            .map { json.decodeFromString(AuditEntry.serializer(), it) }
     }
 
     @Synchronized

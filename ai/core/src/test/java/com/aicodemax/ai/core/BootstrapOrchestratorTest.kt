@@ -2,6 +2,7 @@ package com.aicodemax.ai.core
 
 import com.aicodemax.ai.tasks.AiTask
 import com.aicodemax.ai.tasks.DefaultTaskEngine
+import com.aicodemax.ai.tasks.RecoveryLadderPolicy
 import com.aicodemax.ai.tasks.TaskEngine
 import com.aicodemax.ai.tasks.TaskState
 import com.aicodemax.core.common.Clock
@@ -11,6 +12,7 @@ import com.aicodemax.core.state.AppEvent
 import com.aicodemax.core.state.EventBus
 import com.aicodemax.data.checkpoint.CheckpointStore
 import com.aicodemax.data.checkpoint.FileCheckpointStore
+import com.aicodemax.data.conversations.Conversation
 import com.aicodemax.data.conversations.ConversationStore
 import com.aicodemax.data.conversations.FileConversationStore
 import com.aicodemax.data.conversations.MessageRole
@@ -72,6 +74,49 @@ class BootstrapOrchestratorTest {
     ): Orchestrator = BootstrapOrchestrator(tasks, RuleBasedPlanner(), agent, RuleVerifier(), checkpoints, conversations)
 
     private fun Outcome<AiTask>.task(): AiTask = (this as Outcome.Success<AiTask>).value
+
+    @Test
+    fun recoveryRetriesFlakyStepToCompletion() = runBlocking {
+        val (checkpoints, conversations, bus) = stores()
+        val tasks = DefaultTaskEngine(bus, FakeClock())
+        var calls = 0
+        val flaky = object : AgentExecutor {
+            override suspend fun executeStep(taskId: String, step: PlanStep): Outcome<StepResult> {
+                calls += 1
+                return if (calls == 1) {
+                    Outcome.Failure(com.aicodemax.core.common.AppError("E", "transient"))
+                } else {
+                    Outcome.Success(StepResult(ok = true, output = "did:${step.action}"))
+                }
+            }
+        }
+        val conv = (conversations.createConversation("c") as Outcome.Success<Conversation>).value
+        val orchestrator = BootstrapOrchestrator(
+            tasks, RuleBasedPlanner(), flaky, RuleVerifier(), checkpoints, conversations,
+            recovery = RecoveryLadderPolicy(),
+        )
+        val reply = (orchestrator.handleUserMessage(conv.id, "สร้างไฟล์ n.txt: hi")
+            as Outcome.Success<OrchestratorReply>).value
+        assertEquals(MessageRole.AI, reply.messages[0].role)
+        assertTrue(reply.messages[0].text.contains("สังเกต 3 ครั้ง"))
+        assertEquals(3, calls)
+    }
+
+    @Test
+    fun recoveryAbortsWhenLadderExhausted() = runBlocking {
+        val (checkpoints, conversations, bus) = stores()
+        val tasks = DefaultTaskEngine(bus, FakeClock())
+        val conv = (conversations.createConversation("c") as Outcome.Success<Conversation>).value
+        val orchestrator = BootstrapOrchestrator(
+            tasks, RuleBasedPlanner(), FakeAgent(failWith = "doomed"), RuleVerifier(),
+            checkpoints, conversations,
+            recovery = RecoveryLadderPolicy(maxAttempts = 1),
+        )
+        val reply = (orchestrator.handleUserMessage(conv.id, "สร้างไฟล์ n.txt: hi")
+            as Outcome.Success<OrchestratorReply>).value
+        assertEquals(MessageRole.STATUS, reply.messages[0].role)
+        assertTrue(reply.messages[0].text.contains("attempts exhausted"))
+    }
 
     @Test
     fun chatGetsHonestStatusReply() = runBlocking {

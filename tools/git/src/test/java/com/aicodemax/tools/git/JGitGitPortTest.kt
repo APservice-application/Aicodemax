@@ -41,6 +41,117 @@ class JGitGitPortTest {
     }
 
     @Test
+    fun branchDiffStashFlow() {
+        val dir = tmp.newFolder("repo")
+        val git: GitPort = JGitGitPort()
+        git.ensureRepo(dir.absolutePath)
+        File(dir, "a.txt").writeText("v1\n")
+        git.stageAll(dir.absolutePath)
+        git.commit(dir.absolutePath, "first")
+
+        val created = (git.createBranch(dir.absolutePath, "feat") as Outcome.Success<GitBranch>).value
+        assertEquals("feat", created.name)
+        assertTrue(created.current)
+        val branches = (git.branches(dir.absolutePath) as Outcome.Success<List<GitBranch>>).value
+        assertEquals(2, branches.size)
+
+        val back = (git.checkout(dir.absolutePath, branches.first { !it.current }.name)
+            as Outcome.Success<GitBranch>).value
+        assertTrue(back.current)
+
+        File(dir, "a.txt").writeText("v2\n")
+        val diff = (git.diff(dir.absolutePath) as Outcome.Success<String>).value
+        assertTrue(diff.contains("@@"))
+        assertTrue(diff.contains("v2"))
+
+        val stashId = (git.stash(dir.absolutePath, "wip") as Outcome.Success<String>).value
+        assertTrue(stashId.isNotBlank())
+        assertTrue((git.status(dir.absolutePath) as Outcome.Success<GitStatus>).value.clean)
+        assertEquals("(clean)", (git.diff(dir.absolutePath) as Outcome.Success<String>).value)
+
+        assertTrue(git.stashPop(dir.absolutePath) is Outcome.Success)
+        assertEquals("v2\n", File(dir, "a.txt").readText())
+    }
+
+    @Test
+    fun mergeFastForward() {
+        val dir = tmp.newFolder("repo")
+        val git: GitPort = JGitGitPort()
+        git.ensureRepo(dir.absolutePath)
+        File(dir, "a.txt").writeText("v1\n")
+        git.stageAll(dir.absolutePath)
+        git.commit(dir.absolutePath, "first")
+        val main = (git.branches(dir.absolutePath) as Outcome.Success<List<GitBranch>>).value.first { it.current }.name
+
+        git.createBranch(dir.absolutePath, "feat")
+        File(dir, "b.txt").writeText("new\n")
+        git.stageAll(dir.absolutePath)
+        git.commit(dir.absolutePath, "feat work")
+        git.checkout(dir.absolutePath, main)
+
+        val merged = (git.merge(dir.absolutePath, "feat") as Outcome.Success<GitMergeResult>).value
+        assertTrue(merged.merged)
+        assertTrue(File(dir, "b.txt").exists())
+    }
+
+    @Test
+    fun mergeConflictReportedHonestly() {
+        val dir = tmp.newFolder("repo")
+        val git: GitPort = JGitGitPort()
+        git.ensureRepo(dir.absolutePath)
+        File(dir, "a.txt").writeText("base\n")
+        git.stageAll(dir.absolutePath)
+        git.commit(dir.absolutePath, "base")
+        val main = (git.branches(dir.absolutePath) as Outcome.Success<List<GitBranch>>).value.first { it.current }.name
+
+        git.createBranch(dir.absolutePath, "side")
+        File(dir, "a.txt").writeText("side\n")
+        git.stageAll(dir.absolutePath)
+        git.commit(dir.absolutePath, "side work")
+        git.checkout(dir.absolutePath, main)
+        File(dir, "a.txt").writeText("main\n")
+        git.stageAll(dir.absolutePath)
+        git.commit(dir.absolutePath, "main work")
+
+        val merged = (git.merge(dir.absolutePath, "side") as Outcome.Success<GitMergeResult>).value
+        assertTrue(!merged.merged)
+        assertEquals(listOf("a.txt"), merged.conflicts)
+        assertEquals(listOf("a.txt"), (git.conflicts(dir.absolutePath) as Outcome.Success<List<String>>).value)
+    }
+
+    @Test
+    fun clonePushPullViaLocalRemote() {
+        val git: GitPort = JGitGitPort()
+        // Seed repo -> bare remote.
+        val seed = tmp.newFolder("seed")
+        git.ensureRepo(seed.absolutePath)
+        File(seed, "a.txt").writeText("v1\n")
+        git.stageAll(seed.absolutePath)
+        git.commit(seed.absolutePath, "first")
+        val remote = File(tmp.root, "remote.git").apply { mkdirs() }
+        org.eclipse.jgit.api.Git.init().setBare(true).setDirectory(remote).call().use { }
+        // Push seed -> remote using a file remote.
+        org.eclipse.jgit.api.Git.open(seed).use { g ->
+            g.remoteAdd().setName("origin").setUri(org.eclipse.jgit.transport.URIish(remote.absolutePath)).call()
+        }
+        val pushed = (git.push(seed.absolutePath) as Outcome.Success<PushSummary>).value
+        assertTrue(pushed.pushed.isNotEmpty())
+
+        // Clone -> modify -> push -> pull back.
+        val cloneDir = File(tmp.root, "clone")
+        assertTrue(git.clone(remote.absolutePath, cloneDir.absolutePath) is Outcome.Success)
+        assertEquals("v1\n", File(cloneDir, "a.txt").readText())
+        File(cloneDir, "a.txt").writeText("v2\n")
+        git.stageAll(cloneDir.absolutePath)
+        git.commit(cloneDir.absolutePath, "second")
+        assertTrue(git.push(cloneDir.absolutePath) is Outcome.Success)
+
+        val pulled = (git.pull(seed.absolutePath) as Outcome.Success<PullSummary>).value
+        assertTrue(pulled.successful)
+        assertEquals("v2\n", File(seed, "a.txt").readText())
+    }
+
+    @Test
     fun nonRepoFailsHonestly() {
         val dir = tmp.newFolder("plain")
         val git: GitPort = JGitGitPort()

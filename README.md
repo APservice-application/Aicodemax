@@ -30,7 +30,8 @@ Chat เป็นศูนย์กลางสั่งงาน + Workspace/To
 - [x] Phase 16/17/18/19: Terminal/Build/Git/Browser — contract + capability gate (รอ runtime)
 - [x] Phase 22/23/24/25: Audit, Chat UI, Workspace gates, Settings + About/legal
 - [x] Phase 26: Integration (ServiceLocator + CI)
-- [ ] Phase 27–30: Stress/Offline/Low-RAM/RC — ต้องรันบนอุปกรณ์จริง
+- [x] Checkpoint CP-01–CP-54: เสร็จตามสถานะซื่อสัตย์ใน `docs/arch/CHECKPOINTS.md` (เทส local 184/184) — เหลือ CP-06 (รอไฟล์โมเดล), CP-12 specialist agents เพิ่ม, CP-32 (รอ NDK/dev machine), CP-55 (เจ้าของเซ็น)
+- รายงาน audit: `docs/arch/AUDITS.md`
 
 รายละเอียดสถานะราย Phase: `docs/arch/ROADMAP.md`
 วิธี build: เปิดด้วย Android Studio (JDK 17) แล้วกด Run หรือดูผล CI ในแท็บ Actions

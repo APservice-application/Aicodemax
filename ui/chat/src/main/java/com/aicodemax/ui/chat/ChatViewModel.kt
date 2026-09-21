@@ -18,12 +18,16 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val sending: Boolean = false,
     val error: String? = null,
+    val lastTaskId: String? = null,
 )
 
 class ChatViewModel(
     private val orchestrator: Orchestrator,
     private val conversations: ConversationStore,
+    private val tasks: com.aicodemax.ai.tasks.TaskEngine? = null,
+    private val workingSet: com.aicodemax.core.state.WorkingSetStore? = null,
 ) : ViewModel() {
+    private var sendJob: kotlinx.coroutines.Job? = null
 
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
@@ -73,13 +77,29 @@ class ChatViewModel(
         if (trimmed.isEmpty()) return
         val id = _state.value.conversationId ?: return
         _state.value = _state.value.copy(sending = true, error = null)
-        viewModelScope.launch {
+        sendJob?.cancel()
+        sendJob = viewModelScope.launch {
             when (val result = orchestrator.handleUserMessage(id, trimmed)) {
                 is Outcome.Failure ->
                     _state.value = _state.value.copy(sending = false, error = result.error.message)
-                is Outcome.Success -> refresh(id, sending = false)
+                is Outcome.Success -> {
+                    val taskId = result.value.taskId
+                    refresh(id, sending = false)
+                    _state.value = _state.value.copy(lastTaskId = taskId ?: _state.value.lastTaskId)
+                }
             }
         }
+    }
+
+    /** CP-34 pause-stop: halts the in-flight send and cancels its task. */
+    fun stop() {
+        sendJob?.cancel()
+        sendJob = null
+        val taskId = _state.value.lastTaskId
+        if (taskId != null) {
+            tasks?.cancel(taskId, "stopped from chat")
+        }
+        _state.value = _state.value.copy(sending = false)
     }
 
     fun newChat() = openConversation(null)
@@ -89,6 +109,7 @@ class ChatViewModel(
             onSuccess = { it },
             onFailure = { emptyList() },
         )
-        _state.value = ChatUiState(conversationId = id, messages = messages, sending = sending)
+        _state.value = _state.value.copy(conversationId = id, messages = messages, sending = sending)
+        workingSet?.setConversation(id)
     }
 }

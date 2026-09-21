@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.aicodemax.core.common.fold
+import com.aicodemax.core.resources.ResourceModes
 import com.aicodemax.ui.designsystem.LocalSpacing
 
 /** Home: greeting + live status cards (all values read from real stores). */
@@ -33,7 +34,9 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             onSuccess = { s ->
                 val ramMb = s.ramAvailableBytes / 1024 / 1024
                 val diskMb = s.storageAvailableBytes / 1024 / 1024
-                "RAM ว่าง ${ramMb}MB • ดิสก์ว่าง ${diskMb}MB • แบต ${s.batteryPercent}%"
+                val mode = ResourceModes.derive(s)
+                val modeLine = if (mode.fullPower) "เต็มพลัง" else mode.reasons.joinToString(" + ")
+                "RAM ว่าง ${ramMb}MB • ดิสก์ว่าง ${diskMb}MB • แบต ${s.batteryPercent}% • $modeLine"
             },
             onFailure = { "อ่านทรัพยากรไม่ได้: ${it.message}" },
         )
@@ -77,12 +80,59 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             action = "เปิด" to { onOpen(Routes.BROWSER) },
         )
         StatusCard(
+            title = "โปรเจกต์",
+            line = projectLine(services),
+            action = "เปิด" to { onOpen(Routes.PROJECTS) },
+        )
+        StatusCard(
+            title = "เทอร์มินัล (dev)",
+            line = terminalLine(services),
+            action = "เปิด" to { onOpen(Routes.TERMINAL) },
+        )
+        StatusCard(
+            title = "Git",
+            line = "สถานะ / branch / commit ของ workspace",
+            action = "เปิด" to { onOpen(Routes.GIT) },
+        )
+        StatusCard(
+            title = "Build & Test",
+            line = "pipeline / suites / artifacts",
+            action = "เปิด" to { onOpen(Routes.BUILD) },
+        )
+        StatusCard(
+            title = "เอเจนต์",
+            line = agentLine(services),
+            action = "เปิด" to { onOpen(Routes.AGENTS) },
+        )
+        StatusCard(
             title = "ตรวจสอบ",
             line = "$auditCount รายการ",
             action = "ดู" to { onOpen(Routes.AUDIT) },
         )
         StatusCard(title = "เครื่อง", line = resourceLine, action = null)
     }
+}
+
+private fun projectLine(services: ServiceLocator): String {
+    val count = services.projects.list().fold(
+        onSuccess = { it.size },
+        onFailure = { 0 },
+    )
+    val active = services.projects.getActive().fold(
+        onSuccess = { it.name },
+        onFailure = { null },
+    )
+    return if (count == 0) "ยังไม่มีโปรเจกต์" else "$count โปรเจกต์" + (if (active != null) " • ปัจจุบัน: $active" else "")
+}
+
+private fun terminalLine(services: ServiceLocator): String {
+    val sessions = services.compat.sessions().size
+    return if (sessions == 0) "ยังไม่มีเซสชัน (runtime จริงมา Phase 16)" else "$sessions เซสชัน"
+}
+
+private fun agentLine(services: ServiceLocator): String {
+    val descriptor = services.agent.descriptor
+    return "${descriptor.name} • ${descriptor.capabilities.size} สิทธิ์"
 }
 
 @Composable

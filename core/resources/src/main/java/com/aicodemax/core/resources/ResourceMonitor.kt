@@ -13,27 +13,6 @@ import com.aicodemax.core.common.runOutcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-data class ResourceSnapshot(
-    val ramAvailableBytes: Long,
-    val ramTotalBytes: Long,
-    val storageAvailableBytes: Long,
-    val storageTotalBytes: Long,
-    val batteryPercent: Int,
-    val batteryCharging: Boolean,
-    val networkAvailable: Boolean,
-    val networkUnmetered: Boolean,
-    val timestamp: Long = System.currentTimeMillis(),
-)
-
-data class ResourceRequirement(
-    val minRamBytes: Long = 0,
-    val minStorageBytes: Long = 0,
-    val requiresCharging: Boolean = false,
-    val requiresUnmetered: Boolean = false,
-)
-
-data class ResourceCheck(val ok: Boolean, val reasons: List<String> = emptyList())
-
 interface ResourceMonitor {
     suspend fun snapshot(): Outcome<ResourceSnapshot>
     suspend fun canRun(requirement: ResourceRequirement): Outcome<ResourceCheck>

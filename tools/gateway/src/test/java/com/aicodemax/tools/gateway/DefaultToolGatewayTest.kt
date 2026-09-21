@@ -12,6 +12,9 @@ import com.aicodemax.tools.registry.CapabilityLayer
 import com.aicodemax.tools.registry.CapabilityStatus
 import com.aicodemax.tools.registry.InMemoryToolRegistry
 import com.aicodemax.tools.registry.LayerCapability
+import com.aicodemax.tools.capability.AdapterKind
+import com.aicodemax.tools.capability.CapabilityBinding
+import com.aicodemax.tools.capability.DefaultCapabilityResolver
 import com.aicodemax.tools.registry.ToolDescriptor
 import com.aicodemax.tools.registry.ToolRegistry
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -80,7 +83,7 @@ class DefaultToolGatewayTest {
         registry.register(descriptor("sleeping", false))
         val audit: AuditLog = FileAuditLog(tmp.root, FakeClock())
         val bus = RecordingBus()
-        val gateway: ToolGateway = DefaultToolGateway(registry, AutonomyPermissionGate { autonomy }, audit, bus)
+        val gateway: ToolGateway = DefaultToolGateway(registry, AutonomyPermissionGate({ autonomy }), audit, bus)
         gateway.registerExecutor(FakeExecutor("demo"))
         return Triple(gateway, audit, bus)
     }
@@ -134,12 +137,78 @@ class DefaultToolGatewayTest {
     }
 
     @Test
+    fun callCapabilityResolvesThenExecutes() = runBlocking {
+        val registry: ToolRegistry = InMemoryToolRegistry()
+        registry.register(descriptor("demo", true))
+        val gateway: ToolGateway = DefaultToolGateway(
+            registry,
+            AutonomyPermissionGate({ AutonomyLevel.AUTO_ALL }),
+            FileAuditLog(tmp.root, FakeClock()),
+            RecordingBus(),
+        )
+        val fake = FakeExecutor("demo")
+        gateway.registerExecutor(fake)
+        val resolver = DefaultCapabilityResolver(registry)
+        resolver.register(CapabilityBinding("demo.run", "demo", "run", AdapterKind.NATIVE))
+
+        val result = gateway.callCapability(resolver, "demo.run", mapOf("a" to "b"))
+        assertTrue(((result as Outcome.Success<ToolResult>).value as ToolResult).ok)
+        assertEquals("run", fake.calls.single().action)
+        assertEquals("b", fake.calls.single().args["a"])
+
+        val blocked = gateway.callCapability(resolver, "demo.missing")
+        assertTrue(blocked is Outcome.Failure)
+        assertEquals("CAPABILITY_UNKNOWN", (blocked as Outcome.Failure).error.code)
+        assertEquals(1, fake.calls.size) // blocked calls never reach executors
+    }
+
+    @Test
+    fun grantsAllowAndDeniesBlock() = runBlocking {
+        val grants = InMemoryPermissionManager()
+        val registry: ToolRegistry = InMemoryToolRegistry()
+        registry.register(descriptor("demo", true))
+        val gateway: ToolGateway = DefaultToolGateway(
+            registry,
+            AutonomyPermissionGate({ AutonomyLevel.ASK_ALWAYS }, grants),
+            FileAuditLog(tmp.root, FakeClock()),
+            RecordingBus(),
+        )
+        gateway.registerExecutor(FakeExecutor("demo"))
+
+        // No grant → autonomy ASK_ALWAYS denies.
+        val denied = gateway.call(ToolCall("c0", "demo", "wipe", needsPermission = true))
+        assertEquals("PERMISSION_REQUIRED", ((denied as Outcome.Failure).error as AppError).code)
+
+        // ALLOW_ONCE works exactly once.
+        grants.decide("demo", "wipe", "t1", PermissionDecision.ALLOW_ONCE)
+        val once1 = gateway.call(ToolCall("c1", "demo", "wipe", mapOf("taskId" to "t1"), needsPermission = true))
+        assertTrue((once1 as Outcome.Success<ToolResult>).value.ok)
+        val once2 = gateway.call(ToolCall("c2", "demo", "wipe", mapOf("taskId" to "t1"), needsPermission = true))
+        assertTrue(once2 is Outcome.Failure)
+
+        // ALLOW_FOR_TASK persists until revoked.
+        grants.decide("demo", "wipe", "t2", PermissionDecision.ALLOW_FOR_TASK)
+        val task1 = gateway.call(ToolCall("c3", "demo", "wipe", mapOf("taskId" to "t2"), needsPermission = true))
+        val task2 = gateway.call(ToolCall("c4", "demo", "wipe", mapOf("taskId" to "t2"), needsPermission = true))
+        assertTrue((task1 as Outcome.Success<ToolResult>).value.ok)
+        assertTrue((task2 as Outcome.Success<ToolResult>).value.ok)
+        grants.revokeTask("t2")
+        val revoked = gateway.call(ToolCall("c5", "demo", "wipe", mapOf("taskId" to "t2"), needsPermission = true))
+        assertTrue(revoked is Outcome.Failure)
+
+        // DENY wins over everything.
+        grants.decide("demo", "nuke", "", PermissionDecision.DENY)
+        val hard = gateway.call(ToolCall("c6", "demo", "nuke", needsPermission = true))
+        assertEquals("PERMISSION_DENIED", ((hard as Outcome.Failure).error as AppError).code)
+    }
+
+    @Test
     fun missingExecutorFails() = runBlocking {
         val registry: ToolRegistry = InMemoryToolRegistry()
         registry.register(descriptor("lonely", true))
         val gateway: ToolGateway = DefaultToolGateway(
             registry,
-            AutonomyPermissionGate { AutonomyLevel.AUTO_ALL },
+            AutonomyPermissionGate({ AutonomyLevel.AUTO_ALL }),
             FileAuditLog(tmp.root, FakeClock()),
             RecordingBus(),
         )

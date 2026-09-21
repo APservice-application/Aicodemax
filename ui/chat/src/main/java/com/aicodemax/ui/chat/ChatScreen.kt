@@ -47,8 +47,13 @@ import com.aicodemax.ui.designsystem.statusColor
 import kotlinx.coroutines.launch
 
 @Composable
-fun ChatRoute(viewModel: ChatViewModel) {
+fun ChatRoute(
+    viewModel: ChatViewModel,
+    onOpenTasks: () -> Unit = {},
+    workingSet: com.aicodemax.core.state.WorkingSetStore? = null,
+) {
     val state by viewModel.state.collectAsState()
+    val pendingHandoff = workingSet?.workingSet?.collectAsState()?.value?.pendingPrompt
     val conversations by viewModel.conversationsList.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -80,9 +85,14 @@ fun ChatRoute(viewModel: ChatViewModel) {
                 messages = state.messages,
                 sending = state.sending,
                 error = state.error,
+                lastTaskId = state.lastTaskId,
                 onSend = viewModel::send,
+                onStop = viewModel::stop,
                 onMenu = { scope.launch { drawerState.open() } },
                 onNewChat = viewModel::newChat,
+                onOpenTasks = onOpenTasks,
+                pendingPrompt = pendingHandoff,
+                onPromptConsumed = { workingSet?.consumePrompt() },
             )
         },
     )
@@ -127,12 +137,25 @@ fun ChatScreen(
     messages: List<ChatMessage>,
     sending: Boolean,
     error: String?,
+    lastTaskId: String? = null,
     onSend: (String) -> Unit,
+    onStop: () -> Unit = {},
     onMenu: () -> Unit,
     onNewChat: () -> Unit,
+    onOpenTasks: () -> Unit = {},
+    pendingPrompt: String? = null,
+    onPromptConsumed: () -> Unit = {},
 ) {
     val spacing = LocalSpacing.current
     var input by remember { mutableStateOf("") }
+
+    // Cross-tool handoff (CP-47): another tool handed us a prompt — prefill once.
+    LaunchedEffect(pendingPrompt) {
+        if (!pendingPrompt.isNullOrBlank()) {
+            input = pendingPrompt
+            onPromptConsumed()
+        }
+    }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
@@ -170,6 +193,9 @@ fun ChatScreen(
                 modifier = Modifier.padding(horizontal = spacing.md),
             )
         }
+        if (lastTaskId != null && !sending) {
+            TaskLinkCard(onOpen = onOpenTasks)
+        }
         ChatComposer(
             value = input,
             onValueChange = { input = it },
@@ -178,6 +204,7 @@ fun ChatScreen(
                 onSend(input)
                 input = ""
             },
+            onStop = onStop,
         )
     }
 }
@@ -225,7 +252,7 @@ private fun MessageBubble(message: ChatMessage) {
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant,
             ) {
-                Text(text = message.text, modifier = Modifier.padding(12.dp))
+                MarkdownText(text = message.text, modifier = Modifier.padding(12.dp))
             }
         }
         MessageRole.STATUS -> StatusCard(message.text)
@@ -245,7 +272,26 @@ private fun StatusCard(text: String) {
         color = color.copy(alpha = 0.12f),
         border = BorderStroke(1.dp, color.copy(alpha = 0.4f)),
     ) {
-        Text(text = text, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+        MarkdownText(text = text, modifier = Modifier.padding(12.dp))
+    }
+}
+
+@Composable
+private fun TaskLinkCard(onOpen: () -> Unit) {
+    val spacing = LocalSpacing.current
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.md),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "📋 งานล่าสุดของ AI",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f).padding(start = spacing.sm),
+            )
+            TextButton(onClick = onOpen) { Text("เปิดดู") }
+        }
     }
 }
 
@@ -269,6 +315,7 @@ private fun ChatComposer(
     onValueChange: (String) -> Unit,
     sending: Boolean,
     onSend: () -> Unit,
+    onStop: () -> Unit,
 ) {
     val spacing = LocalSpacing.current
     Row(
@@ -286,8 +333,14 @@ private fun ChatComposer(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() }),
         )
-        Button(onClick = onSend, enabled = !sending && value.isNotBlank()) {
-            Text("ส่ง")
+        if (sending) {
+            Button(onClick = onStop) {
+                Text("หยุด")
+            }
+        } else {
+            Button(onClick = onSend, enabled = value.isNotBlank()) {
+                Text("ส่ง")
+            }
         }
     }
 }

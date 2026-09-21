@@ -55,6 +55,50 @@ class FilesToolExecutor(private val files: FilePort) : ToolExecutor {
                     onFailure = { fail(it.message) },
                 )
             }
+            "copy", "move" -> {
+                val source = call.args["source"] ?: return okFail("missing arg: source")
+                val dest = call.args["dest"] ?: return okFail("missing arg: dest")
+                val op = if (call.action == "copy") files.copy(source, dest) else files.move(source, dest)
+                op.fold(
+                    onSuccess = { ok("${call.action}d $source -> $dest") },
+                    onFailure = { fail(it.message) },
+                )
+            }
+            "search" -> {
+                val query = call.args["query"] ?: return okFail("missing arg: query")
+                val dir = call.args["path"] ?: ""
+                val max = call.args["max"]?.toIntOrNull() ?: 50
+                files.search(dir, query, max).fold(
+                    onSuccess = { matches ->
+                        ok(matches.joinToString("\n") { "${it.path}:${it.lineNumber}: ${it.line}" }
+                            .ifBlank { "(no matches)" })
+                    },
+                    onFailure = { fail(it.message) },
+                )
+            }
+            "archive" -> {
+                val dir = call.args["path"] ?: return okFail("missing arg: path")
+                val out = call.args["out"] ?: return okFail("missing arg: out")
+                files.archive(dir, out).fold(
+                    onSuccess = { ok("archived $dir -> $out ($it bytes)") },
+                    onFailure = { fail(it.message) },
+                )
+            }
+            "unarchive" -> {
+                val zip = call.args["path"] ?: return okFail("missing arg: path")
+                val dest = call.args["dest"] ?: ""
+                files.unarchive(zip, dest).fold(
+                    onSuccess = { ok("extracted $it entries to '$dest'") },
+                    onFailure = { fail(it.message) },
+                )
+            }
+            "metadata" -> {
+                val path = call.args["path"] ?: return okFail("missing arg: path")
+                files.metadata(path).fold(
+                    onSuccess = { ok("${it.path} dir=${it.isDirectory} size=${it.sizeBytes} modified=${it.modifiedAt}") },
+                    onFailure = { fail(it.message) },
+                )
+            }
             else -> okFail("unknown action '${call.action}'")
         }
     }

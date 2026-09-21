@@ -15,6 +15,8 @@ interface TaskEngine {
     fun list(): List<AiTask>
     fun transition(taskId: String, to: TaskState, note: String = ""): Outcome<AiTask>
     fun cancel(taskId: String, note: String = ""): Outcome<AiTask>
+    fun pause(taskId: String): Outcome<AiTask>
+    fun resume(taskId: String): Outcome<AiTask>
     fun fail(taskId: String, error: String): Outcome<AiTask>
     fun retry(taskId: String): Outcome<AiTask>
 }
@@ -66,6 +68,24 @@ class DefaultTaskEngine(
             return Outcome.Failure(AppError("TASK_TERMINAL", "task already ${current.state}"))
         }
         return transition(taskId, TaskState.CANCELLED, note.ifBlank { "cancelled" })
+    }
+
+    override fun pause(taskId: String): Outcome<AiTask> {
+        val current = tasks[taskId]
+            ?: return Outcome.Failure(AppError("TASK_UNKNOWN", "task '$taskId' not found"))
+        if (current.state != TaskState.RUNNING) {
+            return Outcome.Failure(AppError("PAUSE_INVALID", "only RUNNING tasks can pause"))
+        }
+        return transition(taskId, TaskState.PAUSED, "paused")
+    }
+
+    override fun resume(taskId: String): Outcome<AiTask> {
+        val current = tasks[taskId]
+            ?: return Outcome.Failure(AppError("TASK_UNKNOWN", "task '$taskId' not found"))
+        if (current.state != TaskState.PAUSED) {
+            return Outcome.Failure(AppError("RESUME_INVALID", "only PAUSED tasks can resume"))
+        }
+        return transition(taskId, TaskState.RUNNING, "resumed")
     }
 
     override fun fail(taskId: String, error: String): Outcome<AiTask> {

@@ -71,6 +71,24 @@ class CapabilityResolverTest {
     }
 
     @Test
+    fun standardCatalogCarriesSection30Metadata() {
+        val bindings = StandardCapabilities.bindings()
+        assertTrue(bindings.size >= 37)
+        bindings.forEach { binding ->
+            val meta = binding.metadata
+            assertTrue("purpose missing: ${binding.capabilityId}", meta.purpose.isNotBlank())
+            assertTrue("engine missing: ${binding.capabilityId}", meta.engine.isNotBlank())
+            assertTrue("runtime missing: ${binding.capabilityId}", meta.runtime.isNotBlank())
+            assertTrue("category missing: ${binding.capabilityId}", meta.category.isNotBlank())
+        }
+        val resolver = StandardCapabilities.defaultResolver()
+        val read = (resolver.resolve("files.read") as Outcome.Success<ResolvedCapability>).value
+        assertEquals(CapabilityState.READY, read.state)
+        assertEquals("File Engine", read.metadata.engine)
+        assertTrue(read.metadata.purpose.isNotBlank())
+    }
+
+    @Test
     fun standardCatalogResolvesTodayTools() {
         val resolver = StandardCapabilities.defaultResolver()
         val read = (resolver.resolve("files.read") as Outcome.Success<ResolvedCapability>).value

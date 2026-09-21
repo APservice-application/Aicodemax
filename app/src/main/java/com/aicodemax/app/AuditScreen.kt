@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.aicodemax.core.common.fold
 import com.aicodemax.data.audit.AuditEntry
+import com.aicodemax.data.audit.AuditQuery
 import com.aicodemax.ui.designsystem.LocalSpacing
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,10 +38,12 @@ fun AuditScreen(services: ServiceLocator) {
     var entries by remember { mutableStateOf<List<AuditEntry>>(emptyList()) }
     var count by remember { mutableStateOf(0L) }
     var error by remember { mutableStateOf<String?>(null) }
+    var actor by remember { mutableStateOf<String?>(null) }
+    var deniedOnly by remember { mutableStateOf(false) }
 
     fun load() {
         scope.launch {
-            services.audit.query(100).fold(
+            services.audit.queryFiltered(AuditQuery(actor = actor, deniedOnly = deniedOnly, limit = 100)).fold(
                 onSuccess = { entries = it; count = services.audit.count(); error = null },
                 onFailure = { error = it.message },
             )
@@ -57,6 +60,30 @@ fun AuditScreen(services: ServiceLocator) {
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = { load() }) { Text("รีเฟรช") }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            for (option in listOf(null to "ทั้งหมด", "AI" to "AI", "USER" to "ผู้ใช้", "SYSTEM" to "ระบบ")) {
+                TextButton(onClick = { actor = option.first; load() }) {
+                    Text(
+                        option.second,
+                        color = if (actor == option.first) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.secondary
+                        },
+                    )
+                }
+            }
+            TextButton(onClick = { deniedOnly = !deniedOnly; load() }) {
+                Text(
+                    if (deniedOnly) "✕ เฉพาะที่ถูกบล็อก" else "เฉพาะที่ถูกบล็อก",
+                    color = if (deniedOnly) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.secondary
+                    },
+                )
+            }
         }
         if (error != null) {
             Text(error!!, color = MaterialTheme.colorScheme.error)
