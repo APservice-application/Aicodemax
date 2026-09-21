@@ -38,8 +38,33 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun openUrlAndGitPlanRealSteps() = runBlocking {
+        val open = UserIntent(IntentType.OPEN_URL, "t", mapOf("url" to "https://example.com"))
+        val openPlan = (planner.plan(open) as Outcome.Success<Plan>).value
+        assertEquals(1, openPlan.steps.size)
+        assertEquals("browser", openPlan.steps[0].toolId)
+        assertEquals("open", openPlan.steps[0].action)
+
+        val status = UserIntent(IntentType.GIT_ACTION, "t", mapOf("action" to "status", "repo" to ""))
+        val statusPlan = (planner.plan(status) as Outcome.Success<Plan>).value
+        assertEquals("git", statusPlan.steps[0].toolId)
+        assertEquals("status", statusPlan.steps[0].action)
+
+        val commit = UserIntent(
+            IntentType.GIT_ACTION, "t",
+            mapOf("action" to "commit", "repo" to "", "message" to "done"),
+        )
+        val commitPlan = (planner.plan(commit) as Outcome.Success<Plan>).value
+        assertEquals(listOf("stage", "commit"), commitPlan.steps.map { it.action })
+
+        val push = planner.plan(UserIntent(IntentType.GIT_ACTION, "t", mapOf("action" to "push")))
+        assertTrue(push is Outcome.Failure)
+        assertEquals("PLAN_UNSUPPORTED", (push as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun unavailableRuntimesReportHonestly() = runBlocking {
-        for (type in listOf(IntentType.RUN_COMMAND, IntentType.OPEN_URL, IntentType.BUILD_PROJECT)) {
+        for (type in listOf(IntentType.RUN_COMMAND, IntentType.BUILD_PROJECT, IntentType.RUN_TESTS)) {
             val result = planner.plan(UserIntent(type, "t"))
             assertTrue("$type", result is Outcome.Failure)
             assertEquals("PLAN_UNAVAILABLE", (result as Outcome.Failure).error.code)

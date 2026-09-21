@@ -5,6 +5,8 @@ import com.aicodemax.core.common.fold
 import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.gateway.ToolExecutor
 import com.aicodemax.tools.gateway.ToolResult
+import com.aicodemax.tools.terminal.CommandRisk
+import com.aicodemax.tools.terminal.CommandRiskClassifier
 import com.aicodemax.tools.terminal.ExecRequest
 import com.aicodemax.tools.terminal.TerminalPort
 import java.util.concurrent.CountDownLatch
@@ -53,6 +55,9 @@ class TerminalToolExecutor(private val terminal: TerminalPort) : ToolExecutor {
     private fun execBlocking(call: ToolCall): Outcome<ToolResult> {
         val sessionId = call.args["sessionId"] ?: return done(false, error = "missing arg: sessionId")
         val command = call.args["command"] ?: return done(false, error = "missing arg: command")
+        if (CommandRiskClassifier.classify(command) == CommandRisk.BANNED) {
+            return done(false, error = "TERMINAL_COMMAND_BLOCKED: คำสั่งนี้ถูกห้ามเด็ดขาด (มาตรา 17: ป้องกันคำสั่งทำลายระบบ)")
+        }
         val timeoutMs = call.args["timeoutMs"]?.toLongOrNull() ?: 60_000L
         val stdout = StringBuilder()
         val stderr = StringBuilder()

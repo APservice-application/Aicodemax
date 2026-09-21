@@ -64,6 +64,15 @@ class GitToolExecutorTest {
     }
 
     @Test
+    fun blankRepoFallsBackToDefault() {
+        val port = FakeGitPort()
+        val executor = GitToolExecutor(port, "/default")
+        val result = runBlocking { executor.execute(ToolCall("c1", "git", "ensure")) as Outcome.Success<ToolResult> }.value
+        assertTrue(result.ok)
+        assertEquals("/default", port.ensured)
+    }
+
+    @Test
     fun missingArgsFailHonestly() {
         val noRepo = run(ToolCall("c1", "git", "status"))
         assertFalse(noRepo.ok)

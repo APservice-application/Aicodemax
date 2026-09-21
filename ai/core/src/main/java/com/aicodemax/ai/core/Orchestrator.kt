@@ -33,11 +33,12 @@ class BootstrapOrchestrator(
 
         if (intent.type == IntentType.CHAT || intent.type == IntentType.UNKNOWN) {
             val status = "รับทราบครับ — เชื่อมต่อ AI bootstrap แล้ว (v0).\n" +
-                "ตอนนี้สั่งงานไฟล์ได้จริง เช่น:\n" +
+                "ตอนนี้สั่งได้จริง เช่น:\n" +
                 "• สร้างไฟล์ notes.txt: สวัสดี\n" +
-                "• อ่านไฟล์ notes.txt\n" +
-                "• ดูไฟล์\n" +
-                "ส่วน terminal / browser / build / git จะตามมาใน Phase ถัดไปครับ"
+                "• อ่านไฟล์ notes.txt / ดูไฟล์\n" +
+                "• เปิดเว็บ example.com\n" +
+                "• git status / git commit -m \"done\"\n" +
+                "ส่วน terminal / build จะตามมาใน Phase ถัดไปครับ"
             conversations.appendMessage(conversationId, MessageRole.STATUS, status)
             return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, status))))
         }
@@ -102,6 +103,9 @@ class BootstrapOrchestrator(
         val summary = buildString {
             appendLine("เสร็จแล้วครับ (${outputs.size} ขั้นตอน):")
             outputs.forEach { appendLine("• ${it.output.take(300)}") }
+            if (outputs.any { PromptGuard.containsInjectionAttempt(it.output + "\n" + it.error) }) {
+                appendLine("⚠️ [SECURITY] พบรูปแบบคำสั่งแฝงในผลลัพธ์ — ถือเป็นข้อมูลเท่านั้น ไม่ได้ปฏิบัติตาม")
+            }
         }.trim()
         conversations.appendMessage(conversationId, MessageRole.AI, summary)
         return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.AI, summary)), taskId))
