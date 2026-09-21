@@ -32,9 +32,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Git Center (CP-45) over the app workspace: status/branches/diff/commit/push/pull. */
+/** Git Center (CP-45): local git + GitHub (repos/issues), token memory-only. */
 @Composable
 fun GitScreen(services: ServiceLocator) {
+    var tab by remember { mutableStateOf(0) }
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = tab) {
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Git") })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("GitHub") })
+        }
+        if (tab == 0) GitTab(services) else GitHubTab()
+    }
+}
+
+@Composable
+private fun GitTab(services: ServiceLocator) {
     val spacing = LocalSpacing.current
     val scope = rememberCoroutineScope()
     val repo = remember { services.workspaceDir.path }
@@ -181,5 +193,110 @@ fun GitScreen(services: ServiceLocator) {
                 }
             }
         }
+    }
+}
+
+/** GitHub browser: repo info + issues + create issue. Token stays in memory only. */
+@Composable
+private fun GitHubTab() {
+    val spacing = LocalSpacing.current
+    val scope = rememberCoroutineScope()
+    var token by remember { mutableStateOf("") }
+    var owner by remember { mutableStateOf("APservice-application") }
+    var name by remember { mutableStateOf("Aicodemax") }
+    var repo by remember { mutableStateOf<GitHubRepo?>(null) }
+    var issues by remember { mutableStateOf<List<GitHubIssue>>(emptyList()) }
+    var issueTitle by remember { mutableStateOf("") }
+    var issueBody by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val client = remember { GitHubClient(JavaNetHttpTransport(), token = { token.ifBlank { null } }) }
+
+    fun load() {
+        scope.launch {
+            loading = true
+            error = null
+            val repoResult = withContext(Dispatchers.IO) { client.repo(owner.trim(), name.trim()) }
+            repoResult.fold(
+                onSuccess = { repo = it },
+                onFailure = { error = "repo: ${it.message}"; repo = null },
+            )
+            withContext(Dispatchers.IO) { client.listIssues(owner.trim(), name.trim()) }.fold(
+                onSuccess = { issues = it },
+                onFailure = { if (repo != null) error = "issues: ${it.message}" },
+            )
+            loading = false
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(spacing.md).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        TextField(
+            value = token,
+            onValueChange = { token = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            placeholder = { Text("GitHub token (ถ้ามี)…") },
+        )
+        Text(
+            "โทเคนอยู่ในหน่วยความจำเท่านั้น — ไม่ถูกบันทึก (public repo ไม่ต้องใส่)",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            TextField(
+                value = owner, onValueChange = { owner = it },
+                modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text("owner") },
+            )
+            TextField(
+                value = name, onValueChange = { name = it },
+                modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text("repo") },
+            )
+        }
+        TextButton(onClick = { load() }, enabled = !loading) {
+            Text(if (loading) "กำลังโหลด…" else "โหลด")
+        }
+        if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+        repo?.let {
+            Text(
+                "📦 ${it.fullName} • ${it.defaultBranch}" + if (it.private) " • private" else "",
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        Text("issues (${issues.size})", style = MaterialTheme.typography.titleSmall)
+        if (issues.isEmpty()) {
+            Text("ยังไม่มี issue (หรือโหลดไม่สำเร็จ)", style = MaterialTheme.typography.bodySmall)
+        }
+        issues.take(30).forEach { issue ->
+            Text(
+                "#${issue.number} ${issue.title} [${issue.state}]",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Text("สร้าง issue ใหม่ (ต้องมี token)", style = MaterialTheme.typography.titleSmall)
+        TextField(
+            value = issueTitle, onValueChange = { issueTitle = it },
+            modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("หัวข้อ…") },
+        )
+        TextField(
+            value = issueBody, onValueChange = { issueBody = it },
+            modifier = Modifier.fillMaxWidth(), placeholder = { Text("รายละเอียด…") },
+        )
+        TextButton(
+            onClick = {
+                scope.launch {
+                    withContext(Dispatchers.IO) {
+                        client.createIssue(owner.trim(), name.trim(), issueTitle.trim(), issueBody.trim())
+                    }.fold(
+                        onSuccess = { issueTitle = ""; issueBody = ""; error = null; load() },
+                        onFailure = { error = "create: ${it.message}" },
+                    )
+                }
+            },
+            enabled = token.isNotBlank() && issueTitle.isNotBlank(),
+        ) { Text("สร้าง issue") }
     }
 }

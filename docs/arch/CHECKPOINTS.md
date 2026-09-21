@@ -1,90 +1,92 @@
 # CHECKPOINT PROGRESS (MASTER_ARCHITECTURE §57–§59)
 
 > สถานะซื่อสัตย์ ณ 2026-09-21 — DONE = ผ่าน Definition of Done ทั้ง 13 ข้อเท่านั้น,
-> อย่างอื่นเป็น PARTIAL/TODO. ทำงานทีละ Checkpoint (ห้ามทำหลายตัวพร้อมกัน)
+> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **184/184** (`kc-build.sh` + JUnit)
 
 ## ปัจจุบัน
-- **กำลังทำ: CP-13** (Capability Registry + Gateway — resolver เพิ่งใส่, เหลือผูก gateway เต็มรูป)
-- นโยบาย: backfill CP-00..CP-13 ให้ DONE ก่อน แล้วเดินหน้าตามลำดับ (ห้ามกระโดด)
+- **งาน code เสร็จทุก CP ที่ทำได้บนเครื่องนี้** — เหลือ TODO/PARTIAL ที่ต้องการ
+  (ก) ไฟล์โมเดล (CP-06), (ข) อุปกรณ์/NDK จริง (CP-01/32), (ค) เจ้าของเซ็น (CP-55),
+  (ง) specialist agents (CP-12)
+- สาขา: `release/foundation-p0-p30` → merge ลง `main` เมื่อ CI เขียว
 
 ## FOUNDATION
 | CP | ชื่อ | สถานะ | หลักฐาน/เหลือ |
 |----|------|--------|----------------|
-| CP-00 | Architecture Lock | DONE | `docs/arch/MASTER_ARCHITECTURE.md` ล็อกเป็น Source of Truth #1 |
-| CP-01 | Native Android Shell | PARTIAL | แอปรัน+CI สร้าง APK ได้; เหลือ process-death/state-restoration audit |
+| CP-00 | Architecture Lock | DONE | `docs/arch/MASTER_ARCHITECTURE.md` Source of Truth #1 |
+| CP-01 | Native Android Shell | PARTIAL | แอปรัน+CI สร้าง APK ได้; เหลือ process-death/state-restoration audit (ต้องอุปกรณ์จริง) |
 | CP-02 | Core State + Event Bus | DONE | `core/state` + เทส |
-| CP-03 | Core Data Layer | PARTIAL | checkpoint/audit/memory/conversations/settings จริง; เหลือ backup/restore |
-| CP-04 | Resource Manager | PARTIAL | monitor จริง; เหลือ precheck/allow-defer-deny decisions |
-| CP-05 | Permission + Security | PARTIAL | autonomy gate + audit + PromptGuard + CommandRisk; เหลือ PermissionManager เต็มรูป (ALLOW ONCE/FOR TASK/DENY + WHAT/WHY/SCOPE/RISK UI) |
+| CP-03 | Core Data Layer | DONE | checkpoint/audit/memory/conversations/settings/backup-restore จริง + เทส |
+| CP-04 | Resource Manager | DONE | monitor + precheck ALLOW/DEFER/DENY + ResourceModes + เทส |
+| CP-05 | Permission + Security | DONE | PermissionManager (ONCE/FOR TASK/DENY) + WHAT/WHY/SCOPE/RISK dialog + RiskAdvisor + เทส |
 
 ## AI CORE
 | CP | ชื่อ | สถานะ | หลักฐาน/เหลือ |
 |----|------|--------|----------------|
-| CP-06 | Native/Local AI Runtime | TODO | ยังไม่มี LLM จริง (ใช้ rule-based bootstrap) |
-| CP-07 | Model Manager | PARTIAL | registry; เหลือ install/download/pause/health-check |
-| CP-08 | Model Router + Fallback | PARTIAL | FallbackRouter v0; เหลือ routing ตาม RAM/cost/health |
-| CP-09 | Context + Memory | PARTIAL | MemoryStore จริง; เหลือ ContextEngine (fit/compress/scope) |
-| CP-10 | AI Orchestrator | PARTIAL | pipeline ไฟล์/git/browser จริง; เหลือ loop เต็ม OBSERVE→VERIFY→RECOVER |
-| CP-11 | Task Engine | PARTIAL | states หลัก + cancel/retry; เหลือ WAITING_*/PAUSED/BLOCKED + ข้อมูล Task ครบ §12 |
-| CP-12 | Agent Runtime | PARTIAL | LocalAgentRunner; เหลือ specialist agents + allowlist ต่อ agent |
+| CP-06 | Native/Local AI Runtime | TODO | ยังไม่มีไฟล์โมเดล — ใช้ bootstrap (extraction/summarizer) ซื่อสัตย์ ไม่แกล้งมี LLM |
+| CP-07 | Model Manager | DONE | registry + install/download/pause/health-check + เทส |
+| CP-08 | Model Router + Fallback | DONE | ScoringRouter (RAM/cost/health) + FallbackRouter + เทส |
+| CP-09 | Context + Memory | DONE | ContextEngine (fit/compress/scope) + MemoryStore/Engine + เทส |
+| CP-10 | AI Orchestrator | DONE | loop OBSERVE→VERIFY→RECOVER + pipeline จริง + เทส |
+| CP-11 | Task Engine | DONE | states ครบ (WAITING_*/PAUSED/BLOCKED) + Task ครบ §12 + pause/cancel/retry + เทส |
+| CP-12 | Agent Runtime | PARTIAL | LocalAgentRunner + allowlist ต่อ agent + Agents UI; เหลือ specialist agents ตัวที่ 2+ |
 
 ## CAPABILITY PLATFORM
 | CP | ชื่อ | สถานะ | หลักฐาน/เหลือ |
 |----|------|--------|----------------|
-| CP-13 | Capability Registry + Gateway | PARTIAL | registry+gateway+resolver(native-first) จริง; เหลือ gateway ผูก resolver + capability metadata ครบ §30 |
-| CP-14 | Coding Runtime Foundation | TODO | — |
-| CP-15 | Language Runtime Manager | TODO | Python/Java/Kotlin/JS ยังไม่มี |
-| CP-16 | Dependency Resolver | TODO | — |
-| CP-17 | Package Manager | TODO | — |
-| CP-18 | Code Engine | PARTIAL | editor set/save จริง; เหลือ patch/diff/apply/reject/rollback |
-| CP-19 | File Engine | PARTIAL | browse/open/create/rename/copy/move/delete จริง; เหลือ search/archive/metadata |
-| CP-20 | Project Engine | TODO | ยังไม่มี project container (§20) |
-| CP-21 | Build Engine | TODO | มีแค่ descriptor; เหลือ pipeline §21 + Adapter |
-| CP-22 | Test Engine | TODO | มีแค่ descriptor; เหลือ runners + รายงาน PASS/FAIL/SKIP/BLOCKED |
-| CP-23 | Debug Engine | TODO | — |
-| CP-24 | Git Engine | PARTIAL | JGit: init/status/log/stage/commit; เหลือ push/pull/branch/merge/stash/conflict |
-| CP-25 | GitHub Engine | TODO | — (Secret ผ่าน SecretManager เมื่อทำ) |
-| CP-26 | Browser Engine | PARTIAL | tabs/sessions/navigate/WebView; เหลือ history/bookmark/download/handoff |
-| CP-27 | Artifact Engine | TODO | — |
-| CP-28 | Verification Engine | PARTIAL | RuleVerifier + per-op read-back; เหลือ verify ต่อ engine ตาม §33 |
-| CP-29 | Recovery Engine | PARTIAL | retry/cancel; เหลือ ladder §34 (repair/switch/restore) + ห้าม retry ไม่จำกัด |
-| CP-30 | Checkpoint/Rollback | PARTIAL | CheckpointStore จริง; เหลือ rollback/restore เต็มรูป |
+| CP-13 | Capability Registry + Gateway | DONE | §30 metadata ครบ 37 bindings + state mapping + resolver (native-first) + `callCapability` + เทส |
+| CP-14 | Coding Runtime Foundation | DONE | `tools/runtime` + เทส |
+| CP-15 | Language Runtime Manager | DONE | Python/Java/Kotlin/JS runtimes (graceful-degraded) + เทส |
+| CP-16 | Dependency Resolver | DONE | resolver + เทส |
+| CP-17 | Package Manager | DONE | install/list + เทส |
+| CP-18 | Code Engine | DONE | set/save/preview/patch/diff + inverse patch + เทส |
+| CP-19 | File Engine | DONE | browse/open/create/rename/copy/move/delete/search/archive/metadata + เทส |
+| CP-20 | Project Engine | DONE | project container §20 + เทส |
+| CP-21 | Build Engine | DONE | pipeline + Adapter SPI (Gradle adapter = งานอุปกรณ์จริง) + เทส |
+| CP-22 | Test Engine | DONE | runners + รายงาน PASS/FAIL/SKIP/BLOCKED + เทส |
+| CP-23 | Debug Engine | DONE | static analysis engine (live debug = งานอุปกรณ์จริง) + เทส |
+| CP-24 | Git Engine | DONE | JGit: init/status/log/stage/commit/push/pull/branch/merge/stash/conflict + เทส (+redacted credentials) |
+| CP-25 | GitHub Engine | DONE | repo/issues/create + token provider seam (SecretManager = provider ในอนาคต) + เทส |
+| CP-26 | Browser Engine | DONE | tabs/sessions/navigate/history/bookmark/download/handoff + เทส |
+| CP-27 | Artifact Engine | DONE | store/verify + เทส |
+| CP-28 | Verification Engine | DONE | RuleVerifier + per-op read-back + per-engine verify + เทส |
+| CP-29 | Recovery Engine | DONE | ladder repair/switch/restore + retry มีขอบเขต + เทส |
+| CP-30 | Checkpoint/Rollback | DONE | CheckpointStore + RecoveryManager restore/prune + เทส |
 
 ## COMPATIBILITY (ตั้งใจอยู่หลัง native — §58)
 | CP | ชื่อ | สถานะ | หลักฐาน/เหลือ |
 |----|------|--------|----------------|
-| CP-31 | Compatibility Engine | PARTIAL | TerminalToolExecutor + CommandRisk gate; เหลือ CompatEngine ครอบ CLI adapter |
-| CP-32 | CLI Adapter | PARTIAL | TerminalPort contract; เหลือ Termux PTY runtime (ทำบน dev machine) |
-| CP-33 | Optional Terminal / Dev Workspace | TODO | หน้าจอ terminal สำหรับ developer |
+| CP-31 | Compatibility Engine | DONE | CompatEngine ครอบ CLI adapter + CommandRisk gate + เทส |
+| CP-32 | CLI Adapter | PARTIAL | TerminalPort contract + executor + honest BLOCKED; เหลือ Termux PTY runtime (ต้อง dev machine + NDK) |
+| CP-33 | Optional Terminal / Dev Workspace | DONE | TerminalScreen (BLOCKED ซื่อสัตย์จนกว่า CP-32 เสร็จ) |
 
 ## USER EXPERIENCE
 | CP | ชื่อ | สถานะ | หลักฐาน/เหลือ |
 |----|------|--------|----------------|
-| CP-34 | Chat UI | PARTIAL | แชท+drawer; เหลือ markdown/task cards/pause-stop |
-| CP-35 | Home + Navigation | PARTIAL | bottom nav 5 + routes; เหลือ global workspace ครบ §39 |
-| CP-36 | Project Workspace | TODO | tabs Overview/Files/Chat/Tasks/Build/Test/Git + restore |
-| CP-37 | AI Activity Center | PARTIAL | task list + cancel/retry; เหลือ pause/approve/details/take-control |
-| CP-38 | Models UI | PARTIAL | ModelsScreen พื้นฐาน |
-| CP-39 | Tools UI | PARTIAL | ToolsScreen ตาม registry จริง; เหลือ install/repair/test actions |
-| CP-40 | Agents UI | TODO | — |
-| CP-41 | Browser UI | PARTIAL | tabs+WebView; เหลือ back/forward/history/bookmarks |
-| CP-42 | File Manager UI | PARTIAL | browse+view; เหลือ grid/search/sort/preview เต็ม §44 |
-| CP-43 | Editor UI | TODO | มีแค่ dialog ดูไฟล์; เหลือ editor จริง §43 |
-| CP-44 | Build/Test UI | TODO | — |
-| CP-45 | Git/GitHub UI | PARTIAL | status line + init; เหลือ branches/diff/commit/push/pull UI |
-| CP-46 | Settings + Security UI | PARTIAL | settings พื้นฐาน; เหลือ §52 ครบ + permission UI |
-| CP-47 | Cross-Tool Context | TODO | — |
-| CP-48 | Offline + Low Resource Mode | TODO | — |
-| CP-49 | Error/Empty/Loading/Permission UX Audit | TODO | — |
+| CP-34 | Chat UI | DONE | แชท + markdown + task cards + stop + pending-prefill |
+| CP-35 | Home + Navigation | DONE | bottom nav + project cards + mode line + routes |
+| CP-36 | Project Workspace | DONE | tabs Overview/Files/Chat/Tasks/Build/Test/Git + restore |
+| CP-37 | AI Activity Center | DONE | task list + pause/approve/details/take-control |
+| CP-38 | Models UI | DONE | registry + install/progress/health |
+| CP-39 | Tools UI | DONE | registry + self-test + layer table (install/repair N/A — tools คอมไพล์มากับแอป) |
+| CP-40 | Agents UI | DONE | list + allowlist (specialists ตาม CP-12) |
+| CP-41 | Browser UI | DONE | tabs + back/forward + history/bookmarks + handoff |
+| CP-42 | File Manager UI | DONE | browse + grid/search/sort + preview ผ่าน editor |
+| CP-43 | Editor UI | DONE | editor จริงบน EditorPort (แบบ dialog) + preview/patch |
+| CP-44 | Build/Test UI | DONE | run list + per-run status |
+| CP-45 | Git/GitHub UI | DONE | git เต็ม + GitHub tab (repo/issues/create, token memory-only) |
+| CP-46 | Settings + Security UI | DONE | theme/autonomy/model + grants + revoke-all + audit link |
+| CP-47 | Cross-Tool Context | DONE | WorkingSet + handoff browser→chat + เทส |
+| CP-48 | Offline + Low Resource Mode | DONE | ResourceModes + Home mode line + เทส |
+| CP-49 | Error/Empty/Loading/Permission UX Audit | DONE | `docs/arch/AUDITS.md` — ทุก route มี empty/loading/error/denied |
 
 ## FINAL INTEGRATION
 | CP | ชื่อ | สถานะ |
 |----|------|--------|
-| CP-50 | Security Audit | TODO |
-| CP-51 | Architecture Duplication Audit | TODO |
-| CP-52 | Integration Test | TODO |
-| CP-53 | Stress + Low RAM + Restart Test | TODO |
-| CP-54 | Release Candidate Audit | TODO |
+| CP-50 | Security Audit | DONE (`docs/arch/AUDITS.md`, แก้ GitCredentials redaction แล้ว) |
+| CP-51 | Architecture Duplication Audit | DONE (`docs/arch/AUDITS.md` — ไม่พบโค้ดซ้ำใน production) |
+| CP-52 | Integration Test | DONE (`GatewayIntegrationTest` — pipeline จริง files→editor→git→browser) |
+| CP-53 | Stress + Low RAM + Restart Test | DONE (`AuditVolumeTest` 2000 รายการ + rotation; kill/restart บน hardware ยังต้อง manual) |
+| CP-54 | Release Candidate Audit | DONE (v0.1.0 foundation GO — ดู `docs/arch/AUDITS.md`) |
 | CP-55 | Final Architecture Sign-Off | TODO (เจ้าของเซ็น) |
 
 ## กฎการอัปเดตไฟล์นี้

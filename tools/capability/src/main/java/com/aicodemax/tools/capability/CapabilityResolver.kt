@@ -20,12 +20,55 @@ enum class AdapterKind {
     CLI_ADAPTER,
 }
 
+/**
+ * Lifecycle states per MASTER §30. Today engines report READY/UNAVAILABLE;
+ * the rest activate as engines publish lifecycle (honest: no fake RUNNING).
+ */
+enum class CapabilityState {
+    UNAVAILABLE,
+    INSTALLING,
+    READY,
+    STARTING,
+    RUNNING,
+    BUSY,
+    WAITING,
+    ERROR,
+    RECOVERING,
+    STOPPING,
+    STOPPED,
+}
+
+fun ToolDescriptor.capabilityState(): CapabilityState =
+    if (isRunnable()) CapabilityState.READY else CapabilityState.UNAVAILABLE
+
+/** Static metadata per MASTER §30 (ID/Name/Category/Purpose/Engine/Runtime/...). */
+data class CapabilityMetadata(
+    val name: String = "",
+    val category: String = "",
+    val purpose: String = "",
+    val engine: String = "",
+    val runtime: String = "",
+    val operations: List<String> = emptyList(),
+    val inputs: List<String> = emptyList(),
+    val outputs: List<String> = emptyList(),
+    val dependencies: List<String> = emptyList(),
+    val permissions: List<String> = emptyList(),
+    val needsNetwork: Boolean = false,
+    val needsStorage: Boolean = true,
+    val compatibility: String = "",
+    val fallback: String = "",
+    val verification: String = "",
+    val recovery: String = "",
+    val version: String = "0.1.0",
+)
+
 data class CapabilityBinding(
     val capabilityId: String,
     val toolId: String,
     val action: String,
     val adapterKind: AdapterKind,
     val note: String = "",
+    val metadata: CapabilityMetadata = CapabilityMetadata(),
 )
 
 data class ResolvedCapability(
@@ -35,6 +78,8 @@ data class ResolvedCapability(
     val adapterKind: AdapterKind,
     val args: Map<String, String> = emptyMap(),
     val descriptor: ToolDescriptor,
+    val metadata: CapabilityMetadata = CapabilityMetadata(),
+    val state: CapabilityState = CapabilityState.UNAVAILABLE,
 )
 
 interface CapabilityResolver {
@@ -77,6 +122,8 @@ class DefaultCapabilityResolver(
                         adapterKind = binding.adapterKind,
                         args = args,
                         descriptor = descriptor,
+                        metadata = binding.metadata,
+                        state = descriptor.capabilityState(),
                     ),
                 )
             }

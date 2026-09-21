@@ -55,6 +55,7 @@ dependencies {
     implementation(project(":tools:builder"))
     implementation(project(":tools:git"))
     implementation(project(":tools:git_runtime"))
+    implementation(project(":tools:github"))
     implementation(project(":tools:browser"))
     implementation(project(":tools:browser_runtime"))
     implementation(project(":data:checkpoint"))

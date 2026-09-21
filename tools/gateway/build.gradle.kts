@@ -28,4 +28,11 @@ dependencies {
     implementation(project(":data:audit"))
     implementation(libs.coroutines.android)
     testImplementation(libs.junit4)
+    testImplementation(project(":tools:files"))
+    testImplementation(project(":tools:editor"))
+    testImplementation(project(":tools:git"))
+    testImplementation(project(":tools:git_runtime"))
+    testImplementation(project(":tools:browser"))
+    testImplementation(project(":tools:browser_runtime"))
+    testImplementation(project(":data:audit"))
 }

@@ -53,7 +53,10 @@ interface GitPort {
 data class GitCredentials(
     val username: String,
     val secret: String,
-)
+) {
+    /** Redacted: a credential must never leak through logs or crash reports. */
+    override fun toString(): String = "GitCredentials(username=$username, secret=***)"
+}
 
 data class GitMergeResult(
     val merged: Boolean,
