@@ -1,0 +1,4529 @@
+OWN AI APPLICATION
+
+100% COMPLETE UI/UX VISUAL + INTERACTION MASTER SPECIFICATION
+
+STATUS
+
+นี่คือ UI/UX MASTER CONTRACT
+
+เอกสารนี้ไม่ใช่คำแนะนำทั่วไป
+
+ห้ามตีความว่า:
+
+- “ทำให้สวย”
+- “ทำให้ทันสมัย”
+- “ทำคล้าย ChatGPT”
+- “จัด Layout ให้เหมาะสม”
+- “ใช้สีที่ดูดี”
+
+เพียงเท่านี้แล้วถือว่าเสร็จ
+
+AI Developer ต้องแปลงข้อกำหนดทั้งหมดในเอกสารนี้เป็น UI จริง
+
+ทุกหน้าต้องกำหนด:
+
+- ตำแหน่ง
+- ขนาด
+- ระยะห่าง
+- สี
+- Typography
+- Border
+- Radius
+- Shadow
+- Icon
+- Interaction
+- Animation
+- Loading
+- Empty
+- Error
+- Success
+- Disabled
+- Permission
+- Navigation
+- State
+- Accessibility
+- Responsive Behavior
+
+---
+
+1. DESIGN DIRECTION
+
+1.1 บุคลิกของแอป
+
+ต้องให้ความรู้สึก:
+
+Modern / Premium / Clean / Intelligent / Calm / Professional / Friendly
+
+ไม่ต้องการ:
+
+- Hacker UI เต็มหน้าจอ
+- Neon Cyberpunk
+- สีรุ้ง
+- Gradient เยอะ
+- Glassmorphism หนัก
+- Dashboard ที่เต็มไปด้วยตัวเลข
+- ปุ่มเต็มหน้าจอ
+- UI แบบ Developer Tool รุ่นเก่า
+
+---
+
+2. VISUAL REFERENCE
+
+UX หลักให้ยึดแนวคิด:
+
+ChatGPT-like simplicity
+
+แต่ Visual Identity ต้องเป็นของแอปเอง
+
+หลัก:
+
+- Clean conversational interface
+- Large readable content
+- Minimal visual noise
+- Soft surfaces
+- Clear hierarchy
+- Bottom composer
+- Sidebar conversation navigation
+- Progressive disclosure
+
+---
+
+3. DESIGN SYSTEM
+
+ต้องสร้าง Design Tokens กลางก่อนสร้าง Screen
+
+ห้ามกำหนดสี/ขนาดแยกในแต่ละหน้า
+
+---
+
+4. COLOR SYSTEM
+
+กำหนด Theme หลักเป็น 3 แบบ:
+
+1. Light
+2. Dark
+3. System
+
+4.1 Light Theme
+
+Background
+
+Main Background:
+
+"#F7F7F8"
+
+Secondary Background:
+
+"#FFFFFF"
+
+Elevated Surface:
+
+"#FFFFFF"
+
+Primary
+
+Primary:
+
+"#2563EB"
+
+Primary Hover:
+
+"#1D4ED8"
+
+Primary Pressed:
+
+"#1E40AF"
+
+Text
+
+Primary Text:
+
+"#111827"
+
+Secondary Text:
+
+"#6B7280"
+
+Muted Text:
+
+"#9CA3AF"
+
+Border
+
+"#E5E7EB"
+
+Success
+
+"#16A34A"
+
+Warning
+
+"#D97706"
+
+Error
+
+"#DC2626"
+
+Info
+
+"#0284C7"
+
+---
+
+5. DARK THEME
+
+Main Background
+
+"#0F1115"
+
+Secondary Surface
+
+"#151922"
+
+Elevated Surface
+
+"#1B202A"
+
+Input Surface
+
+"#171B23"
+
+Primary
+
+"#60A5FA"
+
+Primary Pressed
+
+"#3B82F6"
+
+Primary Text
+
+"#F3F4F6"
+
+Secondary Text
+
+"#A1A1AA"
+
+Muted
+
+"#71717A"
+
+Border
+
+"#272D38"
+
+Success
+
+"#4ADE80"
+
+Warning
+
+"#FBBF24"
+
+Error
+
+"#F87171"
+
+Info
+
+"#38BDF8"
+
+---
+
+6. COLOR RULE
+
+ห้ามใช้ Primary Blue ทุกอย่าง
+
+Primary ใช้กับ:
+
+- Main CTA
+- Selected state
+- Active navigation
+- Important action
+
+Neutral ใช้กับ:
+
+- Secondary actions
+- Cards
+- Navigation
+- Background
+
+Semantic colors ใช้เฉพาะสถานะ:
+
+Green = Success
+
+Yellow/Amber = Warning
+
+Red = Error
+
+Blue = Information
+
+---
+
+7. GRADIENT RULE
+
+Gradient ไม่ใช้เป็นพื้นหลังหลัก
+
+อนุญาตเฉพาะ:
+
+- Welcome illustration
+- AI activity accent
+- Empty-state decoration
+- Special hero section
+
+Opacity ต่ำ
+
+ต้องไม่รบกวนอ่านข้อความ
+
+---
+
+8. TYPOGRAPHY
+
+UI Font:
+
+ใช้ Font ที่อ่านง่ายและรองรับภาษาไทย/อังกฤษ
+
+Primary:
+
+Noto Sans
+
+Fallback:
+
+System Sans
+
+Code:
+
+JetBrains Mono
+
+หรือ Monospace ที่เหมาะสม
+
+---
+
+9. FONT SCALE
+
+Mobile:
+
+Display:
+
+32sp / Bold
+
+Heading 1:
+
+26sp / Bold
+
+Heading 2:
+
+22sp / SemiBold
+
+Heading 3:
+
+18sp / SemiBold
+
+Body:
+
+16sp / Regular
+
+Body Small:
+
+14sp / Regular
+
+Caption:
+
+12sp / Regular
+
+Button:
+
+14–16sp / Medium
+
+Code:
+
+13–14sp
+
+---
+
+10. LINE HEIGHT
+
+Body:
+
+ประมาณ 1.5
+
+Heading:
+
+ประมาณ 1.2
+
+Code:
+
+ประมาณ 1.5
+
+ข้อความภาษาไทยต้องมีพื้นที่ระหว่างบรรทัดเพียงพอ
+
+ห้ามทำข้อความไทยชิดกันจนอ่านยาก
+
+---
+
+11. SPACING SYSTEM
+
+ใช้ระบบ 4dp
+
+4
+8
+12
+16
+20
+24
+32
+40
+48
+64
+
+ห้ามใช้ค่า random เช่น:
+
+13dp
+
+17dp
+
+23dp
+
+เว้นแต่มีเหตุผลจาก Component หรือ Platform
+
+---
+
+12. CORNER RADIUS
+
+Small:
+
+8dp
+
+Medium:
+
+12dp
+
+Large:
+
+16dp
+
+Extra Large:
+
+20dp
+
+Pill:
+
+999dp
+
+---
+
+13. BUTTON HEIGHT
+
+Small:
+
+36dp
+
+Medium:
+
+44dp
+
+Large:
+
+48dp
+
+Touch target จริง:
+
+อย่างน้อยประมาณ 44–48dp
+
+แม้ Icon จะมีขนาดเล็กกว่า
+
+---
+
+14. ICON
+
+Icon หลัก:
+
+24dp
+
+Small:
+
+20dp
+
+Large:
+
+28dp
+
+ต้องใช้ Icon Style เดียวกันทั้งระบบ
+
+ห้ามเอา Icon คนละ Style มาปนกัน
+
+---
+
+15. GLOBAL LAYOUT
+
+Mobile:
+
+┌──────────────────────────────┐
+│ Top Bar                      │
+├──────────────────────────────┤
+│                              │
+│                              │
+│        Main Content          │
+│                              │
+│                              │
+├──────────────────────────────┤
+│ Bottom Navigation / Composer │
+└──────────────────────────────┘
+
+ต้องรองรับ Safe Area
+
+---
+
+16. MAIN APPLICATION SHELL
+
+Application Shell ประกอบด้วย:
+
+- Sidebar / Drawer
+- Top Bar
+- Main Content
+- Optional Context Panel
+- Bottom Composer หรือ Bottom Action Area
+
+แต่แต่ละ Workspace สามารถเปลี่ยนโครงสร้างภายในได้
+
+---
+
+17. MOBILE NAVIGATION
+
+Bottom Navigation แสดง 5 รายการ:
+
+1. Home
+2. Chat
+3. Projects
+4. Tasks
+5. AI
+
+Icon อยู่ด้านบน
+
+Label อยู่ด้านล่าง
+
+Active:
+
+Primary Color
+
+Inactive:
+
+Muted Text
+
+Background:
+
+Surface
+
+ไม่ใช้ Shadow หนัก
+
+---
+
+18. SIDEBAR
+
+บนโทรศัพท์:
+
+Drawer width ประมาณ 82–88% ของหน้าจอ
+
+บน Tablet:
+
+ประมาณ 300–340dp
+
+บน Desktop:
+
+ประมาณ 280–320dp
+
+Background:
+
+Surface
+
+---
+
+19. SIDEBAR ORDER
+
+เรียง:
+
+Top
+
++ New Chat
+
+Search
+
+Middle
+
+Recent Chats
+
+Below
+
+Projects
+
+Tasks
+
+AI Workspace
+
+Bottom
+
+Settings
+
+Profile
+
+---
+
+20. SIDEBAR NEW CHAT
+
+ปุ่มเต็มความกว้างเกือบทั้งหมด
+
+Margin:
+
+12–16dp
+
+Height:
+
+44–48dp
+
+Radius:
+
+12dp
+
+Icon:
+
+24dp
+
+Text:
+
+Medium
+
+Primary หรือ Neutral ตาม Theme
+
+---
+
+21. CHAT HOME
+
+เมื่อไม่มี Conversation:
+
+หน้าจอกลาง
+
+ให้มี:
+
+AI Logo / Mark
+
+ด้านบนของ Greeting
+
+ขนาดประมาณ:
+
+48–64dp
+
+ไม่ต้องใหญ่เกินไป
+
+Greeting
+
+ตัวอย่าง:
+
+«สวัสดี 👋»
+
+Font:
+
+28–32sp
+
+Subtitle
+
+«วันนี้ให้ฉันช่วยอะไร?»
+
+Font:
+
+16sp
+
+Secondary color
+
+---
+
+22. CHAT SUGGESTION CARDS
+
+ใต้ Greeting
+
+แสดง 4 Card
+
+2×2 บนมือถือที่กว้างพอ
+
+ตัวอย่าง:
+
+สร้าง Project
+
+เขียน Code
+
+วิเคราะห์ไฟล์
+
+เปิดเว็บไซต์
+
+Card:
+
+Background = Surface
+
+Border = Border
+
+Radius = 16dp
+
+Padding = 16dp
+
+Icon = 24dp
+
+Title = 15–16sp
+
+Description = 12–13sp
+
+Tap:
+
+Ripple + เปิด Action
+
+---
+
+23. CHAT COMPOSER
+
+Composer เป็นองค์ประกอบสำคัญที่สุด
+
+ต้องอยู่ด้านล่าง Content
+
+แต่ไม่ติดขอบหน้าจอโดยตรง
+
+Margin:
+
+12–16dp
+
+Bottom margin:
+
+8–12dp เหนือ Safe Area/Navigation
+
+---
+
+24. COMPOSER VISUAL
+
+Light:
+
+Background:
+
+"#FFFFFF"
+
+Border:
+
+"#D1D5DB"
+
+Dark:
+
+"#171B23"
+
+Border:
+
+"#2A303C"
+
+Radius:
+
+20–24dp
+
+Shadow:
+
+ต่ำมาก
+
+---
+
+25. COMPOSER STRUCTURE
+
+┌────────────────────────────────┐
+│ พิมพ์ข้อความ...               │
+│                                │
+│ +   Model/Mode          🎤  ↑ │
+└────────────────────────────────┘
+
+Input Area อยู่ด้านบน
+
+Action Row อยู่ด้านล่าง
+
+---
+
+26. COMPOSER BUTTONS
+
+ซ้าย:
+
++ 
+
+กลาง:
+
+Mode / Model
+
+ขวา:
+
+Voice
+
+Send
+
+Send Button:
+
+Circle
+
+40–44dp
+
+Primary Color
+
+เมื่อไม่มีข้อความ:
+
+Disabled
+
+เมื่อมีข้อความ:
+
+Enabled
+
+---
+
+27. COMPOSER EXPAND
+
+ถ้าข้อความหลายบรรทัด:
+
+Composer ขยายขึ้น
+
+Maximum:
+
+ประมาณ 40% ของหน้าจอ
+
+หลังจากนั้น:
+
+Scroll ภายใน Input
+
+---
+
+28. KEYBOARD BEHAVIOR
+
+เมื่อ Keyboard เปิด:
+
+Composer ต้องเลื่อนขึ้นตาม Keyboard
+
+Chat Content ต้องไม่ถูกบัง
+
+Scroll ลง Bottom อัตโนมัติเมื่อผู้ใช้กำลังอยู่ท้าย Conversation
+
+ถ้าผู้ใช้เลื่อนขึ้น:
+
+ห้ามบังคับ Scroll ลงโดยอัตโนมัติ
+
+---
+
+29. USER MESSAGE
+
+User Message ไม่ควรเป็น Bubble ใหญ่เกินไป
+
+ใช้:
+
+Surface ที่ยกขึ้นเล็กน้อย
+
+หรือ Bubble ขนาดพอดี
+
+Max width:
+
+ประมาณ 85%
+
+Alignment:
+
+Right
+
+Radius:
+
+18dp
+
+Padding:
+
+12–16dp
+
+---
+
+30. AI MESSAGE
+
+AI Message:
+
+Alignment:
+
+Left
+
+ไม่ต้องใส่ Bubble หนัก
+
+Background:
+
+Transparent หรือ Surface เบามาก
+
+Text:
+
+16sp
+
+Line height:
+
+ประมาณ 1.5
+
+---
+
+31. MESSAGE ACTIONS
+
+ใต้ AI Message
+
+แสดงเมื่อ Hover/Long Press/แตะ More:
+
+- Copy
+- Regenerate
+- Edit
+- Share
+- Save
+- Ask AI
+- More
+
+บนมือถือใช้ Long Press หรือ More
+
+---
+
+32. MARKDOWN
+
+ต้อง Render Markdown จริง
+
+รองรับ:
+
+- Heading
+- Bold
+- Italic
+- Lists
+- Table
+- Quote
+- Link
+- Code
+- Divider
+
+Spacing ต้องเหมาะกับมือถือ
+
+---
+
+33. CODE BLOCK
+
+Code Block:
+
+Background เข้มกว่า Surface
+
+Radius:
+
+12dp
+
+Header:
+
+Language
+
+Copy
+
+More
+
+Code:
+
+13–14sp
+
+Horizontal Scroll
+
+ห้ามให้ Code ทำให้หน้าเว็บกว้างล้นจอ
+
+---
+
+34. CODE ACTION
+
+เมื่อกด More:
+
+- Copy
+- Edit
+- Explain
+- Fix
+- Run
+- Save
+- Apply to Project
+
+---
+
+35. ATTACHMENT CHIP
+
+ไฟล์ที่แนบ:
+
+Card/Chip
+
+Height:
+
+48–64dp
+
+แสดง:
+
+Icon
+
+Filename
+
+Size
+
+X
+
+ถ้ารูป:
+
+Thumbnail
+
+---
+
+36. AI WORKING STATE
+
+เมื่อ AI กำลังทำงาน
+
+Composer เปลี่ยน Send เป็น:
+
+Stop
+
+AI Message แสดง:
+
+Animated indicator
+
+ข้อความ:
+
+«กำลังทำงาน...»
+
+ไม่ต้องแสดง Internal reasoning
+
+---
+
+37. TASK PROGRESS
+
+งานใหญ่แสดง Collapsible Task Card
+
+Collapsed:
+
+«กำลังสร้าง Android Project… 65%»
+
+Expanded:
+
+✓ วิเคราะห์ Requirement
+✓ สร้าง Project
+✓ เขียน Code
+● Build
+○ Test
+○ Verify
+
+---
+
+38. PROGRESS BAR
+
+ใช้ Linear Progress
+
+Height:
+
+4–6dp
+
+Radius:
+
+Pill
+
+Primary color
+
+Background:
+
+Border/Muted Surface
+
+ห้าม Animation เร็วเกินไป
+
+---
+
+39. TASK CARD
+
+Card:
+
+Radius 16dp
+
+Padding 16dp
+
+Header:
+
+Task Name
+
+Status
+
+Body:
+
+Current Step
+
+Progress
+
+Footer:
+
+Details
+
+Pause
+
+Cancel
+
+---
+
+40. WAITING USER
+
+ถ้า AI ต้องการผู้ใช้:
+
+Card ต้องเด่นขึ้น
+
+Background:
+
+Warning tint เล็กน้อย
+
+Title:
+
+«ต้องการให้คุณดำเนินการต่อ»
+
+Description:
+
+อธิบายสิ่งที่ต้องทำ
+
+Button:
+
+Continue
+
+---
+
+41. ERROR CARD
+
+Background:
+
+Error tint ต่ำๆ
+
+Icon:
+
+Error
+
+Title:
+
+เกิดปัญหา
+
+Description:
+
+ภาษาคน
+
+Buttons:
+
+Retry
+
+Details
+
+Alternative
+
+---
+
+42. SUCCESS CARD
+
+Success tint ต่ำๆ
+
+Icon:
+
+Check
+
+Title:
+
+เสร็จแล้ว
+
+Description:
+
+ผลลัพธ์
+
+Actions:
+
+Open
+
+View Details
+
+---
+
+43. HOME SCREEN
+
+Home ต้องแสดง:
+
+Top Bar
+
+Greeting
+
+Quick Actions
+
+Active Tasks
+
+Recent Projects
+
+Recent Activity
+
+แต่ต้องไม่แสดงทุกอย่างพร้อมกันจนรก
+
+Priority:
+
+Greeting
+
+Chat
+
+Active Task
+
+Recent Project
+
+---
+
+44. PROJECT SCREEN
+
+Top:
+
+Project Name
+
+Status
+
+More
+
+ใต้ Header:
+
+Overview Card
+
+แสดง:
+
+Files
+
+Tasks
+
+Build
+
+Tests
+
+Git
+
+AI Status
+
+---
+
+45. PROJECT TABS
+
+มือถือ:
+
+Horizontal Scroll Tabs
+
+ตัวอย่าง:
+
+Overview
+
+Files
+
+Chat
+
+Tasks
+
+Build
+
+Test
+
+Git
+
+ไม่ใช้ Bottom Navigation สำหรับ Tabs เหล่านี้
+
+---
+
+46. PROJECT OVERVIEW
+
+ใช้ Cards:
+
+AI Status
+
+Current Task
+
+Build Status
+
+Test Status
+
+Git Status
+
+Recent Files
+
+แต่ Card ต้องมีข้อมูลจริง
+
+---
+
+47. BROWSER UI — VISUAL SPEC
+
+Browser ต้องมี Design ของ Browser จริง
+
+Top Browser Bar
+
+Height:
+
+56–64dp
+
+ประกอบด้วย:
+
+Back
+
+Forward
+
+Reload
+
+URL/Search Field
+
+More
+
+---
+
+48. BROWSER URL BAR
+
+Height:
+
+40–44dp
+
+Radius:
+
+20dp
+
+Background:
+
+Surface Variant
+
+ซ้าย:
+
+Security / Site Icon
+
+กลาง:
+
+URL
+
+ขวา:
+
+Bookmark
+
+---
+
+49. BROWSER TAB BAR
+
+บน Mobile:
+
+เปิดเป็น Tab Switcher
+
+กด Tab Icon:
+
+เปิดหน้า Tab Grid
+
+Grid:
+
+2 columns
+
+แต่ละ Card:
+
+Preview
+
+Favicon
+
+Title
+
+Close
+
+---
+
+50. BROWSER TAB GRID
+
+พื้นหลัง:
+
+Main Background
+
+Header:
+
+Tabs
+
+New Tab
+
+Card:
+
+Radius 16dp
+
+Spacing:
+
+12dp
+
+Preview:
+
+16:10 โดยประมาณ
+
+---
+
+51. BROWSER NEW TAB
+
+แสดง:
+
+Logo
+
+Search/URL Input ใหญ่
+
+Recent
+
+Bookmarks
+
+Downloads
+
+Shortcuts
+
+AI Action
+
+---
+
+52. BROWSER PAGE AREA
+
+เว็บไซต์ต้องได้พื้นที่มากที่สุด
+
+ไม่ใส่ UI ของเราเกินจำเป็น
+
+Toolbar เป็น Floating/Compact ตามพื้นที่
+
+---
+
+53. BROWSER BOTTOM AI BAR
+
+เมื่อ AI สามารถทำงานกับหน้าเว็บ:
+
+Bottom Sheet แบบย่อ:
+
+«Ask AI about this page»
+
+หรือ:
+
+«AI can interact with this page»
+
+แตะแล้วขยาย
+
+---
+
+54. BROWSER AI SHEET
+
+Bottom Sheet:
+
+Title:
+
+AI for this page
+
+Actions:
+
+Summarize
+
+Analyze
+
+Find
+
+Extract
+
+Fill
+
+Navigate
+
+Automate
+
+---
+
+55. BROWSER TAKE CONTROL
+
+เมื่อ AI กำลังทำงาน:
+
+แถบด้านล่าง:
+
+AI is controlling this page
+
+ปุ่ม:
+
+Pause
+
+Stop
+
+Take Control
+
+เมื่อ Take Control:
+
+AI หยุด Input
+
+ผู้ใช้ควบคุม Browser ได้เต็มที่
+
+---
+
+56. CODE EDITOR VISUAL
+
+Code Editor ต้องใช้:
+
+- Dark editor surface แม้ UI หลักเป็น Light ได้ หากผู้ใช้เลือก
+- Monospace
+- Syntax colors
+- Line number muted
+- Current line highlight
+- Selection highlight
+
+---
+
+57. CODE EDITOR LAYOUT
+
+Mobile:
+
+┌──────────────────────────┐
+│ ← File.kt           ⋮   │
+├──────────────────────────┤
+│ Code                     │
+│                          │
+│ 1  class Main {          │
+│ 2      ...               │
+│ 3  }                     │
+│                          │
+├──────────────────────────┤
+│ AI  Search  Run  ⋮       │
+└──────────────────────────┘
+
+File Tree เปิดเป็น Drawer/Bottom Sheet
+
+---
+
+58. EDITOR TOOLBAR
+
+Bottom Toolbar:
+
+AI
+
+Search
+
+Run
+
+Build
+
+More
+
+ต้องไม่ใส่ปุ่มมากเกินไป
+
+More เปิด:
+
+Format
+
+Go to Line
+
+Replace
+
+Settings
+
+---
+
+59. FILE MANAGER VISUAL
+
+Default:
+
+List View
+
+แต่มี Toggle:
+
+List / Grid
+
+แต่ละ File Row:
+
+Height:
+
+64–72dp
+
+Icon:
+
+32dp
+
+Filename:
+
+15–16sp
+
+Metadata:
+
+12sp
+
+More:
+
+24dp
+
+---
+
+60. FILE FOLDER
+
+Folder:
+
+Icon
+
+Name
+
+Item count
+
+Chevron
+
+Tap:
+
+Open
+
+Long Press:
+
+Context Menu
+
+---
+
+61. FILE CONTEXT MENU
+
+Bottom Sheet:
+
+Open
+
+Rename
+
+Copy
+
+Move
+
+Share
+
+Analyze with AI
+
+Delete
+
+Details
+
+Delete ต้องใช้ Confirmation
+
+---
+
+62. TERMINAL VISUAL
+
+Terminal ใช้ Dark Surface
+
+Background:
+
+"#0B0D10"
+
+Text:
+
+"#E5E7EB"
+
+Command:
+
+Primary/Accent
+
+Error:
+
+Error
+
+Success:
+
+Success
+
+Font:
+
+Monospace 13–14sp
+
+---
+
+63. TERMINAL HEADER
+
+แสดง:
+
+Session Name
+
+Status
+
+Resource indicator
+
+More
+
+Tabs รองรับหลาย Session
+
+---
+
+64. TERMINAL INPUT
+
+Bottom:
+
+Dark rounded input
+
+Prompt:
+
+"$"
+
+Input
+
+Send/Enter
+
+Stop เมื่อ Process ทำงาน
+
+---
+
+65. TERMINAL PROCESS STATE
+
+Running:
+
+● Running
+
+Finished:
+
+✓ Completed
+
+Failed:
+
+× Failed
+
+Stopped:
+
+■ Stopped
+
+---
+
+66. BUILD UI
+
+Build Screen ต้องมี Hero Status
+
+ตัวอย่าง:
+
+BUILDING
+
+Progress
+
+Current Step
+
+Elapsed Time
+
+ด้านล่าง:
+
+Logs
+
+Warnings
+
+Errors
+
+Artifacts
+
+---
+
+67. BUILD SUCCESS
+
+ใช้ Success Hero
+
+Icon:
+
+Check Circle
+
+Title:
+
+Build Successful
+
+Artifact Card:
+
+APK
+
+Version
+
+Size
+
+Build Time
+
+Buttons:
+
+Install
+
+Open
+
+Share
+
+Files
+
+---
+
+68. BUILD FAILURE
+
+Error Hero
+
+Title:
+
+Build Failed
+
+Summary
+
+Error count
+
+Buttons:
+
+Fix with AI
+
+View Errors
+
+Retry
+
+---
+
+69. TEST UI
+
+ด้านบน:
+
+Pass Rate
+
+Tests
+
+Duration
+
+ด้านล่าง:
+
+Test List
+
+แต่ละ Row:
+
+Status Icon
+
+Test Name
+
+Duration
+
+More
+
+---
+
+70. GIT UI
+
+Git Dashboard:
+
+Branch Selector
+
+Sync Status
+
+Changes
+
+Commits
+
+Branches
+
+---
+
+71. GIT CHANGE CARD
+
+แสดง:
+
+Modified
+
+Added
+
+Deleted
+
+Renamed
+
+แต่ละรายการใช้ Semantic icon/color
+
+---
+
+72. DIFF UI
+
+Split Diff สำหรับ Tablet/Desktop
+
+Unified Diff สำหรับ Mobile
+
+สี:
+
+Added = Green tint
+
+Removed = Red tint
+
+Unchanged = Neutral
+
+สีต้องอ่อน ไม่ใช้พื้นหลังสีสดเต็มบรรทัด
+
+---
+
+73. MODEL CENTER UI
+
+ใช้ Model Cards
+
+Card Header:
+
+Model Name
+
+Provider
+
+Status
+
+Body:
+
+Size
+
+Context
+
+RAM
+
+Speed
+
+Footer:
+
+Use
+
+Details
+
+Manage
+
+---
+
+74. MODEL DOWNLOAD UI
+
+เมื่อ Download:
+
+Model Name
+
+Downloading
+
+██████████░░ 78%
+
+1.4 GB / 1.8 GB
+
+Speed
+12 MB/s
+
+Remaining
+34 sec
+
+[Pause] [Cancel]
+
+---
+
+75. TOOL CENTER UI
+
+ใช้ Category Sections
+
+เช่น:
+
+Development
+
+AI
+
+Browser
+
+System
+
+Git
+
+Build
+
+Test
+
+แต่ละ Category:
+
+Title
+
+Description
+
+Tool Cards
+
+---
+
+76. TOOL CARD
+
+Icon
+
+Tool Name
+
+Version
+
+Status
+
+Description
+
+Actions
+
+ตัวอย่าง:
+
+Android SDK
+
+Installed
+
+v35
+
+Ready
+
+[Open]
+
+[Manage]
+
+---
+
+77. AGENT CENTER UI
+
+Agent Card:
+
+Avatar/Icon
+
+Agent Name
+
+Status
+
+Current Task
+
+Model
+
+Tools
+
+Progress
+
+Actions
+
+---
+
+78. MEMORY UI
+
+Memory Card:
+
+Type
+
+Content Summary
+
+Project
+
+Created
+
+Last Updated
+
+Actions:
+
+Edit
+
+Forget
+
+---
+
+79. RESOURCE UI
+
+แสดงเป็น Cards/Charts
+
+CPU
+
+RAM
+
+Storage
+
+Battery
+
+Network
+
+Model Memory
+
+ใช้ Progress Ring/Bar
+
+แต่ต้องไม่ทำ Dashboard ใหญ่เกินความจำเป็น
+
+---
+
+80. SETTINGS UI
+
+ใช้ Section List
+
+แต่ละ Section มี:
+
+Icon
+
+Title
+
+Description
+
+Chevron
+
+เปิด Subscreen
+
+ห้ามสร้าง Settings ทุกอย่างในหน้าเดียว
+
+---
+
+81. SETTINGS SUBSCREEN
+
+ตัวอย่าง:
+
+AI Settings
+
+Top Bar:
+
+← AI Settings
+
+รายการ:
+
+Auto Model
+
+Fallback
+
+Memory
+
+Permissions
+
+Advanced
+
+แต่ละ Row:
+
+Title
+
+Description
+
+Control
+
+---
+
+82. DIALOG DESIGN
+
+Dialog:
+
+Max width:
+
+ประมาณ 420dp บนจอใหญ่
+
+Mobile:
+
+Margin 24dp
+
+Radius:
+
+20dp
+
+Title:
+
+20sp
+
+Body:
+
+14–16sp
+
+Buttons:
+
+Text/Contained ตามความสำคัญ
+
+---
+
+83. BOTTOM SHEET
+
+Bottom Sheet:
+
+Top corners:
+
+24dp
+
+Handle:
+
+32×4dp
+
+Padding:
+
+20–24dp
+
+ใช้กับ:
+
+- More
+- File Actions
+- Browser Actions
+- Tool Actions
+- Model Details
+- Agent Details
+
+---
+
+84. TOAST
+
+ใช้เฉพาะ Feedback สั้นมาก
+
+เช่น:
+
+«Copied»
+
+ไม่ใช้ Toast สำหรับ Error สำคัญ
+
+---
+
+85. SNACKBAR
+
+ใช้สำหรับ:
+
+- Undo
+- Short Action Feedback
+- Background Completion
+
+ตัวอย่าง:
+
+«File deleted»
+
+[Undo]
+
+---
+
+86. LOADING SKELETON
+
+หน้าโหลดข้อมูล:
+
+ใช้ Skeleton
+
+แทน Spinner เต็มหน้า
+
+Skeleton ต้องมี Animation ช้าๆ
+
+---
+
+87. EMPTY STATE
+
+ทุก Screen ต้องมี Illustration/Icon ขนาดประมาณ 48–80dp
+
+Title
+
+Description
+
+Primary Action
+
+Secondary Action ถ้ามี
+
+---
+
+88. ERROR STATE
+
+ทุก Screen ต้องมี Error State
+
+Icon
+
+Title
+
+Explanation
+
+Retry
+
+Details
+
+---
+
+89. OFFLINE STATE
+
+แสดง Banner เล็กด้านบน:
+
+Offline
+
+ไม่ปิดบัง Content
+
+ถ้าความสามารถนั้นใช้ Offline ได้:
+
+ยังให้ใช้งาน
+
+ถ้าไม่ได้:
+
+Disable เฉพาะ Action นั้น
+
+---
+
+90. PERMISSION UI
+
+Permission Dialog ต้องบอก:
+
+AI ต้องการทำอะไร
+
+กับอะไร
+
+ทำไม
+
+ระดับความเสี่ยง
+
+ปุ่ม:
+
+Allow Once
+
+Allow for Task
+
+Deny
+
+---
+
+91. DANGEROUS ACTION
+
+เช่น:
+
+Delete
+
+Overwrite
+
+Reset
+
+Deploy
+
+ต้องใช้ Confirmation
+
+แสดงสิ่งที่จะเกิดขึ้นชัดเจน
+
+---
+
+92. AI ACTIVITY CENTER
+
+เป็นหน้าแยก
+
+แสดง:
+
+Current AI Tasks
+
+Agents
+
+Tools
+
+Models
+
+Events
+
+แต่ Default View ต้องอ่านง่าย
+
+---
+
+93. AI ACTIVITY CARD
+
+ตัวอย่าง:
+
+Coding Agent
+
+● Working
+
+Editing:
+MainActivity.kt
+
+Tool:
+Code Editor
+
+Progress:
+68%
+
+[Details]
+
+---
+
+94. EXECUTION DETAILS
+
+เมื่อกด Details:
+
+แสดง Timeline
+
+16:10 Analyze
+16:10 Plan
+16:11 Read File
+16:11 Edit File
+16:12 Build
+16:13 Verify
+
+---
+
+95. ADVANCED DEBUG UI
+
+Developer Mode เท่านั้น
+
+แสดง:
+
+- Tool Calls
+- Event Bus
+- Model Router
+- Agent State
+- Memory Retrieval
+- Resource Decisions
+- Execution Logs
+
+แต่แยกออกจาก Normal UX
+
+---
+
+96. RESPONSIVE RULES
+
+Phone
+
+1 Column
+
+Full Screen
+
+Bottom Sheets
+
+Drawer
+
+Large Phone
+
+1 Column + Wider Cards
+
+Tablet
+
+2 Column เมื่อเหมาะสม
+
+Landscape
+
+เพิ่ม Side Panel
+
+Desktop
+
+Persistent Sidebar
+
+Main Content
+
+Optional Context Panel
+
+---
+
+97. BREAKPOINT PRINCIPLE
+
+ห้ามกำหนด Layout ด้วย Device Model
+
+ใช้ Width/Available Space เป็นหลัก
+
+แนวทาง:
+
+Compact
+
+Medium
+
+Expanded
+
+และให้ Components ปรับตัวเอง
+
+---
+
+98. ACCESSIBILITY
+
+ทุกปุ่ม:
+
+Content Description
+
+ทุก Icon:
+
+Semantic Meaning
+
+Touch Target:
+
+อย่างน้อย 44–48dp
+
+รองรับ:
+
+Font Scaling
+
+Screen Reader
+
+High Contrast
+
+Reduced Motion
+
+---
+
+99. ANIMATION TIMING
+
+Micro interaction:
+
+100–150ms
+
+Normal transition:
+
+180–250ms
+
+Modal/Sheet:
+
+250–350ms
+
+ห้าม Animation ยาวโดยไม่มีเหตุผล
+
+---
+
+100. PRESS STATES
+
+ทุกปุ่มต้องมี:
+
+Normal
+
+Pressed
+
+Focused
+
+Disabled
+
+Loading
+
+Success/Error ถ้าจำเป็น
+
+Pressed:
+
+ลดความสว่าง/Scale เล็กน้อย
+
+ห้ามใช้ Scale ใหญ่จน UI ดูเด้ง
+
+---
+
+101. HOVER
+
+ถ้า Desktop/Mouse:
+
+Hover Surface
+
+Cursor
+
+Tooltip
+
+แต่ Mobile ไม่ควรพึ่ง Hover
+
+---
+
+102. FOCUS
+
+Keyboard/Accessibility Focus:
+
+ใช้ Outline/Highlight ที่เห็นชัด
+
+ไม่ใช้เพียงสีจางๆ
+
+---
+
+103. SCROLL
+
+ทุก Long Content:
+
+Vertical Scroll
+
+Header สำคัญสามารถ Sticky
+
+Chat:
+
+Message list scroll
+
+Composer fixed
+
+Browser:
+
+Web page scroll independently
+
+Editor:
+
+Code scroll independently
+
+Terminal:
+
+Output scroll independently
+
+---
+
+104. GLOBAL SEARCH
+
+Search ต้องค้นหา:
+
+Chats
+
+Projects
+
+Files
+
+Tasks
+
+Tools
+
+Models
+
+Browser History
+
+Git
+
+ผลลัพธ์แบ่ง Category
+
+---
+
+105. GLOBAL COMMAND PALETTE
+
+Power User:
+
+กด Search/Command shortcut
+
+เปิด Command Palette
+
+ตัวอย่าง:
+
+«Build Project»
+
+«Open Browser»
+
+«Search Files»
+
+«New Task»
+
+«Switch Project»
+
+«Open Terminal»
+
+---
+
+106. NOTIFICATION CENTER
+
+Notification Item:
+
+Icon
+
+Title
+
+Description
+
+Time
+
+Status
+
+Tap:
+
+เปิด Context ที่เกี่ยวข้อง
+
+---
+
+107. PROFILE
+
+Profile Screen:
+
+Account
+
+Preferences
+
+Storage
+
+Security
+
+About
+
+Logout
+
+---
+
+108. ONBOARDING
+
+ไม่เกิน 3–4 หน้า
+
+Page 1:
+
+Welcome
+
+Page 2:
+
+AI can work with your projects
+
+Page 3:
+
+Tools + Browser + Code
+
+Page 4:
+
+Ready
+
+ปุ่ม:
+
+Get Started
+
+---
+
+109. FIRST-RUN PERMISSIONS
+
+อย่าขอ Permission ทั้งหมดพร้อมกัน
+
+ขอเมื่อจำเป็น
+
+เช่น:
+
+Microphone → ตอนใช้ Voice
+
+Storage → ตอนจำเป็น
+
+Browser Login → ตอนจำเป็น
+
+---
+
+110. VISUAL HIERARCHY
+
+ทุกหน้าต้องมี:
+
+Primary Action
+
+Secondary Action
+
+Information
+
+Status
+
+Navigation
+
+ต้องมี Visual Hierarchy ชัดเจน
+
+ผู้ใช้ต้องรู้ภายใน 1–2 วินาทีว่า:
+
+«“หน้านี้คืออะไร”»
+
+และ:
+
+«“ฉันควรทำอะไรต่อ”»
+
+---
+
+111. BUTTON HIERARCHY
+
+Primary:
+
+Filled Primary
+
+Secondary:
+
+Outlined/Soft
+
+Tertiary:
+
+Text
+
+Danger:
+
+Error Filled/Outlined ตามความสำคัญ
+
+ห้ามมี Primary Button 5 ปุ่มในหน้าจอเดียว
+
+---
+
+112. CARD HIERARCHY
+
+Card ที่สำคัญ:
+
+Surface + Border
+
+Card รอง:
+
+Surface Variant
+
+Card ไม่สำคัญ:
+
+ไม่มี Border หรือใช้ Divider
+
+ไม่ใส่ Shadow ทุก Card
+
+---
+
+113. ICON COLOR
+
+Default:
+
+Muted/Secondary
+
+Active:
+
+Primary
+
+Success:
+
+Green
+
+Warning:
+
+Amber
+
+Error:
+
+Red
+
+ห้ามใช้หลายสีพร้อมกันโดยไม่มีความหมาย
+
+---
+
+114. USER FEEDBACK
+
+ทุก Action ต้องมี Feedback
+
+เช่น:
+
+Copy → Copied
+
+Save → Saved
+
+Delete → Deleted + Undo
+
+Build → Progress
+
+Install → Progress
+
+Model Switch → Status
+
+AI Action → Activity
+
+---
+
+115. NO SILENT ACTION
+
+ห้ามระบบทำ Action สำคัญแล้วผู้ใช้ไม่รู้
+
+ตัวอย่าง:
+
+AI แก้ไฟล์
+
+ต้องแสดง:
+
+«Modified 3 files»
+
+AI เปลี่ยน Model:
+
+«Switched to Local Fast Model»
+
+AI ใช้ Tool:
+
+«Using Browser Tool»
+
+AI Retry:
+
+«Retrying Build»
+
+---
+
+116. TOOL ENTRY POINT
+
+ทุก Tool ที่ User ใช้งานได้ต้องมี Entry Point
+
+Entry Point สามารถอยู่ใน:
+
+- Chat
+- Project
+- Workspace
+- AI Center
+- More
+
+แต่ต้องหาเจอได้
+
+---
+
+117. TOOL DEEP LINK
+
+เมื่อ AI บอก:
+
+«Build พบ Error»
+
+ผู้ใช้กด:
+
+View Error
+
+ต้องเปิด Build Error ตรงจุดนั้นทันที
+
+ไม่พาผู้ใช้ไปหน้า Build Home แล้วให้หาเอง
+
+---
+
+118. CONTEXT PRESERVATION
+
+เมื่อเปลี่ยน:
+
+Chat → Browser
+
+หรือ:
+
+Browser → Files
+
+หรือ:
+
+Files → Editor
+
+ต้องรักษา Context
+
+เช่น:
+
+Project
+
+Task
+
+File
+
+URL
+
+Selection
+
+AI Conversation
+
+---
+
+119. MULTI-WINDOW / MULTI-WORKSPACE CONCEPT
+
+ถ้า Platform รองรับ:
+
+สามารถเปิด Workspace หลายชุด
+
+แต่บน Mobile ให้ใช้:
+
+Recent Workspace
+
+และรักษา State
+
+---
+
+120. UX WHEN AI OPENS A TOOL
+
+ตัวอย่าง:
+
+User:
+
+«เปิด GitHub และตรวจ Issue ให้หน่อย»
+
+AI:
+
+1. เปิด Browser
+2. เลือก GitHub Session
+3. เปิด URL
+4. ตรวจ Authentication
+5. ถ้าต้อง Login → หยุด
+6. ถ้า Login แล้ว → ทำต่อ
+
+ผู้ใช้เห็น:
+
+AI Task
+
+Opening GitHub
+✓
+
+Checking session
+✓
+
+Authentication
+● Waiting for you
+
+---
+
+121. HUMAN HANDOFF UI
+
+เมื่อ AI ส่งต่อให้ผู้ใช้:
+
+แสดง Overlay/Sheet:
+
+Your turn
+
+เหตุผล:
+
+«GitHub ต้องการการยืนยันตัวตน»
+
+ปุ่ม:
+
+Continue
+
+หลังผู้ใช้เสร็จ:
+
+Resume AI
+
+---
+
+122. AI HANDOFF BACK
+
+หลังผู้ใช้ทำเสร็จ:
+
+แสดง:
+
+«Authentication complete»
+
+«AI can continue»
+
+[Resume]
+
+---
+
+123. TOOL FULLSCREEN
+
+Tool ที่ต้องการพื้นที่มาก เช่น:
+
+Browser
+
+Editor
+
+Terminal
+
+สามารถเปิด Full Screen
+
+แต่ต้องมี Global Exit/Back
+
+---
+
+124. TOOL MINI MODE
+
+Tool บางตัวสามารถเปิดเป็น Mini Panel:
+
+Terminal
+
+AI Activity
+
+Build Progress
+
+Browser Preview
+
+ใช้ Bottom Sheet/Side Panel
+
+---
+
+125. TOOL MAXIMIZE
+
+จาก Mini Panel:
+
+[Expand]
+
+→ Full Workspace
+
+---
+
+126. SPLIT VIEW
+
+Tablet/Desktop:
+
+Chat | Editor
+
+Chat | Browser
+
+Editor | Terminal
+
+Browser | AI Activity
+
+สามารถ Split ได้เมื่อพื้นที่เพียงพอ
+
+บน Mobile:
+
+ใช้ Tab/Navigation แทน
+
+---
+
+127. DRAG AND DROP
+
+บน Desktop/Tablet ถ้ารองรับ:
+
+File → Chat
+
+File → Editor
+
+Browser → Project
+
+ใช้ได้
+
+แต่ Mobile ต้องมี Share/Attach Alternative
+
+---
+
+128. FILE DRAG INTO CHAT
+
+เมื่อวางไฟล์:
+
+Composer แสดง Attachment Preview
+
+ไม่ส่งอัตโนมัติ
+
+ผู้ใช้ต้องกด Send
+
+---
+
+129. BROWSER TO PROJECT
+
+ผู้ใช้สามารถ:
+
+Download
+
+แล้ว:
+
+Add to Project
+
+AI สามารถเสนอ:
+
+«Add downloaded file to Project?»
+
+---
+
+130. EDITOR TO CHAT
+
+เลือก Code
+
+กด:
+
+Ask AI
+
+เปิด Chat Context:
+
+«Analyze this selected code»
+
+AI ต้องได้รับ:
+
+- File
+- Line
+- Selection
+- Project Context
+
+---
+
+131. TERMINAL TO CHAT
+
+เลือก Error
+
+กด:
+
+Ask AI
+
+AI ได้ Terminal Output Context
+
+---
+
+132. BUILD TO CHAT
+
+Build Error:
+
+[Fix with AI]
+
+เปิด Chat พร้อม:
+
+- Build ID
+- Error
+- Logs
+- Project
+- Files
+
+---
+
+133. TEST TO CHAT
+
+Failed Test:
+
+[Fix with AI]
+
+ส่ง:
+
+Test Name
+
+Error
+
+Stack
+
+Related File
+
+---
+
+134. GIT TO CHAT
+
+เลือก Diff:
+
+[Explain with AI]
+
+[Review with AI]
+
+AI เห็น Diff โดยตรง
+
+---
+
+135. BROWSER TO CHAT
+
+กด:
+
+Ask AI
+
+AI เห็น:
+
+- URL
+- Page title
+- Page content ตามสิทธิ์
+- Screenshot/DOM ตามระบบ
+
+---
+
+136. UNIFIED AI EXPERIENCE
+
+ไม่ว่า User จะอยู่หน้าไหน:
+
+Chat
+
+Browser
+
+Editor
+
+Terminal
+
+Files
+
+Build
+
+Test
+
+Git
+
+ต้องมี Action:
+
+Ask AI
+
+นี่ทำให้ทุก Tool กลายเป็นส่วนหนึ่งของ AI Application
+
+---
+
+137. DESIGN CONSISTENCY
+
+ทุกหน้าต้องใช้:
+
+เดียวกัน:
+
+- Colors
+- Typography
+- Radius
+- Spacing
+- Buttons
+- Icons
+- Sheets
+- Dialogs
+- Navigation
+- Animation
+
+แต่ Tool-specific UI ต้องยังรักษาธรรมชาติของ Tool
+
+---
+
+138. EXAMPLE OF CORRECT DESIGN
+
+Browser:
+
+ต้องดูเป็น Browser
+
+แต่ใช้:
+
+- สีของ Application
+- Radius ของ Application
+- Button Style ของ Application
+- Sheet ของ Application
+- Typography ของ Application
+
+Editor:
+
+ต้องดูเป็น Code Editor
+
+แต่ใช้ Design System เดียวกัน
+
+---
+
+139. EXAMPLE OF WRONG DESIGN
+
+ห้าม:
+
+Browser = WebView เต็มจอ + URL TextField
+
+Terminal = TextView + EditText
+
+Files = RecyclerView ธรรมดา
+
+Git = Text Logs
+
+Models = ListView
+
+Tools = ListView
+
+เพียงเพราะ Backend ทำงานได้
+
+สิ่งเหล่านี้ถือว่า:
+
+UI/UX INCOMPLETE
+
+---
+
+140. EVERY SCREEN SPEC
+
+ก่อนสร้าง Screen ใหม่ AI Developer ต้องเขียน:
+
+SCREEN NAME
+PURPOSE
+ENTRY POINT
+EXIT POINT
+LAYOUT
+COMPONENTS
+COLORS
+TYPOGRAPHY
+SPACING
+INTERACTIONS
+STATES
+LOADING
+EMPTY
+ERROR
+SUCCESS
+PERMISSION
+ANIMATION
+ACCESSIBILITY
+RESPONSIVE
+DATA SOURCE
+
+ก่อน Implement
+
+---
+
+141. EVERY BUTTON SPEC
+
+ทุกปุ่มต้องระบุ:
+
+Name
+
+Position
+
+Size
+
+Icon
+
+Text
+
+Color
+
+Normal State
+
+Pressed State
+
+Disabled State
+
+Loading State
+
+Action
+
+Destination
+
+Error
+
+Success
+
+---
+
+142. EVERY CARD SPEC
+
+ทุก Card ต้องระบุ:
+
+Width
+
+Height/Min Height
+
+Padding
+
+Radius
+
+Border
+
+Background
+
+Icon
+
+Title
+
+Description
+
+Status
+
+Actions
+
+Tap
+
+Long Press
+
+Loading
+
+Empty
+
+Error
+
+---
+
+143. EVERY SCREEN MUST HAVE A VISUAL PURPOSE
+
+ห้ามสร้างหน้าเพียงเพื่อ:
+
+«“เพราะ Backend มี Table นี้”»
+
+UI ต้องเกิดจาก User Task
+
+ไม่ใช่ Database Schema
+
+---
+
+144. INFORMATION ARCHITECTURE
+
+ผู้ใช้ต้องเดินทางได้:
+
+Home
+ ↓
+Chat
+ ↓
+Task
+ ↓
+Workspace
+ ↓
+Tool
+ ↓
+Result
+
+และ:
+
+Home
+ ↓
+Project
+ ↓
+Workspace
+ ↓
+Tool
+
+โดยไม่หลง
+
+---
+
+145. BACK NAVIGATION
+
+Back ต้องคืน State ก่อนหน้าอย่างถูกต้อง
+
+ตัวอย่าง:
+
+Browser Tab → Browser → Project → Chat
+
+ไม่ควรส่งผู้ใช้กลับ Home โดยไม่จำเป็น
+
+---
+
+146. SAVE STATE
+
+เมื่อออกจากหน้า:
+
+ต้องรักษา:
+
+- Scroll
+- Tab
+- File
+- Browser URL
+- Terminal Session
+- Chat Position
+- Project
+- Task
+
+ตามความเหมาะสม
+
+---
+
+147. ROTATION
+
+ถ้า Orientation เปลี่ยน:
+
+ต้องรักษา State
+
+ห้าม:
+
+- Reload Chat
+- ปิด Task
+- หายจาก Editor
+- ปิด Browser Tab
+
+---
+
+148. PROCESS DEATH
+
+ถ้า Android ทำลาย Process:
+
+เมื่อเปิดกลับมา:
+
+ต้อง Restore สำคัญ:
+
+- Project
+- Chat
+- Task
+- Workspace
+- Tool State ที่สามารถ Restore ได้
+
+---
+
+149. PERFORMANCE RULE
+
+UI ไม่ควรสร้างทุกข้อมูลทั้งหมดพร้อมกัน
+
+ใช้:
+
+Lazy List
+
+Pagination
+
+Virtualization
+
+Cache
+
+Streaming
+
+ตามประเภทข้อมูล
+
+---
+
+150. CHAT STREAMING
+
+AI Response ที่ Streaming:
+
+ข้อความค่อยๆ แสดง
+
+แต่ UI ต้องไม่กระตุก
+
+Code Block ต้องจัดการ Streaming อย่างถูกต้อง
+
+Composer ยังคง Responsive
+
+---
+
+151. LONG CHAT
+
+Chat ยาวมาก:
+
+ต้องรองรับ:
+
+- Virtualization
+- Lazy rendering
+- Message grouping
+- Jump to latest
+- Search
+- Date separator
+
+---
+
+152. DATE SEPARATOR
+
+เช่น:
+
+วันนี้
+
+เมื่อวาน
+
+21 กันยายน
+
+ต้องมี Divider เบาๆ
+
+---
+
+153. MESSAGE GROUPING
+
+ถ้า AI ส่งหลายข้อความต่อเนื่อง:
+
+รวม Visual Group
+
+ลดความรก
+
+---
+
+154. USER MESSAGE ACTION
+
+Long Press:
+
+Copy
+
+Edit
+
+Delete
+
+Share
+
+---
+
+155. AI MESSAGE ACTION
+
+Long Press:
+
+Copy
+
+Regenerate
+
+Edit
+
+Save
+
+Share
+
+Ask AI
+
+More
+
+---
+
+156. AI RESPONSE WITH MULTIPLE RESULTS
+
+ถ้า AI สร้างหลายไฟล์:
+
+ไม่แสดงข้อความยาว
+
+ใช้:
+
+Files Created Card
+
+4 files created
+
+Main.kt
+UI.kt
+Theme.kt
+Manifest.xml
+
+[View Files]
+
+---
+
+157. AI RESPONSE WITH MANY CHANGES
+
+ใช้:
+
+Change Summary
+
+8 files changed
+
++142
+-37
+
+[Review Changes]
+
+---
+
+158. AI RESPONSE WITH BUILD
+
+ใช้:
+
+Build Result Card
+
+ไม่ส่ง Log ยาวๆ เข้า Chat
+
+มี:
+
+Build Successful
+
+Warnings
+
+Artifacts
+
+[View Build]
+
+---
+
+159. AI RESPONSE WITH ERROR
+
+ใช้:
+
+Error Summary
+
+ไม่ส่ง Stack Trace ยาวทั้งหมด
+
+[View Technical Details]
+
+---
+
+160. ADVANCED DETAILS
+
+Technical Detail ใช้ Expandable Section
+
+ดังนั้น:
+
+Normal User = Simple
+
+Developer = Full Detail
+
+---
+
+161. BROWSER ERROR
+
+ถ้า Website โหลดไม่ได้:
+
+Browser ต้องแสดง Error Page ของ Browser
+
+ไม่ใช่ Error ของ AI เต็มหน้าจอ
+
+มี:
+
+Retry
+
+Back
+
+Details
+
+Ask AI
+
+---
+
+162. TOOL ERROR
+
+ถ้า Tool เสีย:
+
+Tool UI แสดง Error State
+
+AI Activity ก็แสดง:
+
+«Tool unavailable»
+
+พร้อม Recovery
+
+---
+
+163. MODEL ERROR
+
+Model Center:
+
+Status:
+
+Unavailable
+
+Reason
+
+Retry
+
+Switch
+
+Details
+
+AI Router สามารถเปลี่ยน Model ได้
+
+---
+
+164. RESOURCE LIMIT
+
+ถ้า RAM ไม่พอ:
+
+อย่า Crash
+
+แสดง:
+
+«This task requires more memory.»
+
+แล้ว AI พยายาม:
+
+- Lightweight Model
+- Reduce Context
+- Pause Other Task
+- Ask User
+
+---
+
+165. STORAGE LIMIT
+
+ถ้า Storage ต่ำ:
+
+แสดง:
+
+Storage Warning
+
+Used
+
+Free
+
+Suggestions:
+
+Clear Cache
+
+Remove Model
+
+Remove Build Artifacts
+
+---
+
+166. NETWORK LIMIT
+
+แสดง:
+
+Online
+
+Offline
+
+Poor Connection
+
+Reconnecting
+
+Tool ที่ต้อง Network จะได้รับสถานะตามจริง
+
+---
+
+167. BATTERY
+
+ถ้า Battery ต่ำและ Task หนัก:
+
+AI อาจแสดง:
+
+«Heavy task may consume battery.»
+
+และเสนอ:
+
+Run Now
+
+Pause
+
+---
+
+168. SECURITY VISUAL
+
+Sensitive Action ต้องมี Security Indicator
+
+เช่น:
+
+🔒 Secure Action
+
+แต่ไม่ใช้ Icon เยอะจนรก
+
+---
+
+169. SECRET MANAGER
+
+UI ต้องไม่แสดง Secret เป็น Plain Text
+
+ใช้:
+
+••••••••
+
+Actions:
+
+Show
+
+Copy
+
+Rotate
+
+Delete
+
+และต้องมี Permission
+
+---
+
+170. AUDIT LOG UI
+
+แสดง:
+
+Time
+
+Action
+
+Actor
+
+Tool
+
+Result
+
+ตัวอย่าง:
+
+AI Agent
+
+Used Browser
+
+Opened GitHub
+
+Success
+
+---
+
+171. SETTINGS → APPEARANCE
+
+ต้องมี:
+
+Theme
+
+Light
+
+Dark
+
+System
+
+Accent
+
+Text Size
+
+Animation
+
+Density
+
+---
+
+172. SETTINGS → AI
+
+มี:
+
+Auto Model
+
+Fallback
+
+Response Style
+
+Memory
+
+Permissions
+
+Autonomy Level
+
+---
+
+173. AUTONOMY LEVEL
+
+ตัวเลือก:
+
+Ask Before Important Actions
+
+Ask Before Risky Actions
+
+Allow Routine Actions
+
+Advanced
+
+Default ต้องปลอดภัย
+
+---
+
+174. SETTINGS → TOOLS
+
+แสดง Tool Availability
+
+แต่ไม่ใช่เพียง Toggle
+
+แต่ละ Tool:
+
+Status
+
+Storage
+
+Permissions
+
+Dependencies
+
+Manage
+
+---
+
+175. SETTINGS → STORAGE
+
+แสดง:
+
+Total
+
+Used
+
+Free
+
+Models
+
+Tools
+
+Projects
+
+Cache
+
+Logs
+
+---
+
+176. SETTINGS → PRIVACY
+
+แสดง:
+
+Local AI
+
+External AI
+
+Browser Data
+
+Cookies
+
+History
+
+Memory
+
+Logs
+
+---
+
+177. SETTINGS → DEVELOPER
+
+แยก Advanced
+
+ประกอบด้วย:
+
+Debug Logs
+
+Event Bus
+
+Runtime
+
+AI Trace
+
+Experimental
+
+---
+
+178. DESIGN QA
+
+ก่อนบอกว่า UI เสร็จ ต้องตรวจ:
+
+Visual
+
+Functional
+
+Interaction
+
+Accessibility
+
+Performance
+
+Responsive
+
+State
+
+Error
+
+Offline
+
+Dark Mode
+
+---
+
+179. VISUAL QA
+
+ตรวจทุก Screen:
+
+- Alignment
+- Spacing
+- Typography
+- Color
+- Contrast
+- Icon consistency
+- Radius
+- Shadow
+- Overflow
+- Clipping
+- Keyboard
+- Safe Area
+
+---
+
+180. INTERACTION QA
+
+ทุกปุ่มต้อง:
+
+กดได้
+
+Feedback ได้
+
+Navigation ถูก
+
+Back ถูก
+
+Loading ถูก
+
+Error ถูก
+
+---
+
+181. STATE QA
+
+ทดสอบ:
+
+Fresh
+
+Loading
+
+Loaded
+
+Empty
+
+Error
+
+Offline
+
+Permission
+
+Working
+
+Paused
+
+Completed
+
+Cancelled
+
+---
+
+182. TOOL QA
+
+ทุก Tool ต้องทดสอบทั้ง:
+
+Human Mode
+
+AI Mode
+
+Handoff
+
+Recovery
+
+Error
+
+Permission
+
+---
+
+183. BROWSER QA
+
+ต้องทดสอบ:
+
+New Tab
+
+Multiple Tabs
+
+Navigation
+
+Login
+
+Cookies
+
+Download
+
+Upload
+
+AI Control
+
+Take Control
+
+Return to AI
+
+---
+
+184. EDITOR QA
+
+ต้องทดสอบ:
+
+Open
+
+Edit
+
+Save
+
+Undo
+
+Redo
+
+Search
+
+Replace
+
+AI Edit
+
+Diff
+
+Apply
+
+Rollback
+
+---
+
+185. TERMINAL QA
+
+ต้องทดสอบ:
+
+New Session
+
+Command
+
+Output
+
+Long Output
+
+Process
+
+Stop
+
+Error
+
+AI Analysis
+
+Permission
+
+---
+
+186. BUILD QA
+
+ต้องทดสอบ:
+
+Build
+
+Progress
+
+Success
+
+Failure
+
+Retry
+
+Artifact
+
+Install
+
+Logs
+
+---
+
+187. GIT QA
+
+ต้องทดสอบ:
+
+Status
+
+Diff
+
+Commit
+
+Branch
+
+Merge
+
+Conflict
+
+Push
+
+Authentication
+
+---
+
+188. MODEL QA
+
+ต้องทดสอบ:
+
+Install
+
+Load
+
+Unload
+
+Switch
+
+Failure
+
+Fallback
+
+Memory Limit
+
+Download
+
+Delete
+
+---
+
+189. RESPONSIVE QA
+
+ต้องทดสอบ:
+
+Small Phone
+
+Large Phone
+
+Landscape
+
+Tablet
+
+Desktop/Expanded ถ้ารองรับ
+
+---
+
+190. FINAL UI RULE
+
+ห้ามใช้คำว่า “สวย” เป็น Acceptance Criteria
+
+คำว่า “สวย” ต้องถูกแปลงเป็นข้อกำหนดที่ตรวจได้:
+
+- Alignment ถูก
+- Spacing ถูก
+- Typography ถูก
+- Contrast ถูก
+- Hierarchy ชัด
+- Components consistent
+- Interaction predictable
+- Visual noise ต่ำ
+- Information density เหมาะสม
+- Error states เข้าใจง่าย
+- Animation เหมาะสม
+- Touch targets เหมาะสม
+
+---
+
+191. FINAL TOOL RULE
+
+ถ้า Tool เป็น User-Facing:
+
+ต้องมี Full UI
+
+ถ้า Tool เป็น Internal:
+
+ไม่จำเป็นต้องมี Full UI
+
+ถ้า Tool เป็นทั้ง AI และ User:
+
+ต้องมีทั้ง:
+
+AI Interface
+
+และ
+
+Human Interface
+
+---
+
+192. FINAL AI DEVELOPER RULE
+
+ห้ามตอบว่า:
+
+«“UI นี้สามารถปรับให้สวยภายหลังได้”»
+
+เพราะ UI/UX เป็นส่วนหนึ่งของ Architecture
+
+ต้องสร้าง:
+
+Design System
+
+UI Components
+
+Screen Specifications
+
+Interaction Specifications
+
+State Specifications
+
+พร้อมกับ Core Architecture
+
+---
+
+193. DEFINITION OF UI DONE
+
+UI Feature จะถือว่า DONE เมื่อ:
+
+[ ] Visual Design เสร็จ
+
+[ ] Layout เสร็จ
+
+[ ] Components เสร็จ
+
+[ ] Color เสร็จ
+
+[ ] Typography เสร็จ
+
+[ ] Interaction เสร็จ
+
+[ ] Loading เสร็จ
+
+[ ] Empty เสร็จ
+
+[ ] Error เสร็จ
+
+[ ] Success เสร็จ
+
+[ ] Permission เสร็จ
+
+[ ] Offline เสร็จ
+
+[ ] Dark Mode เสร็จ
+
+[ ] Responsive เสร็จ
+
+[ ] Accessibility เสร็จ
+
+[ ] Real Data Connected
+
+[ ] No Fake State
+
+[ ] No Placeholder
+
+[ ] Tested
+
+---
+
+194. DEFINITION OF TOOL DONE
+
+Tool จะถือว่า DONE เมื่อ:
+
+[ ] AI ใช้งานได้
+
+[ ] User ใช้งานได้ ถ้าเป็น User-facing Tool
+
+[ ] UI สมบูรณ์
+
+[ ] State ครบ
+
+[ ] Error ครบ
+
+[ ] Permission ครบ
+
+[ ] Resource Management ครบ
+
+[ ] Recovery ครบ
+
+[ ] AI Integration ครบ
+
+[ ] Human Handoff ครบ
+
+[ ] Responsive ครบ
+
+[ ] Dark Mode ครบ
+
+[ ] Performance ผ่าน
+
+---
+
+195. FINAL APPLICATION EXPERIENCE
+
+เมื่อผู้ใช้เปิดแอป:
+
+เห็น Chat ที่สะอาด
+
+ผู้ใช้พิมพ์:
+
+«สร้าง Android App ให้ฉัน»
+
+AI:
+
+เข้าใจ
+
+วางแผน
+
+แสดง Task
+
+สร้าง Project
+
+เปิด Workspace
+
+ใช้ Editor
+
+ใช้ Terminal
+
+Build
+
+Test
+
+Verify
+
+แล้วกลับมาที่ Chat:
+
+«สร้างเสร็จแล้ว»
+
+พร้อม:
+
+Build Result
+
+Files
+
+APK
+
+Test Result
+
+---
+
+196. แต่ผู้ใช้สามารถทำเองได้เช่นกัน
+
+ผู้ใช้กด:
+
+Projects
+
+→ Project
+
+→ Editor
+
+แล้วเขียน Code เอง
+
+หรือ:
+
+Browser
+
+→ เปิดเว็บไซต์เอง
+
+หรือ:
+
+Terminal
+
+→ ใช้ Terminal เอง
+
+หรือ:
+
+Files
+
+→ จัดการไฟล์เอง
+
+หรือ:
+
+Git
+
+→ ดู Diff เอง
+
+หรือ:
+
+Models
+
+→ จัดการ Model เอง
+
+AI เป็นผู้ช่วย
+
+ไม่ใช่ตัวบังคับว่าทุกอย่างต้องทำผ่าน Chat
+
+---
+
+197. FINAL UX PRINCIPLE
+
+แอปต้องให้ความรู้สึก:
+
+«“ฉันมีพื้นที่ทำงานอัจฉริยะที่มี AI อยู่ข้างฉัน”»
+
+ไม่ใช่:
+
+«“ฉันมี Chatbot ที่มีปุ่ม Tools อยู่ด้านล่าง”»
+
+---
+
+198. FINAL VISUAL PRINCIPLE
+
+ทุกหน้าต้องมี:
+
+Purpose
+
+Hierarchy
+
+Structure
+
+Visual Language
+
+Interaction
+
+Feedback
+
+State
+
+Context
+
+---
+
+199. FINAL ARCHITECTURE PRINCIPLE
+
+ONE APP
+│
+├── ONE DESIGN SYSTEM
+│
+├── ONE APPLICATION STATE
+│
+├── ONE AI CORE
+│
+├── ONE PERMISSION SYSTEM
+│
+├── ONE RESOURCE SYSTEM
+│
+└── MANY PROFESSIONAL WORKSPACES
+    │
+    ├── Chat
+    ├── Browser
+    ├── Editor
+    ├── Files
+    ├── Terminal
+    ├── Build
+    ├── Test
+    ├── Git
+    ├── Models
+    ├── Tools
+    ├── Agents
+    ├── Projects
+    └── AI Activity
+
+---
+
+200. ABSOLUTE FINAL RULE
+
+อย่าสร้างแอปโดยคิดว่า:
+
+«“มี Feature แล้วก็สร้างหน้า List ให้มัน”»
+
+ให้คิดว่า:
+
+«“Feature นี้คือผลิตภัณฑ์ย่อยที่ผู้ใช้ต้องสามารถเข้าใจ ใช้งาน ควบคุม และตรวจสอบได้”»
+
+ดังนั้น:
+
+Browser ต้องเป็น Browser
+
+Code Editor ต้องเป็น Code Editor
+
+File Manager ต้องเป็น File Manager
+
+Terminal ต้องเป็น Terminal
+
+Git ต้องเป็น Git Workspace
+
+Build ต้องเป็น Build Center
+
+Test ต้องเป็น Test Center
+
+Model Manager ต้องเป็น Model Center
+
+Tool Manager ต้องเป็น Tool Center
+
+Agent Manager ต้องเป็น Agent Center
+
+Project ต้องเป็น Project Workspace
+
+Chat ต้องเป็น Chat
+
+และทั้งหมดต้องเชื่อมกันผ่าน:
+
+OWN AI CORE
+
+---
+
+FINAL PRODUCT STATEMENT
+
+«สร้างแอปที่มีความง่ายในการใช้งานระดับ ChatGPT แต่ไม่จำกัดตัวเองอยู่แค่ Chat และไม่ใช่การเอา Tools มาวางเรียงเป็นรายการ แอปต้องเป็น AI Operating Environment ที่ทุกความสามารถที่ผู้ใช้เข้าถึงได้มี UI/UX ที่สมบูรณ์ สวย สม่ำเสมอ ใช้งานได้จริง มีสถานะครบ มี Interaction ครบ มี Visual Hierarchy ชัด และสามารถสลับระหว่าง Human Control กับ AI Control ได้ โดยทุก Workspace ใช้ Design System เดียวกันและเชื่อมต่อกับ AI Core เดียวกัน»

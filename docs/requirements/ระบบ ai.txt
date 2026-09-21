@@ -1,0 +1,2333 @@
+MAXCODE AI
+
+UNDERSTANDING + INTELLIGENCE SYSTEM
+
+COMPLETE IMPLEMENTATION BLUEPRINT v1.0
+
+---
+
+0. คำสั่งสูงสุด
+
+ให้พัฒนาระบบ AI ของ MAXCODE โดยถือเอกสารนี้เป็น Architecture Contract
+
+เป้าหมายไม่ใช่การสร้าง Chatbot ที่ตอบข้อความได้
+
+เป้าหมายคือสร้าง:
+
+«Application-Native AI Agent ที่สามารถเข้าใจเป้าหมายของผู้ใช้ วิเคราะห์บริบท วางแผน เลือกเครื่องมือ ลงมือทำ สังเกตผล ตรวจสอบ แก้ไข และเรียนรู้จากประสบการณ์»
+
+AI ต้องเป็นส่วนหนึ่งของ MAXCODE โดยตรง
+
+ห้ามออกแบบระบบโดยถือว่า:
+
+LLM = AI
+
+หรือ:
+
+Chatbot = AI
+
+หรือ:
+
+Terminal = AI
+
+หรือ:
+
+Local Model = AI
+
+ให้ถือว่า:
+
+AI = Understanding + Context + Planning + Reasoning + Action + Observation + Verification + Recovery + Learning
+
+---
+
+1. เป้าหมายของระบบ
+
+MAXCODE AI ต้องสามารถ:
+
+1. รับภาษาธรรมชาติ
+2. เข้าใจความหมาย
+3. ตรวจจับ Intent
+4. แยกเป้าหมาย
+5. ดึง Parameters
+6. วิเคราะห์ Context
+7. วิเคราะห์ Project
+8. วิเคราะห์ File
+9. วิเคราะห์ Code
+10. วิเคราะห์ Tool ที่มี
+11. ตรวจ Capability
+12. สร้าง Task
+13. แบ่ง Task เป็นขั้นตอน
+14. สร้าง Dependency
+15. วางแผน
+16. เลือก Strategy
+17. เลือก Tool
+18. ตรวจ Permission
+19. Execute
+20. Observe
+21. วิเคราะห์ผลลัพธ์
+22. Verify
+23. Detect Failure
+24. Recover
+25. Retry
+26. Replan
+27. Finish
+28. Learn
+29. สร้าง Knowledge
+30. บันทึก Knowledge
+31. ค้น Knowledge ในอนาคต
+32. ปรับปรุง Strategy จากประสบการณ์
+
+---
+
+2. ห้ามทำเป็นระบบ Keyword Matching อย่างเดียว
+
+ห้ามออกแบบ:
+
+if (input.contains("build")) {
+    build()
+}
+
+เพียงอย่างเดียว
+
+เพราะ:
+
+build
+ช่วย build ให้หน่อย
+สร้าง apk
+ลอง compile ให้ที
+ตรวจว่ามัน build ผ่านไหม
+ช่วยแก้ให้ build ผ่าน
+
+อาจมีความหมายเกี่ยวข้องกันแต่ไม่เหมือนกันทั้งหมด
+
+ต้องสร้าง Semantic Understanding Layer
+
+---
+
+3. Input Pipeline
+
+ทุกข้อความต้องผ่าน:
+
+USER INPUT
+    ↓
+NORMALIZATION
+    ↓
+LANGUAGE ANALYSIS
+    ↓
+ENTITY EXTRACTION
+    ↓
+INTENT DETECTION
+    ↓
+PARAMETER EXTRACTION
+    ↓
+CONTEXT RESOLUTION
+    ↓
+GOAL EXTRACTION
+
+---
+
+4. Input Normalizer
+
+สร้าง:
+
+InputNormalizer
+
+หน้าที่:
+
+- normalize whitespace
+- normalize quotation
+- ตรวจภาษา
+- แยกข้อความ
+- ตรวจชื่อไฟล์
+- ตรวจ path
+- ตรวจ code symbol
+- ตรวจ technical terms
+- ตรวจ references เช่น "ไฟล์นี้", "อันนี้", "หน้าเดิม"
+
+ห้ามทำลายข้อมูลต้นฉบับ
+
+เก็บ:
+
+rawInput
+normalizedInput
+language
+entities
+
+---
+
+5. Language Understanding
+
+สร้าง:
+
+LanguageUnderstandingEngine
+
+ต้องรองรับ:
+
+Thai
+English
+Thai-English Mixed
+Developer Language
+Technical Terms
+File Names
+Code Symbols
+
+ตัวอย่าง:
+
+"ช่วยแก้หน้า login ให้มันต่อ Supabase ได้"
+
+ต้องสามารถแปลงเป็นความหมาย:
+
+Action:
+MODIFY_FEATURE
+
+Feature:
+LOGIN
+
+Requirement:
+SUPABASE_AUTHENTICATION
+
+---
+
+6. Intent Model
+
+สร้าง:
+
+data class Intent(
+    val type: IntentType,
+    val confidence: Double,
+    val target: Entity?,
+    val parameters: Map<String, Any>,
+    val evidence: List<String>
+)
+
+Intent ต้องไม่ใช่เพียง String
+
+---
+
+7. IntentType
+
+เตรียมระบบให้ขยายได้
+
+ตัวอย่าง:
+
+CREATE
+READ
+MODIFY
+DELETE
+SEARCH
+ANALYZE
+BUILD
+RUN
+TEST
+DEBUG
+VERIFY
+INSTALL
+UPDATE
+CONFIGURE
+NAVIGATE
+GIT_OPERATION
+BROWSER_OPERATION
+LEARN
+EXPLAIN
+RECOVER
+
+และเฉพาะทาง:
+
+CREATE_FEATURE
+FIX_BUG
+FIX_BUILD
+CREATE_FILE
+MODIFY_FILE
+ANALYZE_PROJECT
+ANALYZE_ERROR
+SEARCH_KNOWLEDGE
+SAVE_KNOWLEDGE
+SYNC_KNOWLEDGE
+
+---
+
+8. Confidence
+
+ทุกการตีความที่ไม่แน่นอนต้องมี confidence
+
+ตัวอย่าง:
+
+Intent:
+FIX_BUILD
+
+confidence:
+0.96
+
+ถ้า confidence ต่ำ:
+
+AI ต้องไม่เดาแบบเสี่ยง
+
+ให้:
+
+ถามผู้ใช้
+
+หรือ:
+
+ค้น Context เพิ่ม
+
+ก่อนตัดสินใจ
+
+---
+
+9. Entity Extraction
+
+ระบบต้องรู้ Entity เช่น:
+
+File
+Folder
+Project
+Class
+Function
+Feature
+Tool
+Website
+Error
+Dependency
+Technology
+
+ตัวอย่าง:
+
+"แก้ MainActivity.kt"
+
+Entity:
+type = FILE
+value = MainActivity.kt
+
+---
+
+10. Reference Resolution
+
+ต้องเข้าใจ:
+
+มัน
+อันนี้
+ไฟล์นี้
+หน้านี้
+ตัวเดิม
+โปรเจกต์นี้
+ตัวเมื่อกี้
+ปัญหาเดิม
+
+โดยค้นจาก Context
+
+ตัวอย่าง:
+
+User:
+เปิด MainActivity.kt
+
+AI:
+เปิดแล้ว
+
+User:
+แก้ปุ่มนี้ให้หน่อย
+
+คำว่า:
+
+ปุ่มนี้
+
+ต้อง resolve จาก UI/File/Conversation context
+
+---
+
+11. Goal Extraction
+
+Intent ไม่เพียงพอ
+
+ต้องมี:
+
+Goal
+
+ตัวอย่าง:
+
+User:
+"ช่วยทำให้ Login ใช้งานได้"
+
+Goal:
+
+ระบบ Login ต้องสามารถ authenticate user ได้จริง
+
+Goal ต้องเป็นสิ่งที่สามารถตรวจสอบภายหลังได้
+
+---
+
+12. Requirement Extraction
+
+จาก Goal:
+
+Login ต้อง:
+- แสดง UI
+- รับ credentials
+- ส่ง authentication request
+- จัดการ success
+- จัดการ failure
+- แสดง error
+- เก็บ session
+
+---
+
+13. Context Engine
+
+สร้าง:
+
+ContextEngine
+
+ต้องรวบรวม:
+
+ConversationContext
+TaskContext
+ProjectContext
+FileContext
+CodeContext
+ToolContext
+RuntimeContext
+KnowledgeContext
+MemoryContext
+UserContext
+
+---
+
+14. Context Priority
+
+ลำดับ:
+
+1. Current Task
+2. Current Project
+3. Current File
+4. Current Tool Result
+5. Verified Knowledge
+6. Project Memory
+7. Historical Experience
+8. General Intelligence
+
+ข้อมูลปัจจุบันต้องมี priority เหนือข้อมูลเก่า
+
+---
+
+15. Project Context
+
+สร้าง:
+
+ProjectContext
+
+เก็บ:
+
+projectId
+projectType
+language
+framework
+buildSystem
+architecture
+modules
+importantFiles
+dependencies
+configuration
+knownIssues
+
+---
+
+16. Project Analyzer
+
+สร้าง:
+
+ProjectAnalyzer
+
+ต้องสามารถ:
+
+scan structure
+detect modules
+detect language
+detect framework
+detect build system
+detect dependencies
+detect entry points
+detect configuration
+detect important files
+
+ต้องสร้าง Project Map
+
+---
+
+17. Project Map
+
+ตัวอย่าง:
+
+Project
+│
+├── app
+│   ├── src
+│   ├── resources
+│   └── build.gradle
+│
+├── gradle
+├── settings.gradle
+└── ...
+
+แต่ AI ต้องรู้ relationship ด้วย
+
+---
+
+18. Code Intelligence
+
+สร้าง:
+
+CodeIntelligenceEngine
+
+ต้องรองรับ:
+
+file
+class
+function
+method
+property
+import
+dependency
+reference
+symbol
+
+และ relationship:
+
+A imports B
+A calls B
+A extends B
+A implements B
+
+---
+
+19. Task Engine
+
+Intent + Goal + Context ต้องกลายเป็น:
+
+Task
+
+ตัวอย่าง:
+
+Intent:
+CREATE_FEATURE
+
+Goal:
+Create Login
+
+Context:
+Android + Kotlin + Supabase
+
+Task:
+Create Login Feature
+
+---
+
+20. Task Model
+
+data class Task(
+    val id: String,
+    val intent: Intent,
+    val goal: Goal,
+    val requirements: List<Requirement>,
+    val context: TaskContext,
+    val steps: List<TaskStep>,
+    val state: TaskState
+)
+
+---
+
+21. Task Decomposition
+
+งานใหญ่ต้องถูกแบ่ง:
+
+Task
+ ↓
+Subtasks
+ ↓
+TaskSteps
+
+ตัวอย่าง:
+
+Create Login
+├── Inspect Project
+├── Inspect Auth
+├── Inspect UI
+├── Design Login
+├── Implement Login
+├── Connect Supabase
+├── Build
+├── Test
+└── Verify
+
+---
+
+22. Dependency Graph
+
+ทุก TaskStep ต้องมี dependency
+
+Inspect
+ ↓
+Design
+ ↓
+Implement
+ ↓
+Connect
+ ↓
+Build
+ ↓
+Test
+ ↓
+Verify
+
+AI ห้าม execute step ที่ dependency ยังไม่พร้อม
+
+---
+
+23. Planner
+
+สร้าง:
+
+Planner
+
+Planner ต้องสร้าง:
+
+Plan
+
+ประกอบด้วย:
+
+Objective
+Steps
+Dependencies
+RequiredTools
+ExpectedResults
+VerificationCriteria
+Risk
+FallbackStrategies
+
+---
+
+24. Planning ไม่ใช่การสร้างรายการแบบตายตัว
+
+Planner ต้องพิจารณา:
+
+Current State
+Goal
+Constraints
+Available Tools
+Project Structure
+Knowledge
+Previous Experience
+Risk
+
+แล้วสร้างแผนที่เหมาะกับสถานการณ์จริง
+
+---
+
+25. Reasoning Engine
+
+สร้าง:
+
+ReasoningEngine
+
+ประกอบด้วย:
+
+RuleReasoner
+PatternReasoner
+CodeReasoner
+DependencyReasoner
+ErrorReasoner
+EvidenceReasoner
+HistoricalReasoner
+
+---
+
+26. Decision Engine
+
+สร้าง:
+
+DecisionEngine
+
+หน้าที่:
+
+มีหลายทางเลือก
+↓
+ประเมิน
+↓
+เลือก Strategy
+
+ตัวอย่าง:
+
+Strategy A
+Risk = low
+Compatibility = high
+
+Strategy B
+Risk = medium
+Compatibility = low
+
+เลือก A
+
+การตัดสินใจต้องอิงข้อมูลจริง ไม่ใช่ random
+
+---
+
+27. Tool Engine
+
+สร้าง:
+
+ToolEngine
+
+Tool เป็น capability ของ Agent
+
+ตัวอย่าง:
+
+FileTool
+ProjectTool
+CodeTool
+BuildTool
+TestTool
+GitTool
+BrowserTool
+SearchTool
+KnowledgeTool
+TerminalTool
+
+---
+
+28. Terminal Rule
+
+Terminal เป็นเพียง Tool
+
+ห้ามเป็น:
+
+AI Runtime
+
+ห้ามออกแบบ:
+
+AI
+ ↓
+Terminal
+ ↓
+everything
+
+ถ้ามี Tool เฉพาะทาง:
+
+AI
+ ↓
+FileTool
+
+ต้องใช้ FileTool โดยตรง
+
+---
+
+29. Tool Capability
+
+ทุก Tool ต้องประกาศ:
+
+ToolId
+Name
+Description
+InputSchema
+OutputSchema
+Permission
+RiskLevel
+Dependencies
+Version
+Status
+
+---
+
+30. Capability Registry
+
+สร้าง:
+
+CapabilityRegistry
+
+ตัวอย่าง:
+
+FileTool = READY
+GitTool = READY
+BrowserTool = READY
+BuildTool = READY
+PythonTool = NOT_INSTALLED
+AndroidSDK = NOT_INSTALLED
+
+Planner ต้องอ่าน registry ก่อนเลือก Tool
+
+---
+
+31. Tool Selection
+
+Pipeline:
+
+Intent
+ ↓
+Goal
+ ↓
+Context
+ ↓
+Capabilities
+ ↓
+Tool Candidates
+ ↓
+Compatibility
+ ↓
+Risk
+ ↓
+Select Tool
+
+---
+
+32. Permission Engine
+
+สร้าง:
+
+PermissionEngine
+
+แบ่ง:
+
+LOW
+MEDIUM
+HIGH
+CRITICAL
+
+ตัวอย่าง:
+
+READ_FILE → LOW
+
+MODIFY_FILE → MEDIUM
+
+DELETE_FILE → HIGH
+
+PUSH_TO_GITHUB → HIGH
+
+---
+
+33. Tool Execution
+
+สร้าง:
+
+ToolExecutor
+
+ต้อง:
+
+validate
+authorize
+execute
+capture output
+capture error
+create observation
+return ToolResult
+
+---
+
+34. Structured Tool Result
+
+ห้ามคืนค่าเพียง String
+
+ใช้:
+
+data class ToolResult(
+    val success: Boolean,
+    val output: String,
+    val error: ToolError?,
+    val artifacts: List<Artifact>,
+    val observations: List<Observation>,
+    val durationMs: Long
+)
+
+---
+
+35. Observation Engine
+
+สร้าง:
+
+ObservationEngine
+
+หน้าที่:
+
+Tool Result
+↓
+Interpret
+↓
+Observation
+
+ตัวอย่าง:
+
+Build exited with code 1
+
+ต้องกลายเป็น:
+
+Observation:
+Build failed
+
+Category:
+DEPENDENCY_ERROR
+
+Affected:
+module app
+
+Evidence:
+...
+
+---
+
+36. Verification Engine
+
+สร้าง:
+
+VerificationEngine
+
+ห้ามถือว่า:
+
+Tool success = Task success
+
+ต้องตรวจ:
+
+Expected Result
+vs
+Actual Result
+
+---
+
+37. Verification Types
+
+FileVerification
+CodeVerification
+BuildVerification
+TestVerification
+RuntimeVerification
+TaskVerification
+
+---
+
+38. Completion Criteria
+
+ทุก Task ต้องมี:
+
+CompletionCriteria
+
+ตัวอย่าง:
+
+Login Task
+
+✓ UI exists
+✓ Authentication connected
+✓ Build succeeds
+✓ Test succeeds
+✓ Login flow verified
+
+เมื่อครบจึง:
+
+TASK_COMPLETED
+
+---
+
+39. Failure Classification
+
+สร้าง:
+
+ErrorClassifier
+
+ประเภท:
+
+SYNTAX_ERROR
+COMPILE_ERROR
+DEPENDENCY_ERROR
+CONFIGURATION_ERROR
+RUNTIME_ERROR
+NETWORK_ERROR
+PERMISSION_ERROR
+TOOL_ERROR
+UNKNOWN_ERROR
+
+---
+
+40. Recovery Engine
+
+สร้าง:
+
+RecoveryEngine
+
+Pipeline:
+
+Failure
+ ↓
+Classify
+ ↓
+Search Knowledge
+ ↓
+Analyze Context
+ ↓
+Select Fix Strategy
+ ↓
+Execute
+ ↓
+Verify
+
+---
+
+41. Retry Policy
+
+ห้าม retry แบบไม่จำกัด
+
+ต้องมี:
+
+maxAttempts
+retryableErrors
+backoff
+alternativeStrategies
+rollbackPolicy
+
+ถ้าลองหลาย Strategy แล้วไม่สำเร็จ:
+
+ASK_USER
+
+หรือ:
+
+REPORT_BLOCKER
+
+---
+
+42. Agent Loop
+
+หัวใจ:
+
+while (task.isActive()) {
+
+    context = contextEngine.build(task)
+
+    observation = agent.observe(context)
+
+    decision = decisionEngine.decide(
+        task,
+        context,
+        observation
+    )
+
+    if (decision.requiresPlanning) {
+        plan = planner.plan(task, context)
+    }
+
+    action = decision.action
+
+    permission = permissionEngine.check(action)
+
+    if (!permission.allowed) {
+        requestPermission()
+        continue
+    }
+
+    result = toolEngine.execute(action)
+
+    observationEngine.record(result)
+
+    verification = verifier.verify(
+        task,
+        result,
+        context
+    )
+
+    if (verification.success) {
+        learningEngine.learn(task)
+        task.complete()
+    } else {
+        recoveryEngine.recover(
+            task,
+            verification
+        )
+    }
+}
+
+โค้ดจริงต้องออกแบบให้ state-safe, cancellable และ recoverable
+
+---
+
+43. Agent State
+
+ต้องมี:
+
+IDLE
+UNDERSTANDING
+CONTEXT_BUILDING
+PLANNING
+WAITING_PERMISSION
+EXECUTING
+OBSERVING
+VERIFYING
+RECOVERING
+LEARNING
+COMPLETED
+FAILED
+CANCELLED
+
+---
+
+44. Memory Engine
+
+สร้าง:
+
+MemoryEngine
+
+แบ่ง:
+
+ShortTermMemory
+ConversationMemory
+TaskMemory
+ProjectMemory
+PersistentKnowledge
+
+---
+
+45. Short-Term Memory
+
+เก็บ:
+
+current step
+current observation
+current tool
+current result
+current error
+
+---
+
+46. Task Memory
+
+เก็บ:
+
+task
+plan
+actions
+results
+errors
+fixes
+verification
+final result
+
+---
+
+47. Project Memory
+
+เก็บ:
+
+architecture
+conventions
+dependencies
+important files
+known problems
+known solutions
+
+---
+
+48. Persistent Knowledge
+
+เป็นความรู้ที่นำไปใช้ข้าม Task
+
+ตัวอย่าง:
+
+Android patterns
+Kotlin patterns
+Gradle solutions
+Git solutions
+Supabase solutions
+Browser workflows
+MAXCODE architecture
+
+---
+
+49. Knowledge Engine
+
+สร้าง:
+
+KnowledgeEngine
+
+ประกอบด้วย:
+
+KnowledgeCollector
+KnowledgeExtractor
+KnowledgeValidator
+KnowledgeIndexer
+KnowledgeSearcher
+KnowledgeMerger
+KnowledgeVersioner
+KnowledgeSync
+
+---
+
+50. Learning Engine
+
+สร้าง:
+
+LearningEngine
+
+Learning ต้องเกิดจาก:
+
+Success
+Failure
+Recovery
+Repeated Pattern
+User Correction
+Verified Result
+
+---
+
+51. Learning Pipeline
+
+Experience
+ ↓
+Extract Pattern
+ ↓
+Compare Existing Knowledge
+ ↓
+Deduplicate
+ ↓
+Validate
+ ↓
+Assign Confidence
+ ↓
+Create Candidate
+ ↓
+Promote
+
+---
+
+52. ห้ามเรียนรู้ทุกอย่างทันที
+
+ห้าม:
+
+AI ทำอะไรก็ได้
+↓
+บันทึกเป็นความจริง
+
+ต้อง:
+
+Candidate
+↓
+Evidence
+↓
+Validation
+↓
+Verified
+
+---
+
+53. Knowledge Record
+
+data class KnowledgeRecord(
+    val id: String,
+    val type: KnowledgeType,
+    val topic: String,
+    val content: String,
+    val source: String,
+    val confidence: Double,
+    val status: KnowledgeStatus,
+    val successCount: Int,
+    val failureCount: Int,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+---
+
+54. Knowledge Status
+
+CANDIDATE
+VALIDATING
+VERIFIED
+TRUSTED
+DEPRECATED
+REJECTED
+ARCHIVED
+
+---
+
+55. Knowledge Search
+
+ก่อนแก้ปัญหา:
+
+Task
+ ↓
+Knowledge Search
+ ↓
+Relevant Results
+ ↓
+Compatibility Check
+ ↓
+Use Existing Knowledge
+
+ถ้าไม่พบ:
+
+Create New Strategy
+
+---
+
+56. Knowledge Ranking
+
+ใช้:
+
+Relevance
+Compatibility
+Confidence
+SuccessRate
+Recency
+ProjectSpecificity
+
+---
+
+57. Experience Learning
+
+ตัวอย่าง:
+
+Error X
+
+Strategy A
+→ FAIL
+
+Strategy B
+→ SUCCESS
+
+Strategy B
+→ SUCCESS
+
+Strategy B
+→ SUCCESS
+
+สร้าง Pattern:
+
+Error X
+→ Strategy B
+
+พร้อม:
+
+successRate
+
+---
+
+58. User Correction Learning
+
+ถ้าผู้ใช้แก้ AI:
+
+AI:
+ทำ A
+
+User:
+ไม่ใช่ ต้องทำ B
+
+ระบบต้องบันทึก:
+
+Original Interpretation
+User Correction
+Correct Interpretation
+Context
+
+แล้วนำไปปรับปรุง future decisions
+
+---
+
+59. ไม่แก้ Core Code จากการเรียนรู้โดยตรง
+
+Learning สามารถปรับ:
+
+Knowledge
+Rules
+Patterns
+Strategies
+Workflows
+
+แต่ห้ามแก้:
+
+Security
+Permission
+Core Agent
+Update Manager
+Credential Manager
+
+โดยอัตโนมัติ
+
+Core code ต้องผ่าน controlled update process
+
+---
+
+60. GitHub Knowledge Repository
+
+ใช้ GitHub เป็น Remote Knowledge Store
+
+โครงสร้าง:
+
+knowledge/
+├── index.json
+├── concepts/
+├── patterns/
+├── solutions/
+├── errors/
+├── workflows/
+├── tools/
+├── projects/
+└── experiences/
+
+---
+
+61. Local Knowledge Store
+
+ในเครื่อง:
+
+/files/maxcode/knowledge/
+
+หรือ storage abstraction ที่เหมาะสม
+
+ต้องสามารถทำงาน Offline
+
+---
+
+62. GitHub Sync
+
+Pull:
+
+Manifest
+ ↓
+Compare
+ ↓
+Download
+ ↓
+Verify Hash
+ ↓
+Validate
+ ↓
+Merge
+ ↓
+Index
+
+Push:
+
+New Knowledge
+ ↓
+Sanitize
+ ↓
+Validate
+ ↓
+Version
+ ↓
+Queue
+ ↓
+Upload
+ ↓
+Verify
+
+---
+
+63. Sync Queue
+
+สถานะ:
+
+PENDING
+VALIDATING
+READY
+UPLOADING
+SYNCED
+FAILED
+RETRY
+
+---
+
+64. Credential Security
+
+ห้าม hardcode GitHub token ใน source code
+
+ห้าม:
+
+const val TOKEN = "ghp_..."
+
+ให้ใช้:
+
+Android Keystore
+Credential Storage
+GitHubIdentityManager
+
+Credential ต้องแยกจาก Knowledge
+
+---
+
+65. Knowledge Secret Scanner
+
+ก่อน Push:
+
+Knowledge
+ ↓
+Secret Scanner
+ ↓
+Credential Scanner
+ ↓
+PII Scanner
+ ↓
+Sanitizer
+ ↓
+Push
+
+ถ้าพบ secret:
+
+BLOCK
+
+---
+
+66. GitHub Access Layer
+
+AI ห้ามเรียก GitHub API โดยตรง
+
+ใช้:
+
+KnowledgeSyncManager
+
+หรือ:
+
+GitHubKnowledgeProvider
+
+เพื่อควบคุม:
+
+Authentication
+Pull
+Push
+Conflict
+Retry
+Version
+Security
+
+---
+
+67. Knowledge Conflict
+
+ถ้า:
+
+Local = v5
+Remote = v7
+
+ต้อง:
+
+Compare
+Validate
+Merge
+
+ไม่ overwrite แบบ blind
+
+---
+
+68. Knowledge Versioning
+
+ทุก record ต้องมี:
+
+id
+version
+hash
+parentVersion
+createdAt
+updatedAt
+source
+status
+
+รองรับ rollback
+
+---
+
+69. Deduplication
+
+ก่อนสร้างความรู้:
+
+New Knowledge
+ ↓
+Hash
+ ↓
+Similarity
+ ↓
+Existing?
+
+ถ้ามี:
+
+Update Existing
+
+ไม่สร้างซ้ำ
+
+---
+
+70. Infinite Learning
+
+คำว่า “เรียนรู้ไม่จำกัด” หมายถึง:
+
+Knowledge สามารถเพิ่มขึ้นได้เรื่อย ๆ
+
+ไม่ใช่:
+
+RAM เพิ่มไม่จำกัด
+
+ดังนั้นต้องมี:
+
+Index
+Deduplication
+Compression
+Archive
+Versioning
+Garbage Collection
+
+---
+
+71. Knowledge Lifecycle
+
+DISCOVERED
+↓
+CANDIDATE
+↓
+VALIDATING
+↓
+VERIFIED
+↓
+TRUSTED
+↓
+ACTIVE
+↓
+DEPRECATED
+↓
+ARCHIVED
+
+---
+
+72. Model Independence
+
+MAXCODE AI ต้องทำงานได้โดยไม่พึ่ง Local LLM เป็นแกนหลัก
+
+แต่ architecture ต้องเปิดช่อง:
+
+IntelligenceProvider
+
+เช่น:
+
+RuleProvider
+PatternProvider
+SpecializedModelProvider
+OptionalRemoteProvider
+
+ถ้ามี model:
+
+ช่วย Language Understanding
+ช่วย Classification
+ช่วย Code Analysis
+ช่วย Ambiguous Cases
+
+แต่ Agent Engine ยังเป็นตัวควบคุม
+
+---
+
+73. Basic Intelligence
+
+ตั้งแต่ติดตั้งครั้งแรก AI ต้องมีความสามารถพื้นฐาน
+
+อย่างน้อยต้องสามารถ:
+
+เข้าใจคำสั่งพื้นฐาน
+จำ Context
+สร้าง Task
+วางแผนง่าย ๆ
+เลือก Tool
+อ่านผลลัพธ์
+ตรวจสอบ
+แก้ปัญหาพื้นฐาน
+
+เป้าหมายด้านภาษาและ reasoning:
+
+«ให้ใกล้เคียงความสามารถที่จำเป็นจากโมเดลขนาดเล็กประมาณ Qwen 0.5B สำหรับงานเฉพาะของ MAXCODE»
+
+ไม่จำเป็นต้องเก่งความรู้ทั่วไปทุกเรื่อง
+
+---
+
+74. AI ต้องรู้ข้อจำกัดของตัวเอง
+
+ต้องสามารถตรวจ:
+
+What can I do?
+What tools are available?
+What knowledge do I have?
+What knowledge is verified?
+What capability is missing?
+What dependency is missing?
+
+ห้าม hallucinate capability
+
+---
+
+75. Self-Awareness
+
+ตัวอย่าง:
+
+BuildTool = READY
+AndroidSDK = NOT_INSTALLED
+Git = READY
+GitHub = AUTH_REQUIRED
+
+AI ต้องพูดตามความจริง:
+
+Android SDK ยังไม่มี
+จึงยัง Build Android ไม่ได้
+
+ไม่ใช่:
+
+กำลัง Build
+
+ทั้งที่ไม่ได้ทำจริง
+
+---
+
+76. UI Agent Status
+
+UI ต้องแสดง:
+
+กำลังเข้าใจคำสั่ง
+กำลังวิเคราะห์โปรเจกต์
+กำลังสร้างแผน
+กำลังดำเนินการ
+กำลังตรวจสอบ
+พบปัญหา
+กำลังแก้ไข
+เรียนรู้จากผลลัพธ์
+เสร็จสิ้น
+
+ไม่ต้องแสดง internal chain-of-thought
+
+แสดงเฉพาะสถานะและเหตุผลเชิงปฏิบัติที่ผู้ใช้จำเป็นต้องรู้
+
+---
+
+77. AI Activity Timeline
+
+ตัวอย่าง:
+
+✓ วิเคราะห์โปรเจกต์
+✓ ตรวจสอบ Authentication
+✓ สร้างแผน
+✓ แก้ Login UI
+→ เชื่อม Supabase
+○ Build
+○ Verify
+
+---
+
+78. Architecture Independence
+
+AI Core ต้องไม่ผูกกับ UI
+
+ต้องสามารถ:
+
+Unit Test
+Integration Test
+Headless Test
+
+ได้
+
+---
+
+79. Dependency Direction
+
+ต้องเป็น:
+
+UI
+ ↓
+AI Engine
+ ↓
+Task / Planner / Reasoning
+ ↓
+Tool Engine
+ ↓
+Application Services
+ ↓
+Android
+
+ห้าม:
+
+UI
+ ↓
+Terminal
+ ↓
+AI
+
+---
+
+80. Core Package Structure
+
+สร้าง package ที่มีความรับผิดชอบชัดเจน:
+
+com.maxcode.ai
+│
+├── core
+├── input
+├── language
+├── intent
+├── context
+├── goal
+├── task
+├── planner
+├── reasoning
+├── decision
+├── agent
+├── tool
+├── observation
+├── verification
+├── recovery
+├── memory
+├── learning
+├── knowledge
+├── project
+├── code
+├── capability
+├── security
+└── sync
+
+---
+
+81. Core Interfaces
+
+ต้องมี abstraction:
+
+AIEngine
+LanguageEngine
+IntentEngine
+ContextEngine
+GoalEngine
+TaskEngine
+Planner
+ReasoningEngine
+DecisionEngine
+ToolEngine
+ObservationEngine
+VerificationEngine
+RecoveryEngine
+MemoryEngine
+LearningEngine
+KnowledgeEngine
+CapabilityRegistry
+
+---
+
+82. Structured Internal Objects
+
+ต้องมี:
+
+Intent
+Entity
+Goal
+Requirement
+Task
+TaskStep
+Plan
+Decision
+Action
+ToolRequest
+ToolResult
+Observation
+VerificationResult
+RecoveryAction
+MemoryRecord
+KnowledgeRecord
+AgentState
+ProjectContext
+ToolCapability
+
+---
+
+83. ห้ามใช้ String เป็นข้อมูลภายในทั้งหมด
+
+ผิด:
+
+return "build failed"
+
+ถูก:
+
+ToolResult(
+    success = false,
+    error = BuildError(
+        type = DEPENDENCY_ERROR,
+        message = "...",
+        affectedFiles = ...
+    )
+)
+
+Structured data ทำให้ AI reasoning ได้
+
+---
+
+84. Event System
+
+ควรมี event:
+
+TaskCreated
+PlanCreated
+ToolStarted
+ToolCompleted
+ObservationCreated
+VerificationCompleted
+RecoveryStarted
+KnowledgeCreated
+KnowledgeVerified
+KnowledgeSynced
+
+ช่วยให้ระบบ:
+
+debug
+audit
+resume
+replay
+
+ได้
+
+---
+
+85. Checkpoint
+
+Task ต้องสามารถหยุดและกลับมาทำต่อ
+
+Checkpoint ต้องบันทึก:
+
+Task
+Current Step
+Plan
+Context Snapshot
+Tool Results
+Memory
+Agent State
+
+ถ้าแอปปิด:
+
+Resume Task
+
+ได้
+
+---
+
+86. Cancellation
+
+ผู้ใช้ต้องสามารถ:
+
+Stop
+Pause
+Resume
+Cancel
+
+Task ได้
+
+Tool ที่รองรับ cancellation ต้องหยุดอย่างปลอดภัย
+
+---
+
+87. Audit Log
+
+เก็บ:
+
+Task
+Action
+Tool
+Result
+Verification
+Recovery
+Learning
+
+เพื่อให้สามารถตรวจสอบว่า AI ทำอะไรไปบ้าง
+
+---
+
+88. Security Boundary
+
+AI ไม่ควรมีสิทธิ์ทุกอย่างโดย default
+
+ใช้:
+
+Capability
+Permission
+Sandbox
+Policy
+
+ทุกครั้งก่อน action สำคัญ
+
+---
+
+89. AI Safety Rule
+
+AI ต้องไม่:
+
+แอบทำสิ่งที่ผู้ใช้ไม่ได้สั่ง
+ปลอมผลลัพธ์
+อ้างว่า verification ผ่านทั้งที่ไม่ได้ตรวจ
+ใช้ Tool ที่ไม่มี
+ใช้ credential ที่ไม่ได้รับอนุญาต
+ส่ง secret เข้า Knowledge
+ทำลายข้อมูลโดยไม่มี policy
+
+---
+
+90. ตัวอย่าง Complete Flow
+
+ผู้ใช้:
+
+"สร้างหน้า Login แล้วเชื่อม Supabase ให้หน่อย"
+
+ระบบ:
+
+INPUT
+↓
+LANGUAGE UNDERSTANDING
+↓
+INTENT = CREATE_FEATURE
+↓
+GOAL = CREATE_LOGIN_WITH_SUPABASE
+↓
+CONTEXT
+↓
+PROJECT ANALYSIS
+↓
+KNOWLEDGE SEARCH
+↓
+TASK CREATION
+↓
+PLAN
+
+Plan:
+
+1. Inspect project
+2. Inspect UI architecture
+3. Inspect Supabase
+4. Design Login
+5. Implement
+6. Connect Auth
+7. Build
+8. Test
+9. Verify
+
+จากนั้น:
+
+Tool Selection
+↓
+Permission
+↓
+Execute
+↓
+Observe
+↓
+Verify
+
+ถ้าสำเร็จ:
+
+Learn
+↓
+Create Knowledge
+↓
+Save Local
+↓
+Queue GitHub Sync
+
+ถ้าล้มเหลว:
+
+Error Classification
+↓
+Knowledge Search
+↓
+Recovery Strategy
+↓
+Retry
+↓
+Verify
+
+---
+
+91. Example Unknown Problem
+
+Build Error
+↓
+ไม่มี Knowledge
+↓
+Analyze Error
+↓
+Generate Strategy A
+↓
+Test
+↓
+FAIL
+↓
+Generate Strategy B
+↓
+Test
+↓
+SUCCESS
+↓
+Verify
+↓
+Record Experience
+↓
+Create Knowledge
+↓
+Future Use
+
+นี่คือวงจรการเรียนรู้ที่แท้จริงของ MAXCODE AI
+
+---
+
+92. หลักการเขียนโค้ด AI
+
+ทุก class ต้องตอบคำถาม:
+
+มันรับข้อมูลอะไร?
+มันเข้าใจอะไร?
+มันเปลี่ยนข้อมูลอย่างไร?
+มันตัดสินใจอย่างไร?
+มันส่งผลลัพธ์อะไร?
+มันตรวจสอบอย่างไร?
+มันล้มเหลวอย่างไร?
+มัน recover อย่างไร?
+
+ถ้า class ตอบไม่ได้ว่ามีหน้าที่อะไร:
+
+Refactor
+
+---
+
+93. Single Responsibility
+
+ห้าม:
+
+AIEngine
+
+ทำทุกอย่างใน class เดียว
+
+ผิด:
+
+AIEngine.kt
+20000 lines
+
+ถูก:
+
+IntentEngine
+Planner
+DecisionEngine
+ToolEngine
+MemoryEngine
+KnowledgeEngine
+
+แต่ละตัวรับผิดชอบเฉพาะเรื่อง
+
+---
+
+94. Dependency Injection
+
+ใช้ dependency abstraction:
+
+AIEngine
+→ IntentEngine
+→ Planner
+→ ToolEngine
+→ MemoryEngine
+→ KnowledgeEngine
+
+ไม่สร้าง dependency ภายในแบบ hardcoded
+
+ทำให้:
+
+Testing
+Replacement
+Extension
+
+ง่าย
+
+---
+
+95. Deterministic First
+
+ถ้าปัญหาแก้ได้ด้วย rule ที่แน่นอน:
+
+ใช้ Rule
+
+ไม่ต้องใช้ intelligence ที่หนักกว่า
+
+ตัวอย่าง:
+
+อ่านไฟล์
+→ FileTool
+
+Build
+→ BuildTool
+
+Git status
+→ GitTool
+
+---
+
+96. Reasoning When Needed
+
+ถ้ามีหลายทางเลือก:
+
+ใช้ Reasoning
+
+เช่น:
+
+Build Error
+
+ต้องวิเคราะห์ว่า:
+
+dependency?
+syntax?
+configuration?
+environment?
+
+---
+
+97. Learning When Unknown
+
+ถ้าไม่เคยพบ:
+
+ทดลองอย่างควบคุม
+↓
+วัดผล
+↓
+ตรวจสอบ
+↓
+เรียนรู้
+
+ไม่ใช่เดาสุ่ม
+
+---
+
+98. Core Principle
+
+สามระดับ:
+
+KNOWN
+→ RULE
+
+AMBIGUOUS
+→ REASON
+
+UNKNOWN
+→ EXPERIMENT + LEARN
+
+นี่คือหัวใจของ MAXCODE AI
+
+---
+
+99. Final Intelligence Loop
+
+             ┌───────────────┐
+             │     USER      │
+             └───────┬───────┘
+                     ↓
+                UNDERSTAND
+                     ↓
+                  INTENT
+                     ↓
+                   GOAL
+                     ↓
+                 CONTEXT
+                     ↓
+                   TASK
+                     ↓
+                  PLAN
+                     ↓
+                DECISION
+                     ↓
+                  ACTION
+                     ↓
+                  TOOL
+                     ↓
+                OBSERVE
+                     ↓
+                ANALYZE
+                     ↓
+                VERIFY
+                ↙       ↘
+          SUCCESS       FAILURE
+             ↓             ↓
+          LEARN         RECOVER
+             ↓             ↓
+        KNOWLEDGE       REPLAN
+             ↓             ↓
+             └──────┬──────┘
+                    ↓
+               FUTURE TASK
+
+---
+
+100. FINAL RULE
+
+MAXCODE AI ต้องถูกสร้างด้วยหลักนี้:
+
+AI ไม่ได้เกิดจากการใส่คำว่า AI ในชื่อ class
+
+AI เกิดจากระบบที่สามารถ:
+
+รับรู้
+↓
+เข้าใจ
+↓
+สร้างเป้าหมาย
+↓
+เข้าใจบริบท
+↓
+วางแผน
+↓
+ตัดสินใจ
+↓
+ลงมือ
+↓
+สังเกต
+↓
+ตรวจสอบ
+↓
+แก้ไข
+↓
+เรียนรู้
+↓
+นำประสบการณ์กลับมาใช้
+
+ดังนั้นเมื่อเขียนโค้ดทุกส่วนของ MAXCODE AI ให้ถามเสมอ:
+
+«"ส่วนนี้ทำให้ระบบเข้าใจ ตัดสินใจ ลงมือ ตรวจสอบ หรือเรียนรู้ได้อย่างไร?"»
+
+หากเป็นเพียง UI ที่ดูเหมือน AI แต่ไม่มีวงจรดังกล่าว ให้ถือว่ายังไม่ใช่ AI Engine จริง
+
+---
+
+FINAL ARCHITECTURE CONTRACT
+
+ห้ามเปลี่ยนแกนหลักของระบบกลับไปเป็น:
+
+Local LLM → AI
+
+หรือ:
+
+Terminal → AI
+
+หรือ:
+
+Keyword → Function
+
+แต่ต้องรักษา:
+
+MAXCODE AI ENGINE
+        ↓
+UNDERSTANDING
+        ↓
+CONTEXT
+        ↓
+TASK
+        ↓
+PLANNING
+        ↓
+REASONING
+        ↓
+DECISION
+        ↓
+TOOLS
+        ↓
+OBSERVATION
+        ↓
+VERIFICATION
+        ↓
+RECOVERY
+        ↓
+LEARNING
+        ↓
+KNOWLEDGE
+        ↓
+FUTURE EXPERIENCE
+
+นี่คือแกนกลางของ Intelligence System ของ MAXCODE และทุก feature ใหม่ต้องสามารถเชื่อมเข้ากับวงจรนี้ได้โดยไม่สร้าง AI subsystem แยกซ้ำซ้อน

@@ -1,0 +1,2117 @@
+MASTER BLUEPRINT — OWN AI APPLICATION V1.0
+
+เอกสารแม่บทสำหรับเริ่มพัฒนา Application ใหม่จากศูนย์
+
+---
+
+0. คำสั่งสำคัญที่สุด
+
+เรากำลังเริ่มพัฒนา Application ใหม่ทั้งหมดจากศูนย์
+
+ห้ามนำสถาปัตยกรรมที่มั่วของ Application เดิมมาปะติดปะต่อโดยตรง
+
+ให้ใช้เอกสาร/ความสามารถ/วัตถุประสงค์ของระบบเดิมเป็น "Product Requirements" เท่านั้น แล้วออกแบบ Architecture ใหม่ให้เป็นระบบเดียวกันตั้งแต่ต้น
+
+จุดสำคัญที่สุด
+
+Application นี้มีเป้าหมายเพื่อสร้าง "AI ของ Application เอง"
+
+ไม่ใช่:
+
+- แอป ChatGPT clone ที่แค่เรียก API
+- แอปที่เอา Gemini/OpenAI/Qwen/Claude มาเป็น AI หลัก
+- แอปที่ให้ผู้ใช้เลือก AI ของบริษัทอื่นแล้วจบ
+- แอปที่มี Chat UI แต่ไม่มี AI Runtime ของตัวเอง
+
+เป้าหมายคือ:
+
+«สร้าง AI Runtime / AI Agent System ของเราเอง ตั้งแต่ระดับ Core → Memory → Planning → Tool Use → Execution → Verification → Learning/Improvement»
+
+โมเดลภายนอกสามารถเป็น "Model Provider / Compute Provider" ได้ในอนาคต แต่ต้องไม่ถูกออกแบบให้เป็นตัวตนหรือสมองหลักของ Application
+
+---
+
+1. เป้าหมายของ Application
+
+Application ต้องเป็น AI Development & Automation Platform ส่วนตัวที่สามารถ:
+
+1. สนทนากับผู้ใช้
+2. เข้าใจคำสั่ง
+3. วิเคราะห์งาน
+4. วางแผนงาน
+5. แบ่งงานเป็น Task
+6. เลือกเครื่องมือ
+7. เรียกใช้เครื่องมือ
+8. อ่านผลลัพธ์
+9. ตรวจสอบผลลัพธ์
+10. แก้ปัญหาเอง
+11. ทำงานต่อจนสำเร็จ
+12. จดจำบริบท
+13. จำ Project
+14. จำงานที่ทำไปแล้ว
+15. Resume งานที่หยุด
+16. Rollback งานเมื่อเกิดปัญหา
+17. ทำงานกับไฟล์
+18. แก้ไข Code
+19. รันคำสั่ง
+20. Build
+21. Test
+22. Debug
+23. ทำงานกับ Git
+24. ทำงานกับ GitHub
+25. เปิดและควบคุมเว็บไซต์
+26. ทำงานกับหลายเว็บไซต์พร้อมกัน
+27. ใช้ Browser Automation
+28. สร้าง Agent ย่อย
+29. จัดการ Model
+30. จัดการ Resource
+31. ทำงาน Offline เท่าที่ความสามารถของเครื่องรองรับ
+32. ใช้ Local AI เป็นพื้นฐาน
+33. มีระบบ Fallback เมื่อ AI/Model/Tool ทำงานไม่ได้
+34. มีระบบ Security และ Permission
+35. มีระบบตรวจสอบทุกการกระทำ
+36. มีระบบป้องกัน AI ทำงานผิดพลาดเป็นลูกโซ่
+
+---
+
+2. หลักการ Architecture
+
+ให้ยึดหลัก:
+
+OWN AI FIRST
+
+โครงสร้างหลักต้องเป็น:
+
+User
+↓
+Application UI
+↓
+AI Core
+↓
+AI Orchestrator
+↓
+Planner
+↓
+Task Engine
+↓
+Agent Runtime
+↓
+Tool Gateway
+↓
+Execution Runtime
+↓
+Verification
+↓
+Result
+
+และมีระบบสนับสนุน:
+
+Memory
+Context Engine
+Model Runtime
+Model Manager
+Resource Manager
+Permission Manager
+Security Manager
+Checkpoint Manager
+Project Manager
+File Manager
+Browser Manager
+Git Manager
+Build/Test Manager
+Logging/Audit
+Health Monitor
+
+---
+
+3. แบ่งระบบเป็น 4 ชั้นใหญ่
+
+LAYER 1 — PRESENTATION
+
+รับผิดชอบ UI/UX เท่านั้น
+
+ประกอบด้วย:
+
+- Home
+- Chat
+- Projects
+- Tasks
+- Agents
+- Models
+- Tools
+- Browser
+- Files
+- Code Editor
+- Terminal
+- Git
+- GitHub
+- Build
+- Test
+- Logs
+- Memory
+- Settings
+- Security
+- Permissions
+- Resource Manager
+
+UI ห้ามมี Business Logic สำคัญฝังอยู่ในหน้า
+
+---
+
+4. LAYER 2 — AI CORE
+
+นี่คือหัวใจของ Application
+
+ประกอบด้วย:
+
+AI Orchestrator
+
+รับคำขอจาก User แล้วควบคุม Workflow ทั้งหมด
+
+หน้าที่:
+
+- รับ Intent
+- สร้าง Context
+- วิเคราะห์งาน
+- สร้าง Plan
+- สร้าง Tasks
+- เลือก Agent
+- เลือก Model
+- เรียก Tool
+- ตรวจผล
+- Retry
+- Recover
+- Finish
+
+---
+
+Context Engine
+
+รวบรวม:
+
+- ข้อความล่าสุด
+- Conversation
+- Project Context
+- File Context
+- Task Context
+- Tool Result
+- Memory
+- Checkpoint
+- User Preferences
+- Current Environment
+
+แล้วสร้าง Context ที่เหมาะสมสำหรับ AI
+
+---
+
+Planner
+
+เปลี่ยน:
+
+"ผู้ใช้ต้องการอะไร"
+
+เป็น:
+
+Goal
+↓
+Plan
+↓
+Steps
+↓
+Tasks
+↓
+Dependencies
+↓
+Execution
+
+ตัวอย่าง:
+
+สร้าง Android App
+
+Planner อาจสร้าง:
+
+Task 1 วิเคราะห์ Requirements
+Task 2 สร้าง Project
+Task 3 สร้าง UI
+Task 4 สร้าง Core
+Task 5 เพิ่ม Database
+Task 6 Build
+Task 7 Test
+Task 8 วิเคราะห์ Error
+Task 9 Fix
+Task 10 Build ใหม่
+Task 11 Verify
+Task 12 Report
+
+---
+
+5. TASK ENGINE
+
+ทุกงานต้องกลายเป็น Task ที่ติดตามสถานะได้
+
+Task State:
+
+CREATED
+QUEUED
+PLANNING
+READY
+RUNNING
+WAITING
+WAITING_USER
+WAITING_PERMISSION
+RETRYING
+FAILED
+BLOCKED
+VERIFYING
+COMPLETED
+CANCELLED
+ROLLED_BACK
+
+ทุก Task ต้องมี:
+
+- id
+- parent_task_id
+- project_id
+- goal
+- description
+- status
+- priority
+- dependencies
+- assigned_agent
+- assigned_model
+- tools_required
+- input
+- output
+- errors
+- attempts
+- checkpoint
+- created_at
+- started_at
+- completed_at
+
+---
+
+6. AGENT SYSTEM
+
+Application ต้องมี Agent Runtime ของตัวเอง
+
+Agent ไม่ใช่ Model
+
+Agent คือ:
+
+Identity
++
+Role
++
+Instructions
++
+Memory
++
+Tools
++
+Permissions
++
+Task State
++
+Execution Policy
+
+ตัวอย่าง Agent:
+
+- Main Agent
+- Planner Agent
+- Coding Agent
+- Research Agent
+- Browser Agent
+- Testing Agent
+- Debug Agent
+- Git Agent
+- Build Agent
+- File Agent
+- Verification Agent
+
+สามารถเพิ่ม Agent ใหม่ภายหลังได้
+
+---
+
+7. MODEL SYSTEM
+
+Model เป็น "เครื่องมือประมวลผลของ AI Runtime"
+
+ไม่ใช่ตัว Application ทั้งหมด
+
+ระบบต้องมี:
+
+Model Manager
+
+หน้าที่:
+
+- ค้นหา Model
+- ลงทะเบียน Model
+- ติดตั้ง Model
+- ลบ Model
+- Update Model
+- ตรวจ Model
+- ตรวจขนาด
+- ตรวจ RAM
+- ตรวจ Context Length
+- ตรวจ Quantization
+- ตรวจ Architecture
+- ตรวจ Backend
+- ตรวจ Compatibility
+
+---
+
+8. LOCAL AI
+
+ต้องออกแบบให้ Local AI เป็น Core Capability
+
+Application ต้องสามารถรองรับ:
+
+- Embedded Model
+- Downloadable Model
+- Local Runtime
+- CPU
+- GPU/NPU หากเครื่องรองรับ
+- Quantized Model
+- Model Cache
+- Model Loading
+- Model Unloading
+
+สำหรับรุ่นแรก:
+
+ต้องมี Local Model ขั้นต่ำที่มากับ Application หรือพร้อมใช้งานทันที โดยไม่บังคับให้ผู้ใช้ต้องติดตั้งระบบภายนอกก่อนจึงจะเปิด AI ได้
+
+Model ขนาดใหญ่ให้ติดตั้งแบบ On-Demand
+
+---
+
+9. MODEL ROUTER
+
+Model Router ไม่ใช่ AI หลัก
+
+เป็นระบบเลือก Compute Backend
+
+ลำดับแนวคิด:
+
+Own Local Model
+↓
+Local Alternate Model
+↓
+Optional External Provider
+↓
+Fallback
+
+ต้องจำ:
+
+- Model ล่าสุดที่ใช้งานได้
+- Model ที่เร็วที่สุด
+- Model ที่เหมาะกับงาน
+- Model ที่ล้มเหลว
+- Model ที่กำลังดาวน์โหลด
+- Model ที่ถูกปิดใช้งาน
+
+ห้ามผูก Application เข้ากับ Provider รายใดรายหนึ่ง
+
+---
+
+10. EXTERNAL MODEL PROVIDERS
+
+Provider ภายนอกเป็น Optional Adapter
+
+ตัวอย่าง:
+
+OpenAI
+Gemini
+Claude
+Qwen
+OpenRouter
+อื่น ๆ
+
+ทุก Provider ต้องอยู่หลัง Interface:
+
+ModelProvider
+
+เช่น:
+
+generate()
+stream()
+embed()
+countTokens()
+healthCheck()
+
+Application Core ห้ามเรียก Provider โดยตรง
+
+---
+
+11. TOOL SYSTEM
+
+AI ต้องรู้จักเครื่องมือที่มีอยู่จริง
+
+จึงต้องมี:
+
+Tool Registry
+
+เก็บ:
+
+- Tool ID
+- Name
+- Description
+- Version
+- Input Schema
+- Output Schema
+- Permission
+- Required Resource
+- Risk Level
+- Availability
+- Health
+- Execution Backend
+
+AI สามารถค้นหา Tool ได้:
+
+Tool Discovery
+↓
+Tool Selection
+↓
+Permission Check
+↓
+Execution
+↓
+Result
+↓
+Verification
+
+---
+
+12. TOOL CATEGORIES
+
+ต้องออกแบบรองรับ:
+
+File Tools
+
+- read
+- write
+- edit
+- move
+- copy
+- delete
+- search
+- diff
+
+Code Tools
+
+- syntax check
+- format
+- analyze
+- refactor
+
+Terminal Tools
+
+- execute command
+- process management
+- environment inspection
+
+Build Tools
+
+- Gradle
+- Android Build
+- APK
+- AAB
+- Web Build
+- generic build systems
+
+Test Tools
+
+- unit test
+- integration test
+- UI test
+- smoke test
+- test result parser
+
+Git Tools
+
+- status
+- diff
+- add
+- commit
+- branch
+- merge
+- reset
+- checkout
+
+GitHub Tools
+
+- repository
+- branch
+- commit
+- issue
+- pull request
+- file
+- Actions
+- release
+
+Browser Tools
+
+- open URL
+- click
+- type
+- scroll
+- inspect
+- screenshot
+- download
+- upload
+- multi-tab
+- multi-site
+
+---
+
+13. BROWSER SYSTEM
+
+Browser ต้องเป็น Runtime ของ Application
+
+ไม่ใช่แค่ WebView ธรรมดา
+
+ต้องรองรับ:
+
+- Multiple Tabs
+- Multiple Sessions
+- Multiple Websites
+- Isolated Site Context
+- Cookies
+- Local Storage
+- Downloads
+- Uploads
+- DOM Inspection
+- Accessibility Tree
+- Screenshot
+- Browser Actions
+- Navigation History
+
+แต่:
+
+Authentication ต้องเป็น Human-in-the-loop
+
+AI ห้ามขโมยหรือหลบผ่าน Authentication
+
+เมื่อจำเป็น:
+
+AI แจ้ง User
+↓
+User Login / Verify
+↓
+AI ทำงานต่อ
+
+---
+
+14. MULTI-WEB WORKSPACE
+
+ผู้ใช้สามารถเปิดหลายเว็บไซต์พร้อมกัน
+
+แต่ละเว็บไซต์มี:
+
+- Session
+- Context
+- Cookies
+- State
+- Task
+- Data
+
+ตัวอย่าง:
+
+Tab A = GitHub
+Tab B = Supabase
+Tab C = Documentation
+Tab D = Project Website
+
+AI สามารถทำงานข้าม Tab ได้ตาม Task
+
+---
+
+15. PROJECT SYSTEM
+
+Project คือพื้นที่ทำงานหลักของ AI
+
+แต่ละ Project ต้องมี:
+
+- Project ID
+- Name
+- Description
+- Root Directory
+- Files
+- Git
+- Tasks
+- Agents
+- Memory
+- Checkpoints
+- Models
+- Tools
+- Browser Sessions
+- Build Config
+- Test Config
+- Environment
+
+ตัวอย่าง:
+
+Project:
+"My AI Application"
+
+ภายในมี:
+
+/src
+/docs
+/tests
+/tools
+/agents
+/models
+/checkpoints
+/config
+
+---
+
+16. FILE SYSTEM
+
+ต้องมี Virtual Workspace Layer
+
+อย่าให้ AI เข้าถึงทุกไฟล์ในเครื่องโดยไม่มีขอบเขต
+
+โครงสร้าง:
+
+Application
+↓
+Workspace Manager
+↓
+Project Sandbox
+↓
+Files
+
+ทุก Operation ต้องผ่าน Permission Layer
+
+---
+
+17. CODE EDITOR
+
+ต้องเป็น Editor ที่ AI ใช้ได้และ User ใช้ได้
+
+ต้องมี:
+
+- syntax highlighting
+- search
+- replace
+- multi-file editing
+- diff
+- undo
+- redo
+- AI proposed changes
+- preview changes
+- accept
+- reject
+- rollback
+
+AI ห้ามแก้ไฟล์แบบเงียบ ๆ โดยไม่มี Audit
+
+---
+
+18. TERMINAL / EXECUTION RUNTIME
+
+Terminal เป็น Tool ของ AI
+
+ต้องมี Sandbox
+
+AI สามารถ:
+
+- ตรวจ environment
+- ติดตั้ง dependency
+- execute command
+- run script
+- compile
+- build
+- test
+
+แต่ต้องมี:
+
+Permission
+Resource Limit
+Timeout
+Process Limit
+Storage Limit
+Network Policy
+Log Capture
+
+---
+
+19. RESOURCE MANAGER
+
+ระบบต้องรู้ว่าเครื่องมีอะไร
+
+ตรวจ:
+
+- CPU
+- RAM
+- Storage
+- GPU
+- NPU
+- Battery
+- Network
+- Available Ports
+- Processes
+- Model Memory
+- Workspace Storage
+
+ก่อน Task ใหญ่:
+
+Resource Manager ประเมินว่าเครื่องทำได้หรือไม่
+
+เช่น:
+
+Task ต้องใช้ RAM 6 GB
+เครื่องว่าง 1.5 GB
+
+AI ต้องไม่เริ่มสุ่มสี่สุ่มห้า
+
+ต้องตอบ:
+
+"Resource ไม่เพียงพอ"
+
+แล้วเสนอทางเลือก
+
+---
+
+20. ON-DEMAND TOOL INSTALLATION
+
+เครื่องมือพื้นฐานติดตั้ง/เตรียมพร้อม
+
+เครื่องมือใหญ่ติดตั้งเมื่อจำเป็น
+
+ตัวอย่าง:
+
+JDK
+Android SDK
+Gradle
+NDK
+Node.js
+Python
+Git
+Build Tools
+
+Tool Manager ต้องมี UI:
+
+Available
+Installed
+Installing
+Updating
+Failed
+Disabled
+
+พร้อม:
+
+Install
+Update
+Remove
+Repair
+Retry
+
+---
+
+21. MEMORY SYSTEM
+
+Memory แบ่งเป็น:
+
+Short-Term Memory
+
+Conversation ปัจจุบัน
+
+Working Memory
+
+งานปัจจุบัน
+
+Project Memory
+
+ความรู้ของ Project
+
+Long-Term Memory
+
+ข้อมูลที่ควรจำข้าม Session
+
+User Preference
+
+สิ่งที่ผู้ใช้กำหนด
+
+ต้องมี Memory Policy ว่า:
+
+อะไรควรจำ
+อะไรไม่ควรจำ
+อะไรหมดอายุ
+อะไรต้องขออนุญาต
+
+---
+
+22. CHECKPOINT SYSTEM
+
+ทุกงานใหญ่ต้องสามารถ Resume ได้
+
+Checkpoint ต้องเก็บ:
+
+- Task
+- Current Step
+- Completed Steps
+- Files Changed
+- Tool Results
+- Model State Metadata
+- Errors
+- Environment
+- Pending Actions
+
+ถ้า Application ปิด:
+
+เปิดใหม่
+↓
+โหลด Checkpoint
+↓
+ตรวจ State
+↓
+Resume
+
+---
+
+23. ROLLBACK
+
+ทุกการแก้ไขสำคัญต้องย้อนกลับได้
+
+ระดับ:
+
+File Rollback
+Task Rollback
+Project Rollback
+
+ก่อนการเปลี่ยนแปลงใหญ่:
+
+สร้าง Checkpoint
+
+---
+
+24. VERIFICATION ENGINE
+
+AI ห้ามถือว่าตัวเองทำสำเร็จเพียงเพราะ Tool ไม่ Error
+
+ต้อง:
+
+Execute
+↓
+Observe
+↓
+Verify
+↓
+Test
+↓
+Compare Expected vs Actual
+↓
+Fix หากไม่ตรง
+↓
+Verify ใหม่
+
+ตัวอย่าง:
+
+AI บอกว่า Build สำเร็จ
+
+Verification ต้องตรวจ:
+
+APK ถูกสร้างจริงหรือไม่
+ไฟล์อยู่ตรงไหน
+ขนาดถูกต้องหรือไม่
+Build exit code
+Test result
+Runtime error
+
+---
+
+25. SELF-RECOVERY
+
+เมื่อเกิด Error:
+
+Error
+↓
+Classify
+↓
+Retry
+↓
+Alternative Tool
+↓
+Alternative Method
+↓
+Alternative Model
+↓
+Ask User
+
+ห้าม Retry แบบไม่จำกัด
+
+ต้องมี:
+
+Max Attempts
+Backoff
+Failure Reason
+Recovery Strategy
+
+---
+
+26. SECURITY SYSTEM
+
+ทุก Tool ต้องมี Permission Level
+
+ตัวอย่าง:
+
+LOW
+
+- อ่านไฟล์
+- ดูข้อมูล
+
+MEDIUM
+
+- แก้ไฟล์
+- รันคำสั่งทั่วไป
+
+HIGH
+
+- ลบไฟล์
+- เปลี่ยนระบบ
+- Network action
+- Git push
+
+CRITICAL
+
+- Credentials
+- Account
+- Payment
+- Authentication
+
+CRITICAL ต้อง Human Approval
+
+---
+
+27. SECRET MANAGER
+
+API Key / Token / Password ห้ามเก็บใน:
+
+- Source Code
+- Chat
+- Logs
+- Git
+- Plaintext Project Files
+
+ต้องมี Secure Storage
+
+AI ได้เฉพาะ Secret Reference
+
+ไม่ควรส่ง Secret เข้า Context โดยไม่จำเป็น
+
+---
+
+28. AUDIT LOG
+
+ทุกการกระทำสำคัญต้องบันทึก:
+
+Timestamp
+Actor
+Agent
+Task
+Tool
+Input Summary
+Output Summary
+Permission
+Result
+Error
+
+เพื่อให้ตรวจสอบย้อนหลังได้
+
+---
+
+29. CHAT SYSTEM
+
+Chat ไม่ใช่แค่หน้าคุย
+
+Chat คือ Command Center ของ AI
+
+ผู้ใช้สามารถ:
+
+- ถาม
+- สั่งงาน
+- ส่งไฟล์
+- ส่ง URL
+- เลือก Project
+- ดู Task
+- ดู Progress
+- Approve
+- Reject
+- Pause
+- Resume
+- Cancel
+
+ใน Chat ต้องเห็น:
+
+Thinking/Planning Status
+Task Status
+Tool Activity
+Progress
+Error
+Approval Request
+Final Result
+
+ไม่จำเป็นต้องเปิดหน้าต่างอื่นตลอดเวลา
+
+---
+
+30. HOME
+
+Home ต้องเป็น Dashboard
+
+แสดง:
+
+- Current Project
+- Running Tasks
+- Recent Tasks
+- AI Status
+- Model Status
+- Resource Status
+- Tool Status
+- Recent Checkpoints
+- Recent Errors
+- Quick Actions
+
+---
+
+31. TASK CENTER
+
+แสดงงานทั้งหมด:
+
+Running
+Waiting
+Completed
+Failed
+Cancelled
+
+สามารถ:
+
+- Pause
+- Resume
+- Cancel
+- Retry
+- Open Logs
+- Open Checkpoint
+- Open Result
+
+---
+
+32. AGENT CENTER
+
+แสดง Agent:
+
+- Name
+- Role
+- Status
+- Current Task
+- Model
+- Tools
+- Permission
+- Memory
+
+สามารถ:
+
+Create
+Edit
+Clone
+Disable
+Delete
+Inspect
+
+---
+
+33. MODEL CENTER
+
+แสดง:
+
+- Installed Models
+- Available Models
+- Downloading
+- Health
+- RAM Requirement
+- Context
+- Backend
+- Version
+- Size
+
+Actions:
+
+Download
+Install
+Activate
+Deactivate
+Delete
+Test
+Benchmark
+
+---
+
+34. TOOL CENTER
+
+แสดง:
+
+Installed Tools
+Available Tools
+Tool Health
+Dependencies
+Permissions
+Resource Requirements
+
+สามารถ:
+
+Install
+Update
+Repair
+Disable
+Remove
+
+---
+
+35. BROWSER CENTER
+
+เป็น Workspace สำหรับเว็บไซต์
+
+มี:
+
+- Tabs
+- URL
+- Navigation
+- Sessions
+- Downloads
+- Browser Tasks
+- AI Control
+- Human Control
+
+---
+
+36. FILE CENTER
+
+ใช้จัดการ:
+
+Projects
+Files
+Folders
+Search
+Recent Files
+Changed Files
+Diff
+Checkpoints
+
+---
+
+37. TERMINAL CENTER
+
+แสดง:
+
+- Active Processes
+- Terminal Sessions
+- Commands
+- Output
+- Exit Code
+- Logs
+
+AI และ User สามารถมี Session แยกกัน
+
+---
+
+38. GIT/GITHUB CENTER
+
+ต้องแยก:
+
+Git Local
+GitHub Remote
+
+รองรับ:
+
+Clone
+Status
+Diff
+Commit
+Branch
+Push
+Pull
+PR
+Issue
+Actions
+
+AI ต้องสามารถเสนอ Commit Message ได้
+
+แต่การ Push หรือ Critical Action ต้องขึ้นกับ Permission Policy
+
+---
+
+39. BUILD CENTER
+
+ผู้ใช้เห็น:
+
+Build Configuration
+Build Environment
+Build Progress
+Build Output
+Errors
+Artifacts
+
+Artifacts เช่น:
+
+APK
+AAB
+ZIP
+Web Build
+
+---
+
+40. TEST CENTER
+
+แสดง:
+
+Test Suite
+Running
+Passed
+Failed
+Skipped
+Logs
+Stack Trace
+
+AI สามารถอ่าน Test Result แล้วสร้าง Fix Task ต่อได้
+
+---
+
+41. SETTINGS
+
+แบ่ง:
+
+General
+AI
+Models
+Memory
+Tools
+Browser
+Security
+Permissions
+Storage
+Network
+Notifications
+Appearance
+Developer
+Advanced
+
+---
+
+42. NOTIFICATION SYSTEM
+
+แจ้ง:
+
+Task Completed
+Task Failed
+Approval Required
+Model Ready
+Tool Installed
+Build Completed
+Test Failed
+Resource Low
+Security Warning
+
+---
+
+43. DATA ARCHITECTURE
+
+แยกข้อมูลเป็น:
+
+Application State
+User State
+Project State
+AI State
+Task State
+Agent State
+Tool State
+Model State
+Memory State
+Browser State
+Execution State
+Audit State
+
+อย่าเอาทุกอย่างใส่ Database Table เดียว
+
+---
+
+44. EVENT BUS
+
+ระบบภายในควรใช้ Event-driven Architecture
+
+ตัวอย่าง:
+
+TASK_CREATED
+TASK_STARTED
+TASK_PAUSED
+TASK_COMPLETED
+TASK_FAILED
+
+MODEL_LOADED
+MODEL_FAILED
+
+TOOL_STARTED
+TOOL_COMPLETED
+TOOL_FAILED
+
+FILE_CHANGED
+BUILD_STARTED
+BUILD_COMPLETED
+TEST_FAILED
+
+CHECKPOINT_CREATED
+
+PERMISSION_REQUIRED
+
+EVENT BUS เป็นตัวเชื่อมระบบต่าง ๆ
+
+---
+
+45. STATE MACHINE
+
+ห้ามให้แต่ละหน้าจอสร้าง State ของตัวเองแบบอิสระ
+
+State สำคัญต้องมี Source of Truth กลาง
+
+เช่น:
+
+Task State
+Model State
+Agent State
+Project State
+Browser State
+Execution State
+
+---
+
+46. OFFLINE-FIRST
+
+ความสามารถที่ไม่ต้อง Internet ควรทำงาน Offline ได้
+
+เช่น:
+
+- Chat กับ Local AI
+- File Management
+- Code Editing
+- Local Model
+- Local Memory
+- Local Tasks
+- Local Build ถ้า Tool พร้อม
+- Local Test
+
+Internet ใช้เมื่อจำเป็น เช่น:
+
+GitHub
+Web
+External Models
+Downloads
+Cloud Services
+
+---
+
+47. NATIVE ANDROID
+
+Application หลักต้องออกแบบเป็น Native Android Architecture
+
+ไม่ควรสร้างระบบหลักให้ต้องพึ่ง Termux เพื่อทำงาน
+
+แนวคิด:
+
+Android Application
+↓
+Native UI
+↓
+Application Services
+↓
+AI Runtime
+↓
+Native Model Runtime
+↓
+Tools / Sandbox
+
+Native layer สามารถใช้ JNI/Native Runtime สำหรับ Local AI ตามความเหมาะสม
+
+---
+
+48. EMBEDDED BOOTSTRAP AI
+
+Application ต้องสามารถเปิดใช้งาน AI ขั้นต่ำได้ตั้งแต่ติดตั้ง
+
+จึงควรมี Bootstrap Model ขนาดเล็กที่เหมาะกับการฝังใน APK/Application Package หรือกลไกที่ทำให้พร้อมใช้งานทันที
+
+หน้าที่ของ Bootstrap Model:
+
+- Chat ขั้นพื้นฐาน
+- Intent Understanding
+- Command Classification
+- Tool Selection เบื้องต้น
+- Offline Help
+- System Diagnostics
+
+Model ใหญ่ค่อยติดตั้งเพิ่มเติม
+
+---
+
+49. AI MATURITY MODEL
+
+AI ต้องพัฒนาความสามารถเป็นระดับ
+
+LEVEL 0
+รับคำสั่ง
+
+LEVEL 1
+เข้าใจ Intent
+
+LEVEL 2
+เลือก Tool
+
+LEVEL 3
+วางแผน
+
+LEVEL 4
+ทำงานหลายขั้นตอน
+
+LEVEL 5
+ตรวจสอบผล
+
+LEVEL 6
+แก้ Error
+
+LEVEL 7
+Resume งาน
+
+LEVEL 8
+สร้าง/ใช้ Agent
+
+LEVEL 9
+เรียนรู้จาก Project Context
+
+LEVEL 10
+ทำงาน Autonomous ภายใต้ Permission
+
+ห้ามกระโดดข้าม Architecture เพียงเพราะต้องการให้ AI "ฉลาด" ทันที
+
+---
+
+50. AI SELF-KNOWLEDGE
+
+AI ต้องรู้จัก Application ของตัวเอง
+
+ต้องมี System Registry ที่อธิบาย:
+
+- มี Tool อะไร
+- มี Agent อะไร
+- มี Model อะไร
+- ใช้ Resource เท่าไร
+- มี Project อะไร
+- มี Permission อะไร
+- ทำอะไรได้
+- ทำอะไรไม่ได้
+- Tool ไหนเสีย
+- Model ไหนเสีย
+- Environment เป็นอย่างไร
+
+นี่คือสิ่งสำคัญมาก
+
+AI ต้องไม่ตอบแบบเดาสุ่มว่า:
+
+"ฉันมีเครื่องมือ X"
+
+ถ้า Registry บอกว่าไม่มี X ต้องรู้ว่าไม่มี
+
+---
+
+51. TOOL DISCOVERY
+
+เมื่อ AI ได้งาน:
+
+1. อ่าน Goal
+2. วิเคราะห์ Requirement
+3. ค้น Tool Registry
+4. ตรวจ Dependencies
+5. ตรวจ Permission
+6. ตรวจ Resource
+7. เลือก Tool
+8. Execute
+9. Verify
+
+---
+
+52. AI CONTROL LOOP
+
+Core Loop:
+
+OBSERVE
+↓
+UNDERSTAND
+↓
+PLAN
+↓
+ACT
+↓
+OBSERVE RESULT
+↓
+VERIFY
+↓
+REFLECT
+↓
+CONTINUE / RECOVER / ASK USER
+↓
+COMPLETE
+
+นี่คือ Loop หลักของ AI
+
+---
+
+53. HUMAN-IN-THE-LOOP
+
+AI ไม่ควรทำทุกอย่างโดยไม่มี User
+
+แบ่ง:
+
+AUTO
+ทำได้เอง
+
+APPROVAL
+ต้องให้ User อนุมัติ
+
+BLOCKED
+ต้องให้ User ทำเอง
+
+โดยเฉพาะ:
+
+- Login
+- Password
+- Payment
+- Account ownership
+- Destructive operations
+- Publishing
+- Production deployment
+- Sensitive credentials
+
+---
+
+54. UX PRINCIPLE
+
+UI ต้องดูเหมือน Application จริง ไม่ใช่ Developer Dashboard ที่เต็มไปด้วยข้อมูลจนใช้งานยาก
+
+Chat เป็นศูนย์กลาง
+
+ฟังก์ชันขั้นสูงค่อยเปิดผ่าน:
+
+Workspace
+Panels
+Tabs
+Command Center
+
+ผู้ใช้ทั่วไปไม่จำเป็นต้องเห็นระบบภายในทั้งหมดตลอดเวลา
+
+---
+
+55. MAIN NAVIGATION
+
+เสนอ Navigation หลัก:
+
+Home
+Chat
+Projects
+Tasks
+Agents
+Tools
+Models
+
+และ Advanced Workspace:
+
+Browser
+Files
+Editor
+Terminal
+Git
+Build
+Test
+Logs
+
+Settings อยู่แยก
+
+---
+
+56. RESPONSIBILITY RULE
+
+แต่ละ Module ต้องมีหน้าที่เดียวที่ชัดเจน
+
+ตัวอย่าง:
+
+Model Manager
+= จัดการ Model
+
+Model Router
+= เลือก Model
+
+AI Orchestrator
+= ควบคุม Workflow
+
+Planner
+= สร้าง Plan
+
+Task Engine
+= ควบคุม Task
+
+Tool Manager
+= จัดการ Tool
+
+Tool Gateway
+= เรียก Tool
+
+Verification Engine
+= ตรวจผล
+
+Resource Manager
+= ตรวจ Resource
+
+Permission Manager
+= ควบคุมสิทธิ์
+
+ห้ามให้ Module หนึ่งทำหน้าที่ของอีก Module แบบมั่ว
+
+---
+
+57. COMMUNICATION RULE
+
+Module ต้องคุยกันผ่าน Interface/Event/API ที่กำหนด
+
+ห้าม:
+
+- เรียก Internal Class ของอีก Module โดยตรงแบบไร้กฎ
+- แก้ Database ของ Module อื่นโดยตรง
+- เก็บ State ซ้ำหลายจุด
+- เขียน Logic ซ้ำ
+
+ต้องมี Single Source of Truth
+
+---
+
+58. ERROR HANDLING
+
+Error ทุกตัวต้องมี:
+
+Error Code
+Category
+Severity
+Message
+Cause
+Context
+Task
+Tool
+Recovery Strategy
+User Message
+
+ตัวอย่าง:
+
+MODEL_OUT_OF_MEMORY
+
+TOOL_NOT_FOUND
+
+RESOURCE_INSUFFICIENT
+
+PERMISSION_DENIED
+
+BUILD_FAILED
+
+NETWORK_UNAVAILABLE
+
+AUTH_REQUIRED
+
+UNKNOWN_ERROR
+
+---
+
+59. LOGGING
+
+Log ต้องแบ่ง:
+
+DEBUG
+INFO
+WARNING
+ERROR
+SECURITY
+AUDIT
+
+ห้าม Log Secret
+
+---
+
+60. TEST ARCHITECTURE
+
+ก่อนถือว่า Application เสร็จ ต้อง Test:
+
+Unit
+Integration
+Runtime
+AI Loop
+Tool
+Agent
+Memory
+Model
+Browser
+File
+Terminal
+Git
+Build
+Security
+Permission
+Recovery
+Checkpoint
+Offline
+Low Resource
+
+---
+
+61. DEVELOPMENT ORDER
+
+อย่าสร้าง UI ทั้งหมดก่อนแล้วค่อยคิด Core
+
+ลำดับที่ถูกต้อง:
+
+PHASE 0
+Architecture Contract
+
+PHASE 1
+Native Android Shell
+
+PHASE 2
+Core State/Event System
+
+PHASE 3
+Resource Manager
+
+PHASE 4
+Local AI Runtime
+
+PHASE 5
+Model Manager
+
+PHASE 6
+AI Core
+
+PHASE 7
+Context Engine
+
+PHASE 8
+Memory
+
+PHASE 9
+Planner
+
+PHASE 10
+Task Engine
+
+PHASE 11
+Agent Runtime
+
+PHASE 12
+Tool Registry
+
+PHASE 13
+Tool Gateway
+
+PHASE 14
+File System
+
+PHASE 15
+Code Editor
+
+PHASE 16
+Terminal
+
+PHASE 17
+Build/Test
+
+PHASE 18
+Git/GitHub
+
+PHASE 19
+Browser Runtime
+
+PHASE 20
+Verification
+
+PHASE 21
+Checkpoint/Recovery
+
+PHASE 22
+Security/Permission
+
+PHASE 23
+Chat UI
+
+PHASE 24
+Workspace UI
+
+PHASE 25
+Settings
+
+PHASE 26
+Integration
+
+PHASE 27
+Stress Test
+
+PHASE 28
+Offline Test
+
+PHASE 29
+Low-RAM Test
+
+PHASE 30
+Release Candidate
+
+---
+
+62. DEVELOPMENT RULE
+
+ทุก Phase ต้อง:
+
+1. อ่าน Architecture Contract
+2. ตรวจ Dependency
+3. Implement
+4. Test
+5. Verify
+6. Update Documentation
+7. Create Checkpoint
+8. ห้ามทำ Phase ถัดไปถ้า Interface สำคัญของ Phase ปัจจุบันยังไม่เสถียร
+
+---
+
+63. ANTI-MESS RULE
+
+ห้ามเพิ่ม Feature แบบ:
+
+"เดี๋ยวค่อยเชื่อมทีหลัง"
+
+ห้ามสร้าง:
+
+UI ก่อน Core
+Tool ก่อน Tool Registry
+Agent ก่อน Agent Runtime
+Model UI ก่อน Model Manager
+Browser UI ก่อน Browser Runtime
+
+ทุก Feature ต้องมี:
+
+Contract
+Owner Module
+State
+Data
+Interface
+Error Handling
+Permission
+Test
+
+---
+
+64. DOCUMENTATION
+
+Project ต้องมี:
+
+/docs
+/architecture
+/specs
+/modules
+/interfaces
+/database
+/ai
+/tools
+/agents
+/security
+/testing
+/decisions
+/roadmap
+
+ไฟล์สำคัญ:
+
+ARCHITECTURE.md
+SYSTEM_SPEC.md
+AI_CORE.md
+MODULES.md
+TOOL_SYSTEM.md
+AGENT_SYSTEM.md
+MODEL_SYSTEM.md
+SECURITY.md
+TESTING.md
+CHECKPOINT.md
+DECISIONS.md
+
+---
+
+65. AI AGENT DEVELOPMENT CONTRACT
+
+AI Coding Agent ที่ใช้พัฒนา Application ต้อง:
+
+- อ่าน Architecture ก่อนแก้ Code
+- อ่าน Module Contract ก่อนแก้ Module
+- ห้ามสร้างระบบซ้ำ
+- ห้ามเปลี่ยน Architecture โดยไม่ได้รับอนุญาต
+- ห้ามลบ Feature โดยไม่มีเหตุผล
+- ห้ามสร้าง Mock แทนระบบจริงโดยไม่ระบุ
+- ห้ามประกาศว่าเสร็จถ้ายังไม่ได้ Test
+- ต้องสร้าง Checkpoint
+- ต้องรายงาน Files Changed
+- ต้องรายงาน Tests
+- ต้องรายงาน Errors
+- ต้องรายงาน Remaining Work
+
+---
+
+66. DEFINITION OF DONE
+
+Feature จะถือว่าเสร็จเมื่อ:
+
+[ ] Architecture ถูกต้อง
+[ ] Interface ถูกต้อง
+[ ] Implementation เสร็จ
+[ ] UI เชื่อมจริง
+[ ] Data Flow ทำงานจริง
+[ ] Error Handling มี
+[ ] Permission มี
+[ ] Logging มี
+[ ] Test ผ่าน
+[ ] Recovery ผ่าน
+[ ] Documentation อัปเดต
+[ ] Checkpoint สร้าง
+[ ] ไม่มี Mock ที่แอบทำงานแทนระบบจริง
+
+---
+
+67. FINAL SYSTEM FLOW
+
+ภาพรวมทั้งหมด:
+
+USER
+↓
+APPLICATION UI
+↓
+CHAT / COMMAND
+↓
+AI ORCHESTRATOR
+↓
+CONTEXT ENGINE
+↓
+MEMORY
+↓
+PLANNER
+↓
+TASK ENGINE
+↓
+AGENT RUNTIME
+↓
+MODEL ROUTER
+↓
+OWN LOCAL AI RUNTIME
+↓
+TOOL DISCOVERY
+↓
+PERMISSION CHECK
+↓
+RESOURCE CHECK
+↓
+TOOL EXECUTION
+↓
+OBSERVE RESULT
+↓
+VERIFICATION ENGINE
+↓
+SUCCESS?
+├── YES → SAVE RESULT → MEMORY → CHECKPOINT → USER
+└── NO
+↓
+ERROR ANALYSIS
+↓
+RETRY / ALTERNATIVE TOOL / ALTERNATIVE MODEL
+↓
+VERIFY AGAIN
+↓
+SUCCESS OR ASK USER
+
+---
+
+68. สิ่งที่ต้องจำตลอดการพัฒนา
+
+Application นี้ไม่ใช่ "หน้าจอ Chat ที่เรียก API"
+
+มันคือ:
+
+«OWN AI APPLICATION RUNTIME»
+
+Model เป็นส่วนหนึ่งของระบบ
+
+Agent เป็นส่วนหนึ่งของระบบ
+
+Tool เป็นส่วนหนึ่งของระบบ
+
+Browser เป็นส่วนหนึ่งของระบบ
+
+Memory เป็นส่วนหนึ่งของระบบ
+
+Planner เป็นส่วนหนึ่งของระบบ
+
+แต่ทั้งหมดต้องทำงานร่วมกันภายใต้ AI Core ของ Application
+
+---
+
+69. กฎห้ามเปลี่ยนโดยพลการ
+
+ห้ามเปลี่ยนแนวคิดหลักต่อไปนี้:
+
+1. Own AI เป็นศูนย์กลาง
+2. Local-first
+3. External Model เป็น Adapter/Provider
+4. AI ต้องรู้จัก Tool ของตัวเอง
+5. AI ต้องวางแผนก่อนทำงานซับซ้อน
+6. AI ต้องตรวจสอบผล
+7. AI ต้อง Recover ได้
+8. AI ต้อง Resume ได้
+9. AI ต้องมี Memory
+10. AI ต้องมี Permission
+11. AI ต้องมี Security
+12. AI ต้องรู้ Resource ของเครื่อง
+13. AI ต้องทำงานกับ Project
+14. AI ต้องทำงานกับ Code
+15. AI ต้องทำงานกับ Browser
+16. AI ต้องทำงานกับ Git/GitHub
+17. AI ต้อง Build/Test ได้
+18. ทุกระบบต้องมี Contract
+19. ทุกงานสำคัญต้องมี Checkpoint
+20. ห้ามสร้างระบบซ้ำซ้อน
+
+---
+
+70. คำสั่งสำหรับ AI ผู้พัฒนา
+
+ก่อนเริ่มเขียน Code:
+
+1. อ่าน Blueprint นี้ทั้งหมด
+2. สร้าง Architecture Map
+3. สร้าง Module Dependency Map
+4. สร้าง Data Flow
+5. สร้าง State Machine
+6. สร้าง Interface Contract
+7. สร้าง Project Structure
+8. สร้าง Development Roadmap
+9. ตรวจ Dependency ว่ามี Cycle หรือไม่
+10. เริ่มจาก Phase 0 เท่านั้น
+
+ห้ามกระโดดไปสร้าง Feature จำนวนมากทันที
+
+ห้ามเริ่มจาก UI อย่างเดียว
+
+ห้ามใช้ AI Provider ภายนอกเป็นแกนกลาง
+
+ห้ามถือว่า "เรียก API ได้ = สร้าง AI สำเร็จ"
+
+เป้าหมายสุดท้ายคือ:
+
+«สร้าง Application ที่มี AI Runtime ของตัวเอง ซึ่งสามารถเข้าใจ วางแผน ใช้เครื่องมือ ทำงาน ตรวจสอบ แก้ปัญหา จดจำ และทำงานต่อเนื่องได้ ภายใต้ระบบ Security และ Permission ที่ควบคุมโดย Application เอง»
+
+นี่คือ Architecture Contract หลักของ Project ใหม่

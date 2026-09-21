@@ -1,0 +1,1692 @@
+TOOL & WORKSPACE 100% CAPABILITY CONTRACT
+
+สัญญาความสามารถของเครื่องมือทุกตัวใน Application
+
+1. หลักการสูงสุด
+
+Application นี้ห้ามมีสิ่งที่เรียกว่า “Tool UI หลอก” หรือ “Feature Placeholder”
+
+ถ้า Application แสดงเครื่องมือใดให้ผู้ใช้เห็น เครื่องมือนั้นต้องมี Runtime/Backend/Execution Layer ที่สามารถรองรับการทำงานของเครื่องมือนั้นจริง
+
+ห้ามสร้างเพียง:
+
+- ปุ่ม Browser แต่เปิด WebView ธรรมดาแล้วเรียกว่า Browser
+- ปุ่ม Terminal แต่รับข้อความแล้วแสดงข้อความปลอม
+- Code Editor ที่แก้ไฟล์ไม่ได้จริง
+- Build ที่แสดง progress ปลอม
+- Git ที่มีแต่ปุ่ม Commit แต่ไม่มี Git Runtime
+- File Manager ที่แสดงไฟล์แต่จัดการไฟล์จริงไม่ได้
+- Browser Automation ที่มีปุ่ม “Run” แต่ไม่มี automation engine
+- Model Manager ที่แสดงรายการโมเดลแต่ติดตั้ง/โหลด/สลับโมเดลไม่ได้
+- Tool Manager ที่แสดงรายการเครื่องมือแต่ติดตั้งหรือใช้งานไม่ได้
+
+ทุก Tool ต้องผ่าน:
+
+UI → Capability → Runtime → Execution → Result → Verification
+
+---
+
+2. ความหมายของ “100%”
+
+100% หมายถึง:
+
+«ทุกความสามารถที่ Tool ประกาศว่ารองรับ ต้องทำงานได้จริงตั้งแต่ต้นจนจบ หรือมี Implementation/Compatibility Layer ที่ให้ผลลัพธ์เทียบเท่าตาม Capability Contract»
+
+ตัวอย่าง:
+
+หาก Terminal ระบุว่า:
+
+- cd
+- ls
+- cp
+- mv
+- rm
+- mkdir
+- cat
+- grep
+- find
+- git
+- python
+- node
+- java
+- gradle
+- adb
+- build
+
+แต่ Android ไม่สามารถรันบางคำสั่งแบบ Linux desktop ได้โดยตรง
+
+ห้ามทำ:
+
+"Command → Fake Success"
+
+ต้องทำ:
+
+"Command → Capability Detection → Native/Embedded Runtime → Compatibility Layer → Execute → Verify"
+
+หากไม่มีวิธีทำจริง:
+
+"Command → Detect Unsupported → Alternative Implementation → Execute Alternative → Verify"
+
+และถ้ายังทำไม่ได้จริง:
+
+"Command → Explain limitation → Provide supported alternative → Never fake success"
+
+---
+
+3. Tool Capability Registry
+
+ทุกเครื่องมือในระบบต้องลงทะเบียนกับ Tool Registry
+
+ข้อมูลขั้นต่ำ:
+
+Tool ID
+Tool Name
+Category
+Purpose
+Runtime
+Capabilities
+Supported Operations
+Input Types
+Output Types
+Dependencies
+Required Permissions
+Required Resources
+Network Requirement
+Storage Requirement
+Android Restrictions
+Compatibility Layer
+Fallback Method
+AI Controllability
+Human Controllability
+Verification Method
+Error Types
+Recovery Strategy
+Security Level
+State
+Version
+
+ตัวอย่าง:
+
+browser
+Runtime: BrowserRuntime
+Capabilities:
+- tabs
+- navigation
+- history
+- bookmarks
+- downloads
+- uploads
+- cookies
+- localStorage
+- JavaScript
+- DOM
+- accessibility tree
+- screenshots
+- page extraction
+- automation
+- sessions
+- permissions
+- human handoff
+
+AI ต้องอ่าน Registry ก่อนเลือก Tool
+
+---
+
+4. TOOL DESIGN RULE
+
+เครื่องมือทุกตัวต้องมี 7 ชั้น
+
+1. UI
+2. Controller
+3. Capability API
+4. Runtime
+5. Execution Engine
+6. Verification
+7. Recovery
+
+ห้ามให้ UI เรียก Runtime โดยตรงแบบมั่วๆ
+
+ตัวอย่าง:
+
+Browser UI
+↓
+Browser Controller
+↓
+Browser Capability API
+↓
+Browser Runtime
+↓
+Web Engine
+↓
+Page
+↓
+Result
+↓
+Verification
+
+---
+
+5. BROWSER
+
+หน้าที่
+
+Browser ไม่ใช่ WebView Launcher
+
+Browser คือ Web Browser เต็มระบบภายใน Application
+
+ต้องสามารถ:
+
+- เปิดเว็บไซต์
+- URL navigation
+- Search
+- Back
+- Forward
+- Reload
+- Stop
+- New Tab
+- Close Tab
+- Duplicate Tab
+- Reopen Tab
+- Tab Groups
+- Private/Incognito Session
+- History
+- Bookmarks
+- Downloads
+- Upload
+- File Download
+- Cookies
+- Cache
+- Local Storage
+- Session Storage
+- JavaScript
+- DOM
+- Accessibility Tree
+- Page Text Extraction
+- Screenshot
+- Find in Page
+- Zoom
+- Desktop/Mobile User Agent
+- Permission handling
+- Popups
+- Redirects
+- Multiple sessions
+- Multiple websites simultaneously
+- Authentication handoff
+- AI page analysis
+- AI browser control
+- Human takeover
+- Browser automation
+- Network state handling
+
+---
+
+Browser UI
+
+Top Toolbar
+
+ความสูง:
+
+"56–64dp"
+
+เรียง:
+
+[Back] [Forward] [Reload]
+[ URL / Search Field ]
+[Bookmark]
+[More]
+
+URL Field:
+
+- สูง 40–44dp
+- Radius 20dp
+- Light: "#FFFFFF"
+- Dark: "#171B23"
+- Border: "#E5E7EB" / "#272D38"
+
+ภายใน:
+
+[Security Icon] [URL / Search]
+
+เมื่อกำลังโหลด:
+
+[Loading Indicator]
+
+---
+
+Tab System
+
+Tab ต้องเป็นระบบจริง
+
+รองรับ:
+
+- เปิด
+- ปิด
+- สลับ
+- Duplicate
+- Restore
+- Group
+- Reorder
+- Search tabs
+
+Tab Grid:
+
+2 columns บนโทรศัพท์
+
+แต่ละ Card:
+
+- Preview
+- Favicon
+- Title
+- Domain
+- Close
+- Active indicator
+
+---
+
+New Tab Page
+
+ต้องมี:
+
+Application Logo
+↓
+Search / URL Field
+↓
+Quick Actions
+[Bookmarks]
+[History]
+[Downloads]
+[Recent Sites]
+
+---
+
+Browser Content Area
+
+หน้าเว็บต้องใช้พื้นที่หลักของหน้าจอ
+
+ห้ามทำ UI ใหญ่จนเว็บเหลือพื้นที่น้อย
+
+---
+
+Browser AI Layer
+
+ด้านล่างมี AI Action Bar:
+
+Ask AI about this page
+
+เมื่อเปิด:
+
+Summarize
+Analyze
+Find
+Extract
+Translate
+Explain
+Fill
+Navigate
+Automate
+
+AI ต้องได้รับ Context ที่เหมาะสม เช่น:
+
+URL
+Title
+Page Text
+DOM
+Accessibility Tree
+Selected Element
+Screenshot
+User Selection
+
+ตาม Permission
+
+---
+
+AI Browser Control
+
+เมื่อ AI กำลังทำงาน:
+
+AI is controlling this page
+
+Current:
+Opening...
+Finding...
+Clicking...
+Typing...
+Waiting...
+Verifying...
+
+มี:
+
+Pause
+Stop
+Take Control
+
+---
+
+Human Authentication
+
+AI ห้ามขโมยหรือเก็บ password
+
+หากเว็บไซต์ต้อง Login:
+
+AI needs you to sign in
+
+ปุ่ม:
+
+Take Control
+
+ผู้ใช้ Login เอง
+
+เมื่อเสร็จ:
+
+Return control to AI
+
+Session จึงกลับมาที่ AI
+
+---
+
+Browser Compatibility
+
+หากเว็บไซต์ต้องการความสามารถที่ Android Web Engine ทำไม่ได้โดยตรง:
+
+Detect
+↓
+Compatibility Layer
+↓
+Alternative Implementation
+↓
+Verify
+
+ห้ามหลอกผู้ใช้ว่าเว็บไซต์ทำงานสำเร็จ
+
+---
+
+6. TERMINAL
+
+Terminal เป็นเครื่องมือระดับ Core
+
+ต้องเป็น Terminal จริง ไม่ใช่ Chat ที่ทำหน้าตาเหมือน Terminal
+
+---
+
+Terminal ต้องรองรับ
+
+Shell
+
+อย่างน้อย:
+
+sh
+command execution
+stdin
+stdout
+stderr
+environment variables
+working directory
+process
+signals
+exit code
+pipes
+redirect
+background process
+foreground process
+
+---
+
+File Operations
+
+pwd
+ls
+cd
+mkdir
+touch
+cp
+mv
+rm
+cat
+head
+tail
+find
+grep
+sort
+sed
+awk
+chmod
+
+ตามความสามารถของ runtime
+
+---
+
+Process
+
+ต้องรองรับ:
+
+start
+stop
+pause
+resume
+kill
+restart
+foreground
+background
+
+---
+
+Terminal UI
+
+พื้นหลัง:
+
+"#0B0D10"
+
+Text:
+
+"#E5E7EB"
+
+Monospace:
+
+"13–14sp"
+
+Header:
+
+[Terminal Icon]
+Terminal
+● Connected
+
+ด้านขวา:
+
+CPU
+RAM
+Storage
+Process
+More
+
+Content:
+
+$ command
+output
+output
+output
+
+ด้านล่าง:
+
+[Command Input]
+[Run]
+
+---
+
+Terminal Sessions
+
+รองรับหลาย Session:
+
+Terminal 1
+Terminal 2
+Terminal 3
+
+แต่ละ Session ต้องมี:
+
+- Working directory
+- Environment
+- Process
+- History
+- Output
+- State
+
+---
+
+Android Compatibility Layer
+
+Application ต้องไม่พึ่ง Termux
+
+สร้าง:
+
+App Shell Runtime
+
+ทำหน้าที่เป็น environment ของ Application
+
+ประกอบด้วย:
+
+Shell Runtime
+Process Manager
+Filesystem Sandbox
+Environment Manager
+Package/Tool Runtime
+Permission Layer
+Resource Limits
+
+---
+
+เมื่อ command ไม่มีใน Android
+
+ตัวอย่าง:
+
+python
+
+ระบบตรวจ:
+
+Python installed?
+
+ถ้าไม่:
+
+Tool Manager
+↓
+Install Python Runtime
+↓
+Verify
+↓
+Execute
+
+หาก binary ปกติใช้ไม่ได้:
+
+Native Runtime
+Embedded Runtime
+Compatibility Runtime
+
+---
+
+Terminal Command Contract
+
+ทุก command ต้องคืน:
+
+stdout
+stderr
+exitCode
+duration
+resourceUsage
+filesChanged
+processState
+
+ห้ามแสดง “Success” ถ้า exit code หรือ verification ล้มเหลว
+
+---
+
+7. FILE MANAGER
+
+ต้องเป็น File Manager จริง
+
+รองรับ:
+
+Browse
+Open
+Create
+Rename
+Copy
+Move
+Delete
+Duplicate
+Search
+Sort
+Filter
+Multi-select
+Share
+Details
+Permissions
+Archive
+Extract
+Import
+Export
+
+---
+
+UI
+
+Toolbar:
+
+[Back]
+[Current Path]
+[Search]
+[Sort]
+[More]
+
+File Row:
+
+[Icon] filename
+       size • modified
+
+สูง:
+
+"64–72dp"
+
+Long Press:
+
+Open
+Rename
+Copy
+Move
+Share
+Analyze with AI
+Delete
+Details
+
+---
+
+8. CODE EDITOR
+
+ต้องเป็น Editor จริง
+
+รองรับ:
+
+Open
+Create
+Edit
+Save
+Undo
+Redo
+Find
+Replace
+Go to line
+Syntax highlighting
+Line numbers
+Selection
+Copy
+Paste
+Multi-cursor
+Diff
+AI edit
+Apply patch
+Reject patch
+Formatting
+Language detection
+
+---
+
+Editor UI
+
+[File]
+[Search]
+[AI]
+[Run]
+[Build]
+[More]
+
+Editor:
+
+Line | Code
+001  | class Main {
+002  | ...
+
+Dark Editor:
+
+"#0B0D10"
+
+Monospace:
+
+"13–14sp"
+
+---
+
+9. BUILD SYSTEM
+
+Build Tool ต้อง build จริง
+
+ต้องมี:
+
+Configure
+Resolve dependencies
+Compile
+Package
+Sign
+Verify
+Generate artifact
+
+UI:
+
+Build
+● Running
+
+Step 3/8
+Compiling...
+
+Progress
+████████░░
+
+Elapsed
+01:42
+
+สำเร็จ:
+
+BUILD SUCCESS
+
+APK
+Version
+Size
+Build Time
+
+[Install]
+[Open Folder]
+[Share]
+
+ล้มเหลว:
+
+BUILD FAILED
+
+[View Errors]
+[Fix with AI]
+[Retry]
+
+AI ได้รับ:
+
+Build ID
+Logs
+Error
+Stack trace
+Changed files
+Environment
+Dependencies
+
+---
+
+10. TEST SYSTEM
+
+ต้องรัน Test จริง
+
+รองรับ:
+
+Unit Test
+Integration Test
+UI Test
+Runtime Test
+Build Verification
+Regression Test
+
+UI:
+
+Tests
+142 Tests
+
+Passed 136
+Failed 4
+Skipped 2
+
+แต่ละ Test:
+
+● PASS
+○ FAIL
+○ SKIPPED
+
+กด Test:
+
+Details
+Logs
+Stack Trace
+Related File
+Run Again
+Fix with AI
+
+---
+
+11. GIT
+
+Git ต้องเป็น Git จริง
+
+รองรับ:
+
+Clone
+Init
+Status
+Add
+Commit
+Push
+Pull
+Fetch
+Branch
+Checkout
+Merge
+Rebase
+Diff
+Stash
+Reset
+Revert
+Tag
+Log
+Remote
+Conflict Resolution
+
+UI ต้องมี:
+
+Current Branch
+Sync Status
+Changed Files
+Commits
+Branches
+
+Diff:
+
+Removed
+Added
+Modified
+
+AI สามารถ:
+
+Explain Diff
+Review
+Fix
+Create Commit Message
+Resolve Conflict
+
+แต่ destructive operation ต้องผ่าน Permission ตามระดับความเสี่ยง
+
+---
+
+12. GITHUB / REMOTE DEVELOPMENT
+
+รองรับ:
+
+Repository
+Issues
+Pull Requests
+Branches
+Commits
+Actions
+Files
+Releases
+
+AI สามารถ:
+
+Read repository
+Search
+Edit
+Create branch
+Commit
+Create PR
+Review
+Respond to review
+
+แต่ Token/Authentication ต้องอยู่ใน Secret Manager
+
+---
+
+13. MODEL MANAGER
+
+ไม่ใช่แค่รายการโมเดล
+
+ต้องรองรับ:
+
+Discover
+Install
+Download
+Pause
+Resume
+Cancel
+Update
+Remove
+Load
+Unload
+Switch
+Test
+Benchmark
+Fallback
+
+Model Card:
+
+Model Name
+Provider
+Type
+Size
+Context
+RAM Requirement
+Speed
+Status
+Installed
+Loaded
+Available
+
+---
+
+14. MODEL RUNTIME
+
+เมื่อเลือกโมเดล:
+
+Model Manager
+↓
+Resource Check
+↓
+Load Model
+↓
+Warm-up
+↓
+Health Check
+↓
+Ready
+
+หาก fail:
+
+Unload
+↓
+Diagnose
+↓
+Alternative Model
+↓
+Load
+↓
+Verify
+
+ระบบต้องจำ:
+
+Last Working Model
+
+---
+
+15. TOOL MANAGER
+
+Tool Manager ต้องจัดการเครื่องมือจริง
+
+ตัวอย่าง:
+
+Git
+Python
+Node
+Java
+JDK
+Gradle
+Android SDK
+NDK
+ADB
+CMake
+Make
+Zip
+Unzip
+Image Tools
+PDF Tools
+Browser Runtime
+Testing Runtime
+
+ทุก Tool:
+
+Installed
+Not Installed
+Installing
+Updating
+Broken
+Unavailable
+
+ปุ่ม:
+
+Install
+Update
+Repair
+Remove
+Open
+Details
+
+---
+
+16. RESOURCE MANAGER
+
+ต้องตรวจ:
+
+RAM
+CPU
+Storage
+Battery
+Network
+GPU
+NPU
+Thermal
+Process
+Model Memory
+Workspace
+
+ก่อน execute งานหนัก
+
+ตัวอย่าง:
+
+Build requires 2.8 GB RAM
+
+Available: 1.1 GB
+
+Options:
+[Free Resources]
+[Use Smaller Build]
+[Wait]
+[Cancel]
+
+---
+
+17. AGENT SYSTEM
+
+Agent ไม่ใช่แค่ Avatar + ชื่อ
+
+Agent ต้องมี:
+
+Identity
+Role
+Instructions
+Model
+Tools
+Permissions
+Memory
+Current Task
+Execution Policy
+Status
+
+ตัวอย่าง:
+
+Coding Agent
+● Working
+
+Task:
+Fix authentication bug
+
+Model:
+Local AI
+
+Tools:
+Editor
+Terminal
+Git
+Test
+
+Progress:
+4/7
+
+---
+
+18. AI ACTIVITY CENTER
+
+ผู้ใช้ต้องมองเห็น AI ทำอะไรอยู่
+
+Timeline:
+
+16:20
+Received task
+
+16:20
+Planning
+
+16:21
+Opened project
+
+16:21
+Read AuthManager.java
+
+16:22
+Detected error
+
+16:22
+Modified file
+
+16:23
+Running tests
+
+16:24
+Tests passed
+
+16:24
+Completed
+
+แต่ละ Event ต้องกดดูรายละเอียดได้
+
+---
+
+19. BROWSER + TERMINAL + EDITOR + FILE MANAGER INTEGRATION
+
+เครื่องมือทั้งหมดต้องทำงานร่วมกัน
+
+ตัวอย่าง:
+
+Browser
+↓
+Download file
+↓
+File Manager
+↓
+Open Editor
+↓
+Edit
+↓
+Terminal
+↓
+Build
+↓
+Test
+↓
+Git
+↓
+Commit
+
+AI สามารถ orchestrate flow นี้ได้
+
+---
+
+20. CROSS-TOOL CONTEXT
+
+ทุก Tool ต้องส่ง Context ให้ AI ได้
+
+Editor
+
+File
+Selection
+Line
+Project
+Diagnostics
+
+Terminal
+
+Command
+Output
+Exit Code
+Working Directory
+Process
+
+Browser
+
+URL
+Title
+Page
+DOM
+Selection
+Screenshot
+
+Build
+
+Build ID
+Logs
+Errors
+Environment
+Changed Files
+
+Test
+
+Test
+Result
+Stack Trace
+File
+
+Git
+
+Branch
+Diff
+Commit
+Conflict
+
+---
+
+21. VERIFICATION CONTRACT
+
+Tool ไม่สามารถประกาศสำเร็จด้วยตัวเองโดยไม่มี Verification
+
+ตัวอย่าง:
+
+Build command returned 0
+
+ยังไม่ถือว่าสำเร็จ
+
+ต้องตรวจ:
+
+Artifact exists?
+Artifact valid?
+Expected output exists?
+Size valid?
+Package valid?
+
+Browser:
+
+Page loaded?
+Expected element exists?
+Expected text exists?
+
+File:
+
+File exists?
+Correct content?
+
+Git:
+
+Commit exists?
+Working tree state correct?
+Remote synchronized?
+
+Test:
+
+Expected tests executed?
+Expected results?
+
+---
+
+22. FALLBACK SYSTEM
+
+ทุก Tool ต้องมี fallback
+
+Primary Runtime
+↓
+Compatibility Layer
+↓
+Alternative Runtime
+↓
+Alternative Tool
+↓
+User Decision
+
+ตัวอย่าง:
+
+Cannot execute native binary
+↓
+Check embedded runtime
+↓
+Check compatible runtime
+↓
+Check sandbox
+↓
+Check remote execution if configured
+↓
+Ask user
+
+ห้าม:
+
+Cannot run
+↓
+Pretend success
+
+---
+
+23. OFFLINE MODE
+
+เครื่องมือที่สามารถทำงาน Offline ต้องทำงานต่อได้
+
+เช่น:
+
+File Manager
+Editor
+Terminal local runtime
+Git local
+Local AI
+Build tools
+Test tools
+
+เครื่องมือที่จำเป็น Network ต้องแสดง:
+
+Offline
+Network required
+
+ไม่ใช่หมุน Loading ตลอดไป
+
+---
+
+24. RESOURCE-CONSTRAINED MODE
+
+เมื่อ RAM ต่ำ:
+
+Detect
+↓
+Reduce parallel workers
+↓
+Unload unused model
+↓
+Pause background agents
+↓
+Use lightweight runtime
+↓
+Continue
+
+ผู้ใช้ต้องเห็นเหตุผล
+
+---
+
+25. TOOL STATE
+
+ทุก Tool ต้องมี State Machine
+
+UNAVAILABLE
+INSTALLING
+READY
+STARTING
+RUNNING
+BUSY
+PAUSED
+WAITING
+ERROR
+RECOVERING
+STOPPING
+STOPPED
+
+UI ต้องแสดง State จริง
+
+---
+
+26. TOOL PERMISSION
+
+ทุก Tool ต้องมี Permission Model
+
+ตัวอย่าง:
+
+READ
+WRITE
+EXECUTE
+NETWORK
+SYSTEM
+SECRET
+DESTRUCTIVE
+
+AI ขอ Permission ตามความจำเป็น
+
+---
+
+27. TOOL ERROR SYSTEM
+
+ทุก Tool ต้องมี Error Classification
+
+USER_ERROR
+INPUT_ERROR
+DEPENDENCY_ERROR
+RESOURCE_ERROR
+PERMISSION_ERROR
+NETWORK_ERROR
+RUNTIME_ERROR
+TIMEOUT
+SECURITY_ERROR
+ENVIRONMENT_ERROR
+UNKNOWN
+
+จากนั้น Recovery Engine เลือกวิธีแก้
+
+---
+
+28. TOOL HEALTH CHECK
+
+ทุก Tool ต้องมี:
+
+Installed?
+Version?
+Runtime available?
+Dependencies?
+Permission?
+Resource?
+Self Test?
+
+ตัวอย่าง Terminal:
+
+Terminal Health
+
+Shell        ✓
+Filesystem   ✓
+Process      ✓
+stdin/stdout ✓
+Python       ✓
+Git          ✓
+Java         ✓
+
+---
+
+29. TOOL DETAIL PAGE
+
+ทุก Tool ต้องมีหน้า Detail
+
+ประกอบด้วย:
+
+Tool Icon
+Tool Name
+Version
+Status
+Purpose
+
+Capabilities
+
+Dependencies
+
+Resources
+
+Permissions
+
+Supported Operations
+
+Limitations
+
+Compatibility
+
+Health
+
+[Open]
+[Repair]
+[Update]
+[Remove]
+
+---
+
+30. “ผู้ใช้ไม่เคยใช้” ไม่ใช่เหตุผลที่จะลดความสามารถ
+
+หาก Tool เป็นส่วนหนึ่งของ Application:
+
+«ต้องออกแบบให้สมบูรณ์ แม้ผู้ใช้บางคนจะไม่เคยเปิดมันเลย»
+
+ดังนั้น:
+
+Terminal ต้องสมบูรณ์
+
+Browser ต้องสมบูรณ์
+
+Editor ต้องสมบูรณ์
+
+Git ต้องสมบูรณ์
+
+Build ต้องสมบูรณ์
+
+Test ต้องสมบูรณ์
+
+File Manager ต้องสมบูรณ์
+
+Model Manager ต้องสมบูรณ์
+
+Tool Manager ต้องสมบูรณ์
+
+Agent Manager ต้องสมบูรณ์
+
+---
+
+31. TOOL DEFINITION OF DONE
+
+Tool จะถือว่า “เสร็จ” ได้ต่อเมื่อครบทุกข้อ:
+
+[ ] UI เสร็จ
+[ ] Runtime เสร็จ
+[ ] Capability API เสร็จ
+[ ] State Machine เสร็จ
+[ ] Permission เสร็จ
+[ ] Resource Control เสร็จ
+[ ] Error Handling เสร็จ
+[ ] Fallback เสร็จ
+[ ] Verification เสร็จ
+[ ] Recovery เสร็จ
+[ ] Offline State
+[ ] Loading State
+[ ] Empty State
+[ ] Error State
+[ ] Success State
+[ ] Permission State
+[ ] Responsive UI
+[ ] Accessibility
+[ ] AI Integration
+[ ] Manual Control
+[ ] Logging
+[ ] Security
+[ ] Health Check
+[ ] Automated Tests
+[ ] Stress Tests
+[ ] Low-RAM Tests
+[ ] Process Restart Tests
+[ ] State Restoration
+
+---
+
+32. ห้ามใช้คำว่า “รองรับ” ถ้ายังไม่มี Implementation
+
+ในเอกสารและ UI ห้ามเขียน:
+
+Supports Python
+
+ถ้ายังไม่มี Python Runtime
+
+ต้องเขียน:
+
+Python
+Not Installed
+[Install]
+
+ห้ามเขียน:
+
+GitHub Supported
+
+ถ้ายังไม่มี GitHub integration
+
+ต้องเขียนสถานะจริง
+
+---
+
+33. CAPABILITY MATRIX
+
+Application ต้องสร้าง Capability Matrix กลาง
+
+ตัวอย่าง:
+
+Tool| UI| Runtime| Execute| AI| Manual| Verify| Fallback
+Browser| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+Terminal| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+Editor| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+Files| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+Git| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+Build| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+Test| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+Models| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+Tools| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+Agents| ✓| ✓| ✓| ✓| ✓| ✓| ✓
+
+หากช่องใดเป็น "✗":
+
+Tool ยังไม่ถือว่า Production Ready
+
+---
+
+34. AI ต้องรู้ข้อจำกัดของ Tool
+
+AI ห้ามสมมติว่า Tool ทำอะไรได้
+
+AI ต้องถาม Registry:
+
+Can Tool X perform Operation Y?
+
+Registry ตอบ:
+
+YES
+NO
+CONDITIONAL
+
+ถ้า CONDITIONAL:
+
+Required Dependency
+Required Permission
+Required Resource
+Required Runtime
+
+---
+
+35. AI TOOL SELECTION
+
+AI ทำ:
+
+User Goal
+↓
+Understand
+↓
+Required Capability
+↓
+Search Tool Registry
+↓
+Check Tool
+↓
+Check Dependency
+↓
+Check Permission
+↓
+Check Resource
+↓
+Execute
+↓
+Verify
+
+---
+
+36. ตัวอย่างจริง
+
+ผู้ใช้:
+
+«“เปิด GitHub แล้วแก้โค้ดและทดสอบให้ฉัน”»
+
+AI:
+
+Browser → GitHub
+↓
+Authentication required
+↓
+Human Takeover
+↓
+Repository selected
+↓
+Project Workspace
+↓
+Editor
+↓
+Modify
+↓
+Terminal
+↓
+Build
+↓
+Test
+↓
+Verification
+↓
+Git Diff
+↓
+Commit
+↓
+Result
+
+ทุกขั้นต้องเป็น Tool จริง
+
+---
+
+37. FINAL RULE
+
+Application นี้ไม่ใช่:
+
+«Chatbot + ปุ่ม Tools»
+
+แต่คือ:
+
+«AI Operating Workspace»
+
+ซึ่งประกอบด้วย:
+
+                 OWN AI CORE
+                     │
+              AI ORCHESTRATOR
+                     │
+        ┌────────────┼────────────┐
+        │            │            │
+      AGENTS       MODELS       TOOLS
+        │            │            │
+        │            │      ┌─────┼─────────────┐
+        │            │      │     │     │       │
+        │            │   Browser Terminal Editor Files
+        │            │      │     │     │       │
+        │            │   Build Test Git  Runtime
+        │            │
+        └────────────┼────────────┘
+                     │
+               VERIFICATION
+                     │
+                RECOVERY
+                     │
+                  RESULT
+
+ทุก Tool ต้อง:
+
+มี UI จริง
+มี Runtime จริง
+มี Capability จริง
+ทำงานจริง
+ตรวจสอบผลจริง
+แก้ข้อผิดพลาดได้
+มีทางเลือกเมื่อ Android จำกัด
+ให้ผู้ใช้ควบคุมได้
+ให้ AI ควบคุมได้
+และไม่เคยรายงานความสำเร็จปลอม
+
+นี่คือมาตรฐานขั้นต่ำของ Application นี้

@@ -1,0 +1,22 @@
+# Aicodemax — OWN AI APPLICATION
+
+Native Android (Kotlin) AI Operating Environment:
+Chat เป็นศูนย์กลางสั่งงาน + Workspace/Tools/Runtime ที่ใช้งานจริงได้
+(AI Runtime + Tool Runtime + Project Runtime + Workspace + UI)
+
+> ไม่ใช่ Chatbot / API Client / WebView Wrapper / Termux Wrapper
+
+## เริ่มตรงไหน
+1. อ่าน `docs/MASTER_CONTRACT.md` (สัญญาหลัก)
+2. อ่านสเปกฉบับเต็มใน `docs/requirements/` (8 ไฟล์ — ข้อกำหนดสูงสุด)
+3. ทำตามลำดับ Phase 0 → 30 (นิยามใน `requirements/โครงสร้าง 1.txt` ข้อ 61)
+
+## สถานะ
+- [x] Phase -1: บันทึกข้อกำหนดสูงสุด 8 ไฟล์ลง repo
+- [ ] Phase 0: Architecture Contract (Maps: Architecture / Modules / Data Flow / State Machine / Interfaces)
+- [ ] Phase 1: Native Android Shell (Kotlin)
+- [ ] Phase 2+: ตาม DEVELOPMENT ORDER
+
+## กติกาพื้นที่/ไฟล์ใหญ่
+- ห้าม commit `build/`, `.gradle/`, APK/AAB, model weights — ดู `.gitignore`
+- ไฟล์สเปก (~316KB) เก็บใน repo ได้ถาวร

@@ -1,0 +1,2265 @@
+OWN AI APPLICATION
+
+COMPLETE ARCHITECTURE + UI/UX MASTER BLUEPRINT
+
+MASTER SPECIFICATION — BUILD FROM ZERO
+
+0. กฎสำคัญที่สุด
+
+โปรเจกต์นี้ต้องสร้างใหม่จากศูนย์ในเชิงสถาปัตยกรรม
+
+โค้ดเก่าห้ามถูกนำมาเป็นโครงสร้างหลักเพียงเพราะมีอยู่แล้ว
+
+เอกสาร/ฟีเจอร์/แนวคิดจากระบบเก่าสามารถใช้เป็น Product Requirements ได้ แต่ต้องนำมาจัดระเบียบใหม่ทั้งหมด
+
+เป้าหมายไม่ใช่:
+
+«“สร้างแอป Chat ที่เรียก Gemini/OpenAI/Qwen/Claude”»
+
+แต่คือ:
+
+«“สร้าง OWN AI APPLICATION RUNTIME ที่มี AI Core ของตัวเอง และสามารถใช้ Local Model หรือ External Model เป็น Compute/Model Adapter ได้”»
+
+ดังนั้น:
+
+APPLICATION ≠ CHAT UI
+APPLICATION ≠ API CLIENT
+APPLICATION ≠ TERMUX WRAPPER
+APPLICATION ≠ WEBVIEW WRAPPER
+APPLICATION ≠ MODEL UI
+
+แต่คือ:
+
+APPLICATION = AI RUNTIME + TOOL RUNTIME + PROJECT RUNTIME + WORKSPACE + USER INTERFACE
+
+---
+
+1. UI/UX เป็นส่วนหนึ่งของ Architecture
+
+UI/UX ต้องถูกออกแบบพร้อมกับระบบ Core ตั้งแต่ PHASE แรก
+
+ห้ามสร้าง Core ก่อนแล้วค่อยเอา UI มาครอบ
+
+ทุกระบบต้องมี:
+
+- UI State
+- Loading State
+- Empty State
+- Success State
+- Error State
+- Offline State
+- Permission State
+- Waiting User State
+- Running State
+- Completed State
+- Cancelled State
+- Recovery State
+
+UI ต้องสะท้อน State จริงจากระบบกลาง
+
+ห้ามสร้าง UI ที่มี State ของตัวเองแยกจาก Application State จนทำให้ข้อมูลไม่ตรงกัน
+
+หลักการ:
+
+Single Source of Truth
+
+---
+
+2. UX GOAL
+
+ผู้ใช้ต้องสามารถใช้แอปได้เหมือนกำลังคุยกับ AI ที่สามารถ “ลงมือทำงานจริง”
+
+ตัวอย่าง:
+
+ผู้ใช้:
+
+«สร้าง Android App สำหรับจัดการร้านค้า»
+
+AI ต้องสามารถ:
+
+1. เข้าใจคำสั่ง
+2. วิเคราะห์ Requirement
+3. สร้าง Project
+4. วางแผน
+5. สร้างไฟล์
+6. เขียน Code
+7. ตรวจ Code
+8. ติดตั้ง Tool ที่จำเป็น
+9. Build
+10. Test
+11. แก้ Error
+12. Build ใหม่
+13. Verify
+14. แสดงผลให้ผู้ใช้
+
+ผู้ใช้ไม่ควรถูกบังคับให้เปิด:
+
+Terminal → Tool → Model → Agent → File → Build
+
+เองทีละระบบ
+
+สิ่งเหล่านี้เป็น Advanced Workspace ที่ AI ใช้งานเบื้องหลัง
+
+---
+
+3. UX PRINCIPLES
+
+3.1 Chat First
+
+Chat เป็นศูนย์กลางของแอป
+
+แต่ Chat ต้องไม่ใช่แค่ช่องพิมพ์ข้อความ
+
+Chat ต้องสามารถ:
+
+- สั่งงาน
+- แนบไฟล์
+- แนบรูป
+- ส่ง URL
+- เลือก Project
+- เริ่ม Task
+- ดู Task Progress
+- อนุมัติ Action
+- ปฏิเสธ Action
+- Pause
+- Resume
+- Cancel
+- ดู AI Plan
+- ดูผลลัพธ์
+- เปิด Workspace
+- เปิด Code
+- เปิด Browser
+- เปิด Logs
+- เปิด Build Result
+
+---
+
+4. MAIN NAVIGATION
+
+Navigation หลักต้องไม่เยอะเกินไป
+
+ระดับ Main:
+
+1. Home
+2. Chat
+3. Projects
+4. Tasks
+5. AI
+
+ส่วนระบบ Advanced ให้เข้าผ่าน AI/Project/Workspace
+
+Advanced:
+
+- Agents
+- Models
+- Tools
+- Browser
+- Files
+- Editor
+- Terminal
+- Git
+- Build
+- Test
+- Logs
+
+Settings แยกอยู่ท้ายสุด
+
+---
+
+5. HOME SCREEN
+
+หน้า Home ต้องเป็น Dashboard ที่คนทั่วไปเข้าใจได้
+
+ประกอบด้วย:
+
+Header
+
+ซ้าย:
+
+- App Logo
+- App Name
+
+ขวา:
+
+- Notification
+- AI Status
+- Profile
+
+Main Greeting
+
+ตัวอย่าง:
+
+«วันนี้ให้ AI ช่วยอะไร?»
+
+ด้านล่าง:
+
+Chat Input ใหญ่
+
+Placeholder:
+
+«พิมพ์สิ่งที่ต้องการให้ AI ทำ...»
+
+Quick Actions
+
+เช่น:
+
+- สร้าง Project
+- เขียน Code
+- วิเคราะห์ไฟล์
+- เปิดเว็บไซต์
+- แก้ปัญหา
+- Build App
+- Run Test
+
+Active Tasks
+
+แสดง Task ที่กำลังทำ
+
+เช่น:
+
+«Building Android Project»
+
+สถานะ:
+
+Planning → Coding → Building → Testing
+
+Recent Projects
+
+แสดง Project ล่าสุด
+
+Recent Activity
+
+แสดงงานล่าสุด
+
+---
+
+6. CHAT UI
+
+Chat ต้องเป็นหัวใจของ UX
+
+แนวคิด:
+
+ChatGPT-like usability + AI Agent capabilities
+
+แต่ไม่ลอก UI โดยตรง
+
+Chat Header
+
+แสดง:
+
+- Project ปัจจุบัน
+- AI Status
+- Model ที่กำลังใช้
+- Task status
+- More menu
+
+Message Bubble
+
+User:
+
+ข้อความของผู้ใช้
+
+AI:
+
+คำตอบ + Action + Result
+
+AI Message สามารถมี:
+
+- Text
+- Markdown
+- Code
+- File
+- Image
+- Link
+- Task Card
+- Progress
+- Tool Execution
+- Browser Preview
+- Build Result
+- Test Result
+- Diff
+- Approval Request
+
+---
+
+7. CHAT INPUT
+
+ด้านล่างต้องมี Input Bar ที่ใช้งานง่าย
+
+ประกอบด้วย:
+
+[ + ] [ Text Input ] [ Voice ] [ Send ]
+
+ปุ่ม + เปิด:
+
+- File
+- Photo
+- URL
+- Project
+- Code
+- Screenshot
+- Browser Page
+- Task
+- Agent
+
+ถ้ามี Task กำลังทำอยู่:
+
+Input ต้องเปลี่ยนสถานะได้ เช่น:
+
+«Ask AI about this task...»
+
+---
+
+8. AI TASK CARD
+
+เมื่อ AI ทำงานจริง ต้องไม่แสดงข้อความยาวๆ อย่างเดียว
+
+สร้าง Task Card:
+
+Task: Build Android App
+
+สถานะ:
+
+● Planning
+● Coding
+● Building
+○ Testing
+○ Verification
+
+แสดง:
+
+- Current step
+- Progress
+- Elapsed time
+- Current Agent
+- Current Tool
+
+ปุ่ม:
+
+- Details
+- Pause
+- Cancel
+
+---
+
+9. AI THINKING / EXECUTION UX
+
+ไม่ควรแสดง Chain-of-Thought ภายในของโมเดล
+
+แต่ต้องแสดง Action Summary
+
+ตัวอย่าง:
+
+«วิเคราะห์ Project แล้ว»
+
+«พบว่าต้องติดตั้ง Gradle»
+
+«กำลังตรวจสอบ Tool ที่มีอยู่»
+
+«พบ Gradle แล้ว»
+
+«กำลัง Build Project»
+
+«Build พบ Error 2 รายการ»
+
+«กำลังแก้ไข»
+
+ผู้ใช้จึงรู้ว่า AI กำลังทำอะไรโดยไม่เปิดเผย reasoning ภายในที่ไม่จำเป็น
+
+---
+
+10. AI STATUS
+
+AI Status ต้องเข้าใจง่าย
+
+ตัวอย่าง:
+
+🟢 Ready
+
+🟡 Working
+
+🔵 Waiting for you
+
+🟠 Recovering
+
+🔴 Error
+
+⚪ Offline
+
+เมื่อแตะ Status สามารถดูรายละเอียดได้
+
+---
+
+11. PROJECT UI
+
+Project คือ Container หลักของงาน
+
+Project Screen:
+
+Header
+
+- Project Name
+- Status
+- AI Status
+- More
+
+Overview
+
+- Description
+- Files
+- Tasks
+- Agents
+- Tools
+- Models
+- Builds
+- Tests
+- Git
+- Browser Sessions
+
+Tabs
+
+Overview | Files | Tasks | AI | Build | Test | Git
+
+---
+
+12. PROJECT WORKSPACE
+
+เมื่อเปิด Project ต้องมี Workspace เดียวที่ AI และผู้ใช้ทำงานร่วมกัน
+
+ตัวอย่าง Layout:
+
+┌──────────────────────────────┐
+│ Project Header               │
+├──────────────────────────────┤
+│                              │
+│        Active Workspace      │
+│                              │
+│  Chat / Code / Browser       │
+│                              │
+├──────────────────────────────┤
+│ Context / Activity / Tools   │
+└──────────────────────────────┘
+
+บนมือถือไม่ควรแบ่งหลาย Panel ถาวรจนอ่านยาก
+
+ใช้:
+
+- Tabs
+- Bottom Sheet
+- Full-screen Workspace
+- Drawer
+- Modal
+
+ตามบริบท
+
+---
+
+13. RESPONSIVE MOBILE UX
+
+แอปนี้ต้องออกแบบ Mobile First
+
+ต้องรองรับ:
+
+- โทรศัพท์ขนาดเล็ก
+- โทรศัพท์ขนาดใหญ่
+- Landscape
+- Split Screen หาก Android รองรับ
+- Keyboard เปิด/ปิด
+- System Navigation
+- Safe Area
+- Notch
+- Gesture Navigation
+
+ห้ามออกแบบ Desktop UI แล้วบีบลงมือถือ
+
+---
+
+14. BOTTOM NAVIGATION
+
+มือถือให้ใช้ Bottom Navigation เฉพาะสิ่งที่ใช้บ่อย
+
+ตัวอย่าง:
+
+Home | Chat | Projects | Tasks | AI
+
+ไม่ควรเอา:
+
+Terminal / Git / Build / Models / Tools / Browser
+
+ทั้งหมดมาใส่ Bottom Navigation เพราะจะรก
+
+---
+
+15. AI CENTER
+
+AI Center เป็นพื้นที่รวมระบบ AI
+
+ประกอบด้วย:
+
+- AI Runtime
+- Agents
+- Models
+- Memory
+- Context
+- Tasks
+- AI Health
+
+หน้าแรก:
+
+AI Runtime
+
+Status:
+
+Running
+
+Current Model
+
+Bootstrap Local Model
+
+Active Agent
+
+Main Agent
+
+Current Task
+
+Build Project
+
+---
+
+16. AGENT CENTER
+
+แสดง Agent ทั้งหมด
+
+แต่ละ Agent Card:
+
+- Name
+- Role
+- Status
+- Current Task
+- Tools
+- Permissions
+- Model
+- Memory
+
+ตัวอย่าง:
+
+Main Agent
+Coding Agent
+Browser Agent
+Testing Agent
+Build Agent
+Git Agent
+Research Agent
+Debug Agent
+
+ผู้ใช้สามารถเปิดดูรายละเอียดได้
+
+---
+
+17. MODEL CENTER
+
+Model UI ต้องไม่ทำให้ผู้ใช้เข้าใจว่า Model = AI ทั้งระบบ
+
+แสดงโครงสร้าง:
+
+AI Runtime
+↓
+Model Manager
+↓
+Available Models
+
+แบ่ง:
+
+Local Models
+
+- Installed
+- Available
+- Downloading
+- Updating
+- Broken
+
+External Providers
+
+- Connected
+- Available
+- Rate Limited
+- Error
+- Offline
+
+Model Card ต้องแสดง:
+
+- Name
+- Provider
+- Type
+- Size
+- Context
+- Token Limit
+- RAM Requirement
+- Speed
+- Status
+- Last Used
+- Last Successful Use
+
+---
+
+18. MODEL AUTO ROUTING UX
+
+ผู้ใช้ไม่จำเป็นต้องเลือก Model เอง
+
+AI Router จะเลือกให้
+
+แสดง:
+
+«AI selected: Local Model»
+
+หรือ:
+
+«Local Model unavailable → switched to fallback model»
+
+หรือ:
+
+«Model requires more memory → selecting lightweight model»
+
+ต้องมี Manual Override สำหรับผู้ใช้ขั้นสูง
+
+---
+
+19. TOOL CENTER
+
+Tool Center ต้องทำให้ผู้ใช้รู้ว่า AI “ทำอะไรได้บ้าง”
+
+แบ่ง:
+
+- File Tools
+- Code Tools
+- Terminal
+- Git
+- GitHub
+- Browser
+- Build
+- Android SDK
+- JDK
+- Gradle
+- Node
+- Python
+- Testing
+
+แต่ละ Tool:
+
+- Installed
+- Version
+- Size
+- Status
+- Dependencies
+- Permission
+- Resource Requirement
+
+ปุ่ม:
+
+Install
+Update
+Repair
+Remove
+
+---
+
+20. ON-DEMAND INSTALLATION UX
+
+ถ้า AI ต้องการ Tool:
+
+AI:
+
+«ต้องใช้ Android SDK เพื่อ Build Project»
+
+ปุ่ม:
+
+Install Android SDK
+
+แสดง:
+
+- Download size
+- Storage required
+- RAM requirement
+- Dependencies
+- Estimated installation steps
+
+ผู้ใช้สามารถ:
+
+Install
+
+หรือ
+
+Cancel
+
+ถ้า Permission อนุญาตให้ติดตั้งอัตโนมัติได้ AI สามารถดำเนินการเองตาม Policy
+
+---
+
+21. BROWSER CENTER
+
+Browser ต้องเป็นระบบจริง ไม่ใช่ WebView ธรรมดา
+
+รองรับ:
+
+- Multiple Tabs
+- Multiple Sessions
+- Cookies
+- Local Storage
+- Downloads
+- Uploads
+- DOM
+- Accessibility
+- Screenshot
+- Click
+- Type
+- Scroll
+- Navigation
+- History
+
+แต่ละ Website ต้องมี Session ของตัวเอง
+
+ตัวอย่าง:
+
+Session A = GitHub
+
+Session B = Google
+
+Session C = Facebook
+
+Session D = Project Website
+
+ข้อมูล Session ต้องแยกกัน
+
+---
+
+22. BROWSER UX
+
+Browser Screen:
+
+Header:
+
+- Back
+- Forward
+- Refresh
+- URL
+- AI Control
+- More
+
+Tab Bar:
+
+Website A | Website B | +
+
+ด้านล่าง:
+
+AI Action Bar
+
+เช่น:
+
+«AI can interact with this page»
+
+เมื่อ AI ต้อง Login:
+
+แสดง:
+
+Human Authentication Required
+
+ผู้ใช้เป็นคนกรอกข้อมูล Login
+
+หลัง Login สำเร็จ AI จึงทำงานต่อ
+
+---
+
+23. FILE CENTER
+
+แสดง:
+
+- Project Files
+- Recent Files
+- Modified Files
+- New Files
+- Deleted Files
+
+File actions:
+
+Open
+Rename
+Move
+Delete
+Copy
+Share
+Analyze
+
+---
+
+24. CODE EDITOR UX
+
+Code Editor ต้องรองรับ:
+
+- Syntax Highlight
+- Search
+- Replace
+- Line Number
+- Undo
+- Redo
+- Diff
+- Go to Line
+- File Tree
+- AI Edit
+
+เมื่อ AI แก้ Code:
+
+ต้องแสดง Diff
+
+ตัวอย่าง:
+
+Added 12 lines
+Removed 4 lines
+
+ปุ่ม:
+
+Accept
+
+Reject
+
+Review
+
+Rollback
+
+ห้ามแก้ไฟล์เงียบๆ โดยผู้ใช้ไม่สามารถตรวจสอบได้ เว้นแต่ Permission Policy อนุญาต
+
+---
+
+25. TERMINAL UX
+
+Terminal เป็น Advanced Tool
+
+ไม่ใช่หน้าแรก
+
+ต้องแสดง:
+
+- Command
+- Output
+- Process
+- Exit Code
+- Runtime
+- CPU
+- Memory
+- Network
+- Permission
+
+ถ้า AI ใช้ Terminal:
+
+UI แสดง:
+
+«AI is running a command»
+
+และสามารถเปิดรายละเอียดได้
+
+---
+
+26. BUILD CENTER
+
+Build Screen:
+
+Current Build
+
+Building...
+
+Steps
+
+Prepare
+Compile
+Package
+Test
+Verify
+
+Result
+
+Success / Failed
+
+ถ้า Failed:
+
+แสดง Error Summary
+
+ปุ่ม:
+
+Fix with AI
+
+---
+
+27. TEST CENTER
+
+แสดง:
+
+- Unit Test
+- Integration Test
+- UI Test
+- Build Test
+- Runtime Test
+
+ผลลัพธ์:
+
+Passed
+Failed
+Skipped
+
+AI ต้องไม่บอกว่า:
+
+«เสร็จแล้ว»
+
+เพียงเพราะ Build Process จบ
+
+ต้องผ่าน Verification
+
+---
+
+28. VERIFICATION UI
+
+Verification Card:
+
+Build
+✓
+
+Tests
+✓
+
+Runtime
+✓
+
+Required Files
+✓
+
+Permissions
+✓
+
+Final Verification
+✓
+
+สถานะ:
+
+VERIFIED
+
+จึงถือว่างานเสร็จสมบูรณ์
+
+---
+
+29. PERMISSION UX
+
+ทุก Action ที่มีความเสี่ยงต้องแสดงให้เข้าใจง่าย
+
+ระดับ:
+
+LOW
+MEDIUM
+HIGH
+CRITICAL
+
+ตัวอย่าง:
+
+AI ต้องการ:
+
+«Delete 12 files»
+
+แสดง:
+
+Files affected: 12
+
+ปุ่ม:
+
+Allow Once
+Allow for Task
+Deny
+
+ไม่ใช้ข้อความทางเทคนิคที่ผู้ใช้ทั่วไปไม่เข้าใจ
+
+---
+
+30. HUMAN-IN-THE-LOOP
+
+AI ต้องหยุดและถามผู้ใช้เมื่อจำเป็น
+
+เช่น:
+
+- Login
+- Password
+- OTP
+- Payment
+- Account ownership
+- Sensitive data
+- Destructive action
+- Production deployment
+- Irreversible action
+
+UI:
+
+Action Required
+
+«Please complete authentication.»
+
+[Continue]
+
+หลังจากผู้ใช้เสร็จ:
+
+[Done]
+
+AI จึงทำงานต่อ
+
+---
+
+31. ERROR UX
+
+ห้ามแสดง:
+
+«Exception 0x837...»
+
+อย่างเดียว
+
+ต้องแปลงเป็น:
+
+เกิดปัญหา
+
+AI ไม่สามารถ Build Project ได้
+
+สาเหตุ:
+
+Gradle dependency download failed
+
+AI กำลังลอง:
+
+1. Retry
+2. Alternative repository
+3. Check network
+4. Rebuild
+
+ถ้าแก้ไม่ได้:
+
+ต้องการให้คุณช่วย
+
+พร้อมปุ่ม:
+
+View Details
+
+---
+
+32. RECOVERY UX
+
+เมื่อ AI ล้มเหลว:
+
+ไม่ควรจบ Task ทันที
+
+แสดง:
+
+«AI is recovering...»
+
+แล้วแสดง:
+
+Analyzing Error
+Selecting Alternative Tool
+Retrying
+Verifying
+
+ถ้าล้มเหลวจริง:
+
+Retry
+
+Try Another Method
+
+Ask Me
+
+Cancel Task
+
+---
+
+33. MEMORY UX
+
+ผู้ใช้ต้องรู้ว่า AI จำอะไรได้
+
+Memory Center:
+
+- Current Conversation
+- Project Memory
+- Long-Term Preferences
+- Task History
+- Learned Project Context
+
+ต้องแยก:
+
+Conversation Memory
+
+ออกจาก
+
+Project Memory
+
+และ
+
+System Knowledge
+
+ไม่ให้ข้อมูลปะปนกัน
+
+---
+
+34. TASK CENTER
+
+Task Center แสดงงานทั้งหมด:
+
+Running
+Waiting
+Completed
+Failed
+Cancelled
+
+Task Card:
+
+- Task Name
+- Project
+- Status
+- Progress
+- Current Agent
+- Start Time
+- Last Update
+
+กดเข้าไปดู Execution Timeline
+
+---
+
+35. EXECUTION TIMELINE
+
+ตัวอย่าง:
+
+16:01 Task Created
+
+16:01 Planning
+
+16:02 Tool Discovery
+
+16:02 Android SDK Check
+
+16:03 Coding Agent
+
+16:04 Build
+
+16:05 Error
+
+16:05 Debug Agent
+
+16:06 Build Retry
+
+16:07 Verification
+
+16:07 Completed
+
+นี่คือ UI สำคัญมาก เพราะทำให้ผู้ใช้เข้าใจว่า AI กำลังทำอะไร
+
+---
+
+36. NOTIFICATION UX
+
+Notification ต้องมีระดับ:
+
+Info
+Progress
+Waiting
+Success
+Warning
+Error
+Critical
+
+ตัวอย่าง:
+
+«Build completed»
+
+«AI needs your permission»
+
+«Downloading model»
+
+«Project build failed»
+
+แตะแล้วต้องพาไปยัง Context ที่เกี่ยวข้องโดยตรง
+
+---
+
+37. LOADING UX
+
+ห้ามใช้ Loading Spinner อย่างเดียวทุกกรณี
+
+ถ้ารอ Model:
+
+«Loading AI Model...»
+
+ถ้ารอ Build:
+
+«Building Project...»
+
+ถ้ารอ Download:
+
+«Downloading Android SDK...»
+
+ถ้ารอ AI:
+
+«AI is working...»
+
+ควรมี Progress เมื่อสามารถคำนวณได้
+
+---
+
+38. EMPTY STATE UX
+
+ทุกหน้าต้องมี Empty State
+
+ตัวอย่าง Projects:
+
+«ยังไม่มี Project»
+
+คำอธิบายสั้นๆ
+
+ปุ่ม:
+
+Create Project
+
+หรือ:
+
+Ask AI to create one
+
+---
+
+39. OFFLINE UX
+
+เมื่อไม่มี Internet:
+
+แอปยังต้องเปิดได้
+
+Local AI ต้องยังทำงานได้ถ้าทรัพยากรเพียงพอ
+
+แสดง:
+
+Offline Mode
+
+พร้อมความสามารถที่ยังใช้ได้
+
+เช่น:
+
+- Chat with Local AI
+- Files
+- Code
+- Local Tools
+- Local Build
+- Local Test
+
+สิ่งที่ต้อง Internet:
+
+- External AI
+- GitHub
+- Website
+- Package Download
+
+ต้องถูกแยกอย่างชัดเจน
+
+---
+
+40. RESOURCE UI
+
+Resource Manager ต้องมี UI สำหรับผู้ใช้ขั้นสูง
+
+แสดง:
+
+CPU
+RAM
+Storage
+GPU
+NPU
+Battery
+Network
+
+และ:
+
+Model Memory
+Workspace Storage
+Tool Storage
+Running Processes
+
+AI ใช้ข้อมูลนี้ในการตัดสินใจด้วย
+
+---
+
+41. SETTINGS
+
+Settings ต้องไม่เป็นหน้าเดียวที่ยาวมาก
+
+แบ่ง:
+
+General
+
+- Language
+- Appearance
+- Notifications
+
+AI
+
+- Default AI
+- Auto Model
+- Fallback
+- Memory
+- AI Permissions
+
+Models
+
+- Local Models
+- External Providers
+- Download Location
+
+Tools
+
+- Tool Storage
+- Auto Install
+- Updates
+
+Browser
+
+- Sessions
+- Cookies
+- Privacy
+
+Security
+
+- Permissions
+- Secrets
+- Audit
+
+Storage
+
+- Workspace
+- Models
+- Cache
+
+Developer
+
+- Logs
+- Debug
+- Experimental
+
+---
+
+42. DESIGN SYSTEM
+
+ต้องสร้าง Design System ก่อนสร้างหน้าจอจำนวนมาก
+
+กำหนด:
+
+- Typography
+- Font Sizes
+- Font Weights
+- Spacing
+- Radius
+- Elevation
+- Icon Size
+- Button Height
+- Input Height
+- Card Style
+- Dialog Style
+- Bottom Sheet
+- Navigation
+- Animation
+
+ต้องใช้ Design Tokens
+
+เช่น:
+
+colorPrimary
+colorSurface
+colorBackground
+colorError
+colorSuccess
+
+spacingSmall
+spacingMedium
+spacingLarge
+
+radiusSmall
+radiusMedium
+radiusLarge
+
+ห้ามกำหนด Style กระจัดกระจายแต่ละหน้า
+
+---
+
+43. COLOR SYSTEM
+
+UI ต้องดูทันสมัยแต่ไม่ฉูดฉาด
+
+ควรมี:
+
+Light Theme
+
+Dark Theme
+
+System Theme
+
+สีต้องมีความหมายตาม Semantic:
+
+Primary
+Secondary
+Success
+Warning
+Error
+Info
+Neutral
+
+ไม่ใช้สีเพียงเพื่อความสวยโดยไม่มีความหมาย
+
+---
+
+44. TYPOGRAPHY
+
+ต้องอ่านง่ายบนมือถือ
+
+Hierarchy:
+
+Display
+Heading
+Title
+Body
+Label
+Caption
+
+Code Font ต้องแยกจาก UI Font
+
+---
+
+45. ANIMATION
+
+Animation ต้องมีเพื่อบอก State ไม่ใช่เพื่อความสวยอย่างเดียว
+
+ตัวอย่าง:
+
+AI Working → subtle activity animation
+
+Task Complete → completion animation
+
+Error → clear state transition
+
+Page Transition → short transition
+
+ต้องไม่ทำ Animation หนักจนกิน CPU/RAM
+
+---
+
+46. ACCESSIBILITY
+
+ต้องรองรับ:
+
+- Dynamic Font
+- Screen Reader
+- Content Description
+- Touch Target ที่เหมาะสม
+- Contrast
+- Keyboard Navigation เมื่อมี
+- Reduced Motion
+
+ห้ามใช้ Icon อย่างเดียวใน Action สำคัญ
+
+---
+
+47. AI UX PERSONALITY
+
+AI ต้องมีบุคลิกที่:
+
+- ชัดเจน
+- สุภาพ
+- ไม่พูดพร่ำ
+- ไม่หลอกว่าทำงานสำเร็จ
+- บอกเมื่อไม่แน่ใจ
+- บอกเมื่อทำไม่ได้
+- ขอ Permission เมื่อจำเป็น
+- อธิบายสิ่งที่กำลังทำในระดับที่ผู้ใช้เข้าใจ
+
+ไม่ควรทำ UI ให้เหมือน Robot Dashboard ตลอดเวลา
+
+ผู้ใช้ควรรู้สึกว่า:
+
+«“ฉันมี AI ที่ช่วยทำงานให้”»
+
+ไม่ใช่:
+
+«“ฉันกำลังบริหารระบบ Backend”»
+
+---
+
+48. ARCHITECTURE เชื่อมกับ UI
+
+โครงสร้าง:
+
+USER
+↓
+UI
+↓
+Presentation State
+↓
+Application Services
+↓
+AI Orchestrator
+↓
+Context Engine
+↓
+Planner
+↓
+Task Engine
+↓
+Agent Runtime
+↓
+Model Router
+↓
+OWN LOCAL AI RUNTIME
+↓
+Tool Discovery
+↓
+Permission Manager
+↓
+Resource Manager
+↓
+Tool Gateway
+↓
+Execution
+↓
+Verification
+↓
+UI State Update
+
+UI ห้ามข้าม Application Layer ไปเรียก Tool โดยตรง
+
+---
+
+49. UI STATE MACHINE
+
+ทุกหน้าที่ทำงานแบบ Dynamic ต้องใช้ State Machine หรือ State Model ที่ชัดเจน
+
+ตัวอย่าง Task:
+
+CREATED
+↓
+QUEUED
+↓
+PLANNING
+↓
+READY
+↓
+RUNNING
+↓
+WAITING
+↓
+VERIFYING
+↓
+COMPLETED
+
+หรือ:
+
+RUNNING
+↓
+FAILED
+↓
+RECOVERING
+↓
+RETRYING
+↓
+RUNNING
+
+หรือ:
+
+WAITING_USER
+↓
+USER_APPROVED
+↓
+RUNNING
+
+---
+
+50. AI CORE
+
+AI Core ต้องประกอบด้วย:
+
+- AI Orchestrator
+- Context Engine
+- Planner
+- Task Engine
+- Agent Runtime
+- Memory
+- Model Router
+- Tool Registry
+- Tool Gateway
+- Verification Engine
+- Recovery Engine
+- Permission Manager
+- Resource Manager
+
+---
+
+51. MODEL SYSTEM
+
+ประกอบด้วย:
+
+Model Manager
+
+Local Model Runtime
+
+Model Registry
+
+Model Router
+
+Provider Adapter
+
+Fallback Manager
+
+Model Health Monitor
+
+Model Download Manager
+
+Model Storage Manager
+
+แต่:
+
+Model ไม่ใช่ AI ทั้งระบบ
+
+---
+
+52. TOOL SYSTEM
+
+Tool Registry
+
+Tool Manager
+
+Tool Gateway
+
+Tool Runtime
+
+Tool Permission
+
+Tool Health
+
+Tool Dependency
+
+Tool Installation
+
+Tool Update
+
+Tool Repair
+
+AI ต้องค้นหา Tool จาก Registry ก่อนใช้งาน
+
+---
+
+53. AGENT SYSTEM
+
+Agent:
+
+- Identity
+- Role
+- Instructions
+- Memory
+- Tools
+- Permissions
+- Model
+- Task
+- Execution Policy
+
+Agent ที่จำเป็น:
+
+Main
+Planner
+Coding
+Research
+Browser
+Testing
+Debug
+Build
+Git
+File
+Verification
+
+---
+
+54. BROWSER RUNTIME
+
+ต้องเป็น Runtime จริง
+
+ไม่ใช่เพียง WebView
+
+รองรับ:
+
+Tabs
+Sessions
+Cookies
+Local Storage
+DOM
+Accessibility
+Screenshots
+Click
+Type
+Scroll
+Upload
+Download
+Navigation
+History
+
+Authentication:
+
+Human Controlled
+
+---
+
+55. PROJECT SYSTEM
+
+ทุก Project มี:
+
+Project ID
+
+Name
+
+Description
+
+Root
+
+Files
+
+Tasks
+
+Agents
+
+Memory
+
+Checkpoints
+
+Models
+
+Tools
+
+Browser Sessions
+
+Builds
+
+Tests
+
+Git
+
+---
+
+56. CHECKPOINT
+
+ทุกงานสำคัญต้องสร้าง Checkpoint
+
+บันทึก:
+
+- Files
+- State
+- Task
+- Agent
+- Model
+- Tool
+- Configuration
+- Logs
+- Changes
+
+สามารถ:
+
+Rollback
+
+Resume
+
+Recover
+
+ได้
+
+---
+
+57. VERIFICATION
+
+AI ห้ามประกาศว่า:
+
+«DONE»
+
+จนกว่าจะตรวจสอบตาม Requirement
+
+Verification ต้องตรวจ:
+
+Code
+Files
+Build
+Tests
+Runtime
+Required Features
+Configuration
+
+---
+
+58. SECURITY
+
+ระบบต้องมี:
+
+Permission Manager
+
+Secret Manager
+
+Audit Log
+
+Sandbox
+
+Isolation
+
+Resource Limits
+
+Network Policy
+
+File Access Policy
+
+Tool Access Policy
+
+Agent Permission
+
+---
+
+59. LOCAL AI
+
+ต้องมี Bootstrap AI ที่แอปสามารถใช้งานได้ตั้งแต่ติดตั้ง
+
+ไม่ควรบังคับผู้ใช้ดาวน์โหลด Model ใหญ่ก่อนจึงจะเริ่มใช้แอปได้
+
+Bootstrap Model ต้องมีขนาดเหมาะสมกับอุปกรณ์
+
+Model ใหญ่สามารถติดตั้งเพิ่มเติมได้
+
+---
+
+60. AI MATURITY
+
+ระดับความสามารถ:
+
+LEVEL 0
+Chat
+
+LEVEL 1
+Command
+
+LEVEL 2
+Tool Use
+
+LEVEL 3
+Task Execution
+
+LEVEL 4
+Multi-Agent
+
+LEVEL 5
+Autonomous Workflow
+
+LEVEL 6
+Self-Recovery
+
+LEVEL 7
+Project-Level AI Development
+
+แต่ทุกระดับต้องอยู่ภายใต้ Permission และ Security Policy
+
+---
+
+61. AI SELF-KNOWLEDGE
+
+AI ต้องรู้ว่า Environment ปัจจุบันมีอะไร
+
+เช่น:
+
+Available Models
+
+Available Tools
+
+Installed SDK
+
+Available Storage
+
+Available RAM
+
+Network
+
+Projects
+
+Permissions
+
+Running Tasks
+
+Browser Sessions
+
+Git Status
+
+Build Environment
+
+AI ต้องไม่เดาว่ามี Tool
+
+ต้องตรวจ Registry ก่อน
+
+---
+
+62. AI CONTROL LOOP
+
+OBSERVE
+↓
+UNDERSTAND
+↓
+PLAN
+↓
+ACT
+↓
+OBSERVE RESULT
+↓
+VERIFY
+↓
+REFLECT
+↓
+CONTINUE / RECOVER / ASK
+↓
+COMPLETE
+
+นี่คือหัวใจของ AI Runtime
+
+---
+
+63. UI/UX + AI CONTROL LOOP
+
+ผู้ใช้ไม่จำเป็นต้องเห็นทุก Internal Step
+
+แต่ UI ต้องสะท้อนสถานะสำคัญ:
+
+Observe → Analyzing
+
+Plan → Planning
+
+Act → Working
+
+Observe Result → Checking
+
+Verify → Verifying
+
+Recover → Recovering
+
+Ask → Waiting for you
+
+Complete → Completed
+
+---
+
+64. CORE DEVELOPMENT RULE
+
+ก่อนสร้าง UI ทุก Feature ต้องตอบ:
+
+1. Feature คืออะไร?
+2. ใครเป็น Owner Module?
+3. State อยู่ที่ไหน?
+4. Data อยู่ที่ไหน?
+5. UI State คืออะไร?
+6. Permission คืออะไร?
+7. Error State คืออะไร?
+8. Loading State คืออะไร?
+9. Offline State คืออะไร?
+10. Test อย่างไร?
+11. Recovery อย่างไร?
+
+ถ้าตอบไม่ได้ ห้ามเริ่ม Implement
+
+---
+
+65. DEVELOPMENT ORDER
+
+PHASE 0
+Architecture Contract
+
+PHASE 1
+Native Android Shell
+
+PHASE 2
+Core State/Event System
+
+PHASE 3
+Design System + UI Foundation
+
+PHASE 4
+Resource Manager
+
+PHASE 5
+Local AI Runtime
+
+PHASE 6
+Model Manager
+
+PHASE 7
+AI Core
+
+PHASE 8
+Context Engine
+
+PHASE 9
+Memory
+
+PHASE 10
+Planner
+
+PHASE 11
+Task Engine
+
+PHASE 12
+Agent Runtime
+
+PHASE 13
+Tool Registry
+
+PHASE 14
+Tool Gateway
+
+PHASE 15
+File System
+
+PHASE 16
+Code Editor
+
+PHASE 17
+Terminal
+
+PHASE 18
+Build/Test
+
+PHASE 19
+Git/GitHub
+
+PHASE 20
+Browser Runtime
+
+PHASE 21
+Verification
+
+PHASE 22
+Checkpoint/Recovery
+
+PHASE 23
+Security/Permission
+
+PHASE 24
+Chat UI
+
+PHASE 25
+Project UI
+
+PHASE 26
+Task UI
+
+PHASE 27
+AI Center UI
+
+PHASE 28
+Tool/Model UI
+
+PHASE 29
+Browser/Editor/Terminal UI
+
+PHASE 30
+Integration
+
+PHASE 31
+Stress Test
+
+PHASE 32
+Offline Test
+
+PHASE 33
+Low Resource Test
+
+PHASE 34
+UX Test
+
+PHASE 35
+Release Candidate
+
+---
+
+66. UI DEVELOPMENT RULE
+
+ห้ามทำแบบ:
+
+สร้างหน้า Home
+↓
+สร้างหน้า Chat
+↓
+สร้างหน้า Settings
+↓
+ค่อยคิดว่า Backend ทำอย่างไร
+
+ต้องทำ:
+
+Architecture
+↓
+State
+↓
+Service
+↓
+Data
+↓
+UI Contract
+↓
+UI
+↓
+Integration
+↓
+Test
+
+---
+
+67. DESIGN VALIDATION
+
+ทุกหน้าต้องตรวจ:
+
+- ใช้งานง่ายหรือไม่
+- ปุ่มสำคัญหาเจอหรือไม่
+- ผู้ใช้รู้หรือไม่ว่า AI กำลังทำอะไร
+- ผู้ใช้รู้หรือไม่ว่าต้องทำอะไรต่อ
+- Error เข้าใจหรือไม่
+- Loading เข้าใจหรือไม่
+- Permission เข้าใจหรือไม่
+- Mobile ใช้งานได้หรือไม่
+- Dark Mode ถูกต้องหรือไม่
+- Accessibility ถูกต้องหรือไม่
+- RAM/CPU ไม่สูงเกินไปหรือไม่
+
+---
+
+68. FINAL PRODUCT EXPERIENCE
+
+เมื่อเปิดแอปครั้งแรก:
+
+1. App เปิด
+2. ตรวจ Environment
+3. ตรวจ Bootstrap AI
+4. ตรวจ Tools
+5. ตรวจ Storage
+6. ตรวจ Permission
+7. AI พร้อม
+
+จากนั้นผู้ใช้เห็น:
+
+«สวัสดี 👋
+วันนี้ให้ฉันช่วยอะไร?»
+
+และสามารถพิมพ์:
+
+«สร้าง Project ใหม่»
+
+AI จะจัดการ Workflow ต่อเอง
+
+ผู้ใช้ไม่จำเป็นต้องรู้ว่า:
+
+- Model อยู่ที่ไหน
+- Tool อยู่ที่ไหน
+- Agent ไหนทำงาน
+- Runtime ไหนทำงาน
+- Command ไหนถูกใช้
+
+แต่สามารถเปิดดูรายละเอียดได้ทุกเมื่อ
+
+---
+
+69. FINAL ARCHITECTURE
+
+                    USER
+                     │
+                     ▼
+              ┌─────────────┐
+              │    UI/UX    │
+              │ Chat/Home   │
+              │ Workspace   │
+              └──────┬──────┘
+                     │
+                     ▼
+            PRESENTATION STATE
+                     │
+                     ▼
+          APPLICATION SERVICES
+                     │
+                     ▼
+            AI ORCHESTRATOR
+                     │
+       ┌─────────────┼─────────────┐
+       ▼             ▼             ▼
+   CONTEXT        PLANNER        MEMORY
+       │             │             │
+       └─────────────┼─────────────┘
+                     ▼
+                TASK ENGINE
+                     │
+                     ▼
+                AGENT RUNTIME
+                     │
+             ┌───────┴───────┐
+             ▼               ▼
+       MODEL ROUTER      TOOL SYSTEM
+             │               │
+             ▼               ▼
+      OWN LOCAL AI      TOOL GATEWAY
+         RUNTIME             │
+             │               ▼
+             │          EXECUTION
+             │               │
+             └───────┬───────┘
+                     ▼
+                 OBSERVE
+                     │
+                     ▼
+                VERIFICATION
+                     │
+             ┌───────┴────────┐
+             ▼                ▼
+           SUCCESS          FAILURE
+             │                │
+             ▼                ▼
+         CHECKPOINT        RECOVERY
+             │                │
+             └───────┬────────┘
+                     ▼
+                  UI UPDATE
+                     │
+                     ▼
+                   USER
+
+70. FINAL RULE
+
+แอปนี้ต้องไม่ถูกพัฒนาโดยคิดว่า:
+
+«“เรากำลังสร้างหน้าจอ Chat แล้วเอา AI มาใส่”»
+
+แต่ต้องคิดว่า:
+
+«“เรากำลังสร้าง AI Application Runtime ที่มี UI/UX เป็นช่องทางให้มนุษย์ควบคุมและทำงานร่วมกับ AI”»
+
+UI ต้องทำให้ระบบที่ซับซ้อนทั้งหมดใช้งานง่าย
+
+AI ต้องทำงานจริง
+
+Tools ต้องใช้งานจริง
+
+Browser ต้องทำงานจริง
+
+Project ต้องมี State จริง
+
+Model ต้องตรวจสอบจริง
+
+Build ต้อง Verify จริง
+
+และทุก Action ต้องเชื่อมกับระบบกลางเดียวกัน
+
+เป้าหมายสุดท้ายคือ:
+
+ผู้ใช้สั่งงาน → AI เข้าใจ → AI วางแผน → AI เลือก Model/Agent/Tool → AI ลงมือทำ → ระบบตรวจสอบ → AI แก้ไขเมื่อผิดพลาด → งานเสร็จ → ผู้ใช้เห็นผลลัพธ์
+
+ไม่ใช่:
+
+ผู้ใช้กดหลายหน้า → ตั้งค่าเอง → เลือก Model เอง → เปิด Tool เอง → เปิด Terminal เอง → ทำทุกอย่างเอง
+
+นี่คือความแตกต่างระหว่าง:
+
+AI Tool
+
+กับ
+
+OWN AI APPLICATION

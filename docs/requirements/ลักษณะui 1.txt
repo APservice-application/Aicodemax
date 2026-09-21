@@ -1,0 +1,1384 @@
+CHATGPT-LIKE UI/UX + FULL AI FEATURES
+
+MASTER UI/UX SPECIFICATION
+
+1. เป้าหมายของ UI
+
+ต้องการ UI/UX ที่ให้ความรู้สึกและความง่ายในการใช้งาน คล้าย ChatGPT
+
+แต่:
+
+- ห้าม Copy UI แบบ 1:1
+- ห้าม Copy source code
+- ห้าม Copy branding
+- ห้ามใช้ Logo/ชื่อของ ChatGPT
+- ให้ใช้หลัก UX ที่ดีในลักษณะเดียวกัน
+- สร้าง Design System ของแอปเราเอง
+
+แนวคิดหลัก:
+
+«“เปิดแอป → เห็น Chat → พิมพ์สิ่งที่ต้องการ → AI เข้าใจและลงมือทำ”»
+
+ผู้ใช้ทั่วไปต้องใช้งานได้ทันที โดยไม่จำเป็นต้องรู้เรื่อง:
+
+- Model
+- Agent
+- Tool
+- Runtime
+- Terminal
+- SDK
+- Git
+- Browser
+- Build System
+
+แต่ผู้ใช้ขั้นสูงต้องสามารถเปิดความสามารถเหล่านี้ได้ทั้งหมด
+
+---
+
+2. MAIN UX PHILOSOPHY
+
+โครงสร้างหลัก:
+
+                 APPLICATION
+                      │
+              ┌───────┴───────┐
+              │               │
+             CHAT          WORKSPACE
+              │               │
+              ▼               ▼
+          AI CONTROL      ADVANCED TOOLS
+
+Chat เป็นศูนย์กลาง
+
+Workspace เป็นพื้นที่ทำงานขั้นสูง
+
+AI เป็นตัวเชื่อมทั้งสองส่วน
+
+---
+
+3. APP START SCREEN
+
+เมื่อเปิดแอป:
+
+ไม่ควรเปิดหน้า Dashboard ที่เต็มไปด้วยตัวเลข
+
+ให้เปิดหน้า Chat/Home ที่สะอาด
+
+ตัวอย่าง:
+
+┌──────────────────────────────┐
+│ ☰   OWN AI              ⋮   │
+│                              │
+│                              │
+│          สวัสดี 👋           │
+│                              │
+│     วันนี้ให้ช่วยอะไร?       │
+│                              │
+│  ┌────────────────────────┐  │
+│  │ เขียนสิ่งที่ต้องการ... │  │
+│  │                        │  │
+│  │ +                 🎤  ↑│  │
+│  └────────────────────────┘  │
+│                              │
+│  [สร้าง Project] [เขียน Code]│
+│  [วิเคราะห์ไฟล์] [เปิดเว็บ]  │
+│                              │
+└──────────────────────────────┘
+
+หน้าแรกต้องรู้สึก:
+
+- สะอาด
+- ทันสมัย
+- ไม่รก
+- เปิดแล้วใช้ได้ทันที
+
+---
+
+4. LEFT SIDEBAR
+
+ใช้แนวคิด Sidebar แบบ ChatGPT
+
+เมื่อกด ☰:
+
+┌──────────────────────┐
+│ + New Chat           │
+│                      │
+│ Search               │
+│                      │
+│ Recent Chats         │
+│                      │
+│ วันนี้               │
+│ • สร้าง Android App  │
+│ • แก้ GitHub         │
+│ • วิเคราะห์เว็บไซต์  │
+│                      │
+│ เมื่อวาน              │
+│ • Project AI         │
+│                      │
+│                      │
+│ ───────────────────  │
+│ Projects             │
+│ Tasks                │
+│ AI Workspace         │
+│                      │
+│ Settings             │
+└──────────────────────┘
+
+บนมือถือ Sidebar เป็น Drawer
+
+บนจอใหญ่สามารถแสดงเป็น Persistent Sidebar ได้
+
+---
+
+5. NEW CHAT
+
+กด:
+
++ New Chat
+
+สร้าง Conversation ใหม่ทันที
+
+ต้องมี:
+
+- New Chat
+- New Project Chat
+- New Task
+- Continue Existing Task
+
+AI ต้องสามารถจำ Context ตาม Scope ได้
+
+---
+
+6. CHAT HEADER
+
+ด้านบนของ Chat:
+
+┌──────────────────────────────┐
+│ ☰   Project / Chat      ⋮   │
+└──────────────────────────────┘
+
+ตรงกลางอาจแสดง:
+
+AI
+
+หรือ:
+
+Project: My Android App
+
+และสถานะเล็กๆ:
+
+● Ready
+
+ถ้า AI กำลังทำงาน:
+
+● Working
+
+---
+
+7. CHAT MESSAGE
+
+ข้อความ User:
+
+เรียบง่าย
+
+AI:
+
+สามารถมีหลายประเภท:
+
+Text
+
+คำตอบทั่วไป
+
+Markdown
+
+หัวข้อ / ตาราง / รายการ
+
+Code
+
+มี:
+
+- Copy
+- Edit
+- Run
+- Save
+- Apply
+
+File
+
+มี:
+
+- Open
+- Preview
+- Download
+- Apply to Project
+
+Image
+
+มี:
+
+- View
+- Analyze
+- Save
+
+URL
+
+มี:
+
+- Open
+- Analyze
+- Add to Project
+
+Task
+
+แสดง Task Card
+
+Tool Execution
+
+แสดง Action Summary
+
+Build Result
+
+แสดง Build Result
+
+Test Result
+
+แสดง Test Result
+
+Diff
+
+แสดง Code Changes
+
+---
+
+8. AI RESPONSE STYLE
+
+AI ไม่ควรส่งข้อความยาวติดกันจนอ่านยาก
+
+ต้องแบ่ง:
+
+- Summary
+- Action
+- Result
+- Next Step
+
+ตัวอย่าง:
+
+สร้างไฟล์ให้แล้ว
+
+✓ MainActivity.kt
+✓ AppTheme.kt
+✓ AndroidManifest.xml
+
+กำลัง Build...
+
+[ดูรายละเอียด]
+
+---
+
+9. CHAT INPUT
+
+Input ต้องเป็น Floating Composer ลักษณะคล้าย ChatGPT
+
+┌──────────────────────────────┐
+│ +  พิมพ์ข้อความ...           │
+│                              │
+│ 🖼  📎  🌐             🎤  ↑ │
+└──────────────────────────────┘
+
+รองรับ:
+
+- Text
+- Voice
+- Image
+- File
+- URL
+- Screenshot
+- Code
+- Project
+- Browser Page
+
+---
+
+10. + MENU
+
+เมื่อกด +:
+
+Create
+
+📎 File
+🖼 Image
+🌐 Website
+📁 Project
+💻 Code
+📸 Screenshot
+🧪 Test
+🔧 Tool
+
+แต่ต้องใช้ Progressive Disclosure
+
+ฟีเจอร์ที่ไม่ค่อยใช้ไม่ควรแสดงทั้งหมดทันที
+
+มี:
+
+More
+
+สำหรับ Advanced Features
+
+---
+
+11. MODEL SELECTOR
+
+ด้าน Composer หรือ Header สามารถแสดง:
+
+Auto
+
+ผู้ใช้กดแล้วเห็น:
+
+AI Selection
+
+✓ Auto
+  Local Fast
+  Local Smart
+  External Provider A
+  External Provider B
+
+แต่ Default:
+
+Auto
+
+เพราะ Model Router ควรเลือกให้เอง
+
+---
+
+12. ATTACHMENT PREVIEW
+
+เมื่อแนบไฟล์:
+
+┌──────────────────────┐
+│ 📄 project.zip   ✕   │
+└──────────────────────┘
+
+รูป:
+
+┌─────────────┐
+│   IMAGE     │
+│             │
+└─────────────┘
+     ✕
+
+URL:
+
+🌐 example.com   ✕
+
+ก่อนส่งต้องสามารถลบ Attachment ได้
+
+---
+
+13. VOICE INPUT
+
+กด Microphone:
+
+เปลี่ยน Composer เป็น:
+
+Listening...
+━━━━━━●━━━━
+
+ปุ่ม:
+
+Stop
+
+Cancel
+
+หลังแปลงเสียงเป็นข้อความ:
+
+ผู้ใช้แก้ข้อความก่อนส่งได้
+
+---
+
+14. AI WORKING UI
+
+เมื่อ AI ทำงาน:
+
+ไม่ใช้ Spinner อย่างเดียว
+
+แสดง:
+
+AI is working...
+
+Analyzing request
+✓
+
+Planning
+✓
+
+Writing files
+●
+
+Building
+○
+
+Testing
+○
+
+สามารถย่อเป็น:
+
+«Working on your project...»
+
+เพื่อไม่ให้ UI รก
+
+---
+
+15. TASK EXPANDER
+
+ทุกงานใหญ่สามารถกด:
+
+View Task
+
+เปิด Task Panel:
+
+Task
+Create Android App
+
+Progress
+████████░░ 80%
+
+Current
+Building
+
+Agent
+Build Agent
+
+Model
+Local AI
+
+Tools
+Gradle
+JDK
+Android SDK
+
+[Pause] [Cancel]
+
+---
+
+16. AI ACTIONS
+
+AI สามารถทำงานจริง:
+
+- Read files
+- Write files
+- Edit files
+- Delete files
+- Run commands
+- Build
+- Test
+- Open browser
+- Navigate websites
+- Download
+- Upload
+- Git
+- GitHub
+- Install tools
+- Install models
+
+แต่ UI ต้องแสดง Action สำคัญ
+
+---
+
+17. ACTION APPROVAL
+
+ถ้า Action ต้องการ Permission:
+
+AI wants to:
+
+Delete 4 files
+
+Files:
+app/old.kt
+app/test.kt
+...
+
+[Cancel]
+[Allow Once]
+[Allow for Task]
+
+ต้องไม่ซ่อน Permission
+
+---
+
+18. CODE BLOCK UX
+
+Code ต้องมี Header:
+
+Kotlin                         Copy
+────────────────────────────────
+class MainActivity ...
+
+ปุ่ม:
+
+Copy
+
+Edit
+
+Apply
+
+Run
+
+Save
+
+สำหรับ Project Context
+
+ถ้า AI สร้าง Code:
+
+สามารถ:
+
+Apply to Project
+
+---
+
+19. CODE DIFF
+
+เมื่อ AI แก้ไฟล์:
+
+MainActivity.kt
+
++ fun initializeAI()
++ setupRuntime()
+
+- oldAI()
+
+ปุ่ม:
+
+Accept
+
+Reject
+
+Review
+
+---
+
+20. FILE CARD
+
+┌─────────────────────────────┐
+│ 📄 MainActivity.kt          │
+│ Kotlin • 4.2 KB             │
+│                             │
+│ Open   Edit   Apply         │
+└─────────────────────────────┘
+
+---
+
+21. PROJECT CHAT
+
+Project สามารถมี Chat ของตัวเอง
+
+ตัวอย่าง:
+
+Project: AP AI
+
+Chat
+Files
+Tasks
+Build
+Test
+Git
+Browser
+
+ผู้ใช้สามารถคุยกับ AI โดย Context ผูกกับ Project
+
+---
+
+22. WORKSPACE
+
+เมื่อผู้ใช้ต้องทำงานจริง:
+
+กด:
+
+Open Workspace
+
+จาก Chat
+
+เปิด:
+
+┌──────────────────────────────┐
+│ Project                       │
+├──────────────────────────────┤
+│ Chat │ Code │ Browser │ Build│
+├──────────────────────────────┤
+│                              │
+│       ACTIVE WORKSPACE       │
+│                              │
+├──────────────────────────────┤
+│ AI Activity                  │
+└──────────────────────────────┘
+
+มือถือ:
+
+ใช้ Full Screen + Tabs
+
+---
+
+23. BROWSER WORKSPACE
+
+┌──────────────────────────────┐
+│ ← → ↻   example.com      ⋮  │
+├──────────────────────────────┤
+│                              │
+│       WEBSITE                │
+│                              │
+├──────────────────────────────┤
+│ AI can interact with page   │
+│                              │
+│ [Ask AI]                     │
+└──────────────────────────────┘
+
+รองรับ:
+
+Tabs
+
+Sessions
+
+DOM
+
+Accessibility
+
+Click
+
+Type
+
+Scroll
+
+Upload
+
+Download
+
+Screenshot
+
+AI Automation
+
+---
+
+24. CODE WORKSPACE
+
+┌──────────────────────────────┐
+│ ← Project / Code             │
+├──────────────────────────────┤
+│ Files │ Search │ ⋮           │
+├──────────────────────────────┤
+│ MainActivity.kt              │
+│                              │
+│ 1  package ...               │
+│ 2                              │
+│ 3  class MainActivity...     │
+│                              │
+├──────────────────────────────┤
+│ AI  │ Run │ Build │ Save     │
+└──────────────────────────────┘
+
+---
+
+25. TERMINAL WORKSPACE
+
+Terminal ไม่ต้องอยู่หน้าแรก
+
+เปิดผ่าน:
+
+Workspace → Terminal
+
+┌──────────────────────────────┐
+│ Terminal                     │
+├──────────────────────────────┤
+│ $ ./gradlew assembleDebug    │
+│                              │
+│ BUILD SUCCESSFUL             │
+│                              │
+├──────────────────────────────┤
+│ AI Command │ Stop │ Clear    │
+└──────────────────────────────┘
+
+---
+
+26. BUILD WORKSPACE
+
+Build
+
+Preparing
+✓
+
+Compile
+✓
+
+Package
+●
+
+Test
+○
+
+Verify
+○
+
+เมื่อสำเร็จ:
+
+BUILD SUCCESS
+
+APK
+app-debug.apk
+
+[Open]
+[Install]
+[Share]
+
+---
+
+27. TEST WORKSPACE
+
+Tests
+
+✓ Unit Tests
+✓ Integration Tests
+✓ Build Test
+✓ Runtime Test
+
+Result
+
+4 passed
+0 failed
+
+---
+
+28. GIT WORKSPACE
+
+Git
+
+Branch
+main
+
+Changes
+12 files
+
+Modified
+8
+
+Added
+4
+
+[Review Changes]
+
+Commit
+
+[Commit Changes]
+
+Push
+
+[Push to GitHub]
+
+AI สามารถทำงาน Git ให้ได้ตาม Permission
+
+---
+
+29. AGENT UI
+
+ผู้ใช้ไม่จำเป็นต้องเปิด Agent Center บ่อย
+
+แต่สามารถกด:
+
+AI Details
+
+แล้วเห็น:
+
+Current Agent
+
+Coding Agent
+
+Working on:
+MainActivity.kt
+
+Tools:
+File
+Code
+Build
+
+Status:
+Working
+
+Advanced User สามารถเปิด Agent Center เต็มรูปแบบได้
+
+---
+
+30. MODEL UI
+
+Default:
+
+Auto
+
+ไม่ต้องบังคับผู้ใช้เลือก Model
+
+Advanced:
+
+Current Model
+Local AI
+
+Fallback
+External AI
+
+Context
+128K
+
+Status
+Healthy
+
+---
+
+31. RESOURCE UI
+
+ถ้า AI เปลี่ยน Model เพราะ RAM ไม่พอ:
+
+Model switched
+
+Reason:
+Not enough available memory
+
+Selected:
+Lightweight Local Model
+
+No action required.
+
+ผู้ใช้สามารถกด:
+
+Details
+
+เพื่อดูข้อมูล
+
+---
+
+32. MEMORY UI
+
+ใน Chat มีเมนู:
+
+Memory
+
+สามารถดู:
+
+- Saved Project Context
+- Conversation Context
+- Important Information
+
+AI ต้องไม่ทำให้ผู้ใช้รู้สึกว่ามี “ความจำลึกลับ”
+
+---
+
+33. SEARCH CHAT
+
+Sidebar ต้องมี:
+
+Search
+
+ค้นหา:
+
+- Conversations
+- Projects
+- Files
+- Tasks
+
+ผลลัพธ์ต้องแยกประเภท
+
+---
+
+34. CHAT HISTORY
+
+History ต้อง:
+
+- Searchable
+- Sortable
+- Project grouped
+- Date grouped
+
+แต่ต้องไม่โหลดทุก Conversation พร้อมกันจนกิน RAM
+
+ใช้ Lazy Loading
+
+---
+
+35. MOBILE GESTURES
+
+รองรับ:
+
+Swipe Sidebar
+
+Swipe Back
+
+Long Press
+
+Pull to Refresh
+
+Bottom Sheet
+
+Keyboard-aware UI
+
+แต่ต้องไม่พึ่ง Gesture อย่างเดียว
+
+ทุก Action สำคัญต้องมีปุ่ม/เมนูทางเลือก
+
+---
+
+36. CONTEXT MENU
+
+กดค้างข้อความ AI:
+
+- Copy
+- Select
+- Regenerate
+- Edit
+- Save
+- Share
+- Ask AI about this
+
+กดค้าง Code:
+
+- Copy
+- Edit
+- Explain
+- Fix
+- Run
+- Apply
+
+กดไฟล์:
+
+- Open
+- Analyze
+- Edit
+- Delete
+- Rename
+
+---
+
+37. ERROR MESSAGE
+
+ต้องไม่แสดง Error Technical อย่างเดียว
+
+ตัวอย่าง:
+
+แทน:
+
+«HTTP 400 unsupported extra_content»
+
+ให้แสดง:
+
+«AI Provider ไม่รองรับรูปแบบข้อความนี้»
+
+แล้ว:
+
+«ระบบจะลองใช้วิธีที่เข้ากันได้ให้โดยอัตโนมัติ»
+
+[Retry]
+
+[Use Another Model]
+
+[Details]
+
+---
+
+38. FALLBACK UX
+
+เมื่อ Model ล้มเหลว:
+
+Current AI unavailable
+
+Switching to fallback...
+
+✓ Fallback connected
+
+ไม่ควรบังคับผู้ใช้แก้เองถ้าระบบแก้ได้
+
+---
+
+39. OFFLINE UI
+
+เมื่อไม่มี Internet:
+
+ด้านบน:
+
+Offline
+
+แต่ Chat ยังใช้ Local AI ได้
+
+ตัวอย่าง:
+
+Offline Mode
+
+Local AI
+✓
+
+Files
+✓
+
+Code
+✓
+
+Build
+✓
+
+GitHub
+Offline
+
+---
+
+40. FIRST RUN EXPERIENCE
+
+เปิดครั้งแรก:
+
+1. Welcome
+2. ตรวจ Device
+3. ตรวจ Bootstrap AI
+4. ตรวจ Storage
+5. ตรวจ Runtime
+6. Ready
+
+ไม่ควรให้ผู้ใช้ตั้งค่าซับซ้อนตั้งแต่แรก
+
+หน้าแรกควรจบด้วย:
+
+«AI พร้อมใช้งาน»
+
+[Start Chat]
+
+---
+
+41. ADVANCED MODE
+
+ผู้ใช้ทั่วไป:
+
+Simple Chat UX
+
+ผู้ใช้ขั้นสูง:
+
+Advanced Workspace
+
+เปิดจาก:
+
+AI Workspace
+
+จากนั้นสามารถเห็น:
+
+- Agents
+- Models
+- Tools
+- Terminal
+- Browser
+- Files
+- Build
+- Test
+- Logs
+- Resource
+
+นี่คือ Progressive Disclosure
+
+---
+
+42. RESPONSIVE UI
+
+Phone:
+
+Chat Full Screen
+
+Tablet:
+
+Sidebar + Chat
+
+Large Screen:
+
+Sidebar + Chat + Context Panel
+
+ห้ามใช้ Layout เดียวกันทุก Device
+
+---
+
+43. DARK MODE
+
+Dark Mode ต้องเป็น First-Class UI
+
+ไม่ใช่เพียงกลับสี
+
+ต้องออกแบบ:
+
+- Background
+- Surface
+- Card
+- Input
+- Code
+- Dialog
+- Sidebar
+- Text
+- Divider
+
+แยก Design Tokens สำหรับ Dark Theme
+
+---
+
+44. MICRO INTERACTIONS
+
+ใช้ Animation เล็กๆ สำหรับ:
+
+- Send
+- Receive
+- Tool Start
+- Tool Complete
+- Task Complete
+- Error
+- Permission Request
+- File Apply
+- Model Switch
+
+แต่ต้องประหยัดทรัพยากร
+
+---
+
+45. PERFORMANCE UX
+
+UI ต้องยังลื่นแม้:
+
+- AI กำลังทำงาน
+- Model กำลังโหลด
+- Build กำลังทำงาน
+- Terminal กำลังรัน
+- Browser เปิดหลาย Tab
+
+งานหนักต้องไม่ทำบน Main UI Thread
+
+ใช้:
+
+- Background Worker
+- Coroutines/appropriate concurrency
+- Streaming
+- Lazy Loading
+- Virtualized Lists
+- Cache
+
+ตามสถาปัตยกรรม Android ที่เหมาะสม
+
+---
+
+46. UI COMPONENT SYSTEM
+
+สร้าง Components กลาง:
+
+AppScaffold
+
+TopBar
+
+SideBar
+
+ChatList
+
+MessageBubble
+
+ChatComposer
+
+AttachmentPreview
+
+TaskCard
+
+ProgressCard
+
+ToolCard
+
+ModelCard
+
+AgentCard
+
+FileCard
+
+CodeBlock
+
+DiffViewer
+
+PermissionDialog
+
+ErrorCard
+
+SuccessCard
+
+BottomSheet
+
+ContextMenu
+
+WorkspaceTabs
+
+StatusIndicator
+
+---
+
+47. UI STATE COMPONENTS
+
+ทุก Component ต้องรองรับ:
+
+Loading
+
+Empty
+
+Error
+
+Success
+
+Disabled
+
+Offline
+
+Permission
+
+Running
+
+Completed
+
+---
+
+48. FINAL USER FLOW
+
+OPEN APP
+   ↓
+HOME / CHAT
+   ↓
+TYPE REQUEST
+   ↓
+SEND
+   ↓
+AI UNDERSTANDS
+   ↓
+PLAN
+   ↓
+SHOW ACTION SUMMARY
+   ↓
+EXECUTE
+   ↓
+TOOLS / AGENTS / MODELS
+   ↓
+VERIFY
+   ↓
+RESULT
+   ↓
+CHAT RESPONSE
+   ↓
+OPTIONAL WORKSPACE
+
+---
+
+49. CORE UX RULE
+
+ผู้ใช้ต้องไม่จำเป็นต้องรู้ว่าเบื้องหลังทำงานอย่างไร
+
+แต่ผู้ใช้ต้องสามารถตรวจสอบได้เสมอว่า:
+
+- AI กำลังทำอะไร
+- ใช้ Tool อะไร
+- ใช้ Model อะไร
+- กำลังแก้ไฟล์อะไร
+- มี Permission อะไร
+- Task อยู่ขั้นไหน
+- เกิด Error อะไร
+- แก้ไขอย่างไร
+- ผลลัพธ์ Verify แล้วหรือยัง
+
+---
+
+50. FINAL PRODUCT DESIGN
+
+เป้าหมาย UX:
+
+ChatGPT-like simplicity
+
++ 
+
+AI Agent capability
+
++ 
+
+IDE capability
+
++ 
+
+Browser automation
+
++ 
+
+Local AI
+
++ 
+
+Project management
+
++ 
+
+Tool/Runtime management
+
++ 
+
+Build/Test
+
++ 
+
+Git/GitHub
+
+ทั้งหมดอยู่ใน Application เดียว
+
+แต่ไม่เอาทุกอย่างมากองบนหน้าจอเดียว
+
+ใช้:
+
+Progressive Disclosure
+
+เป็นหลัก
+
+---
+
+51. FINAL RULE FOR THE DEVELOPER AI
+
+อย่าสร้าง:
+
+«Dashboard ที่มีปุ่ม 30 ปุ่ม»
+
+อย่าสร้าง:
+
+«Developer Tool ที่ผู้ใช้ทั่วไปใช้งานไม่ได้»
+
+อย่าสร้าง:
+
+«Chat UI ที่ทำได้แค่ถามตอบ»
+
+อย่าสร้าง:
+
+«WebView ที่ห่อเว็บไซต์»
+
+อย่าสร้าง:
+
+«UI ที่แยก State จาก Core»
+
+ให้สร้าง:
+
+«A clean ChatGPT-like AI interface that acts as the front door to a complete AI operating environment.»
+
+Chat คือประตูหลัก
+
+AI คือสมอง
+
+Agent คือผู้ปฏิบัติงาน
+
+Model คือความสามารถในการประมวลผล
+
+Tool คือเครื่องมือ
+
+Runtime คือสภาพแวดล้อม
+
+Project คือพื้นที่ทำงาน
+
+Workspace คือพื้นที่ขั้นสูง
+
+Verification คือระบบตรวจสอบ
+
+Permission คือระบบควบคุม
+
+UI/UX คือสิ่งที่ทำให้ทั้งหมดนี้ใช้งานง่าย
+
+---
+
+52. ONE SENTENCE PRODUCT DEFINITION
+
+«“แอปนี้ต้องให้ความรู้สึกง่ายเหมือนเปิด ChatGPT แต่ภายใต้ Chat มี AI Runtime เต็มรูปแบบที่สามารถคิด วางแผน ใช้เครื่องมือ เขียนและแก้ Code เปิดเว็บไซต์ ทำงานกับ Project Build/Test และกู้คืนจากข้อผิดพลาดได้จริง ภายใต้การควบคุมของผู้ใช้”»

@@ -1,0 +1,1545 @@
+OWN AI APPLICATION
+
+COMPLETE UI/UX + USER-VISIBLE EXPERIENCE
+
+FULL TOOL INTERFACE SPECIFICATION
+
+0. PRODUCT DEFINITION
+
+โปรเจกต์นี้ ไม่ใช่ Chat Application
+
+และไม่ใช่:
+
+- Chatbot
+- API Client
+- AI Chat Wrapper
+- WebView Wrapper
+- Developer Dashboard
+- Terminal App
+- Browser App
+- IDE อย่างเดียว
+
+แต่คือ:
+
+«FULL AI APPLICATION ENVIRONMENT»
+
+ที่มี Chat เป็นศูนย์กลางการสั่งงาน และมี Workspace/Tools/Runtime ต่างๆ ที่ผู้ใช้สามารถเข้าไปใช้งานโดยตรงได้
+
+ดังนั้นระบบต้องมีทั้ง:
+
+- Chat
+- AI
+- Projects
+- Tasks
+- Agents
+- Models
+- Tools
+- Browser
+- Files
+- Code Editor
+- Terminal
+- Build
+- Test
+- Git
+- GitHub
+- Memory
+- Logs
+- Resource Manager
+- Settings
+- Security
+- Workspace
+
+และ ทุกระบบที่ผู้ใช้สามารถเปิดหรือใช้งานได้ ต้องมี UI/UX ที่สมบูรณ์ของตัวเอง
+
+---
+
+1. CORE UI PHILOSOPHY
+
+ต้องคิดแบบนี้:
+
+Chat
+  │
+  ├── AI
+  │
+  ├── Projects
+  │
+  ├── Browser
+  │
+  ├── Code Editor
+  │
+  ├── Files
+  │
+  ├── Terminal
+  │
+  ├── Build
+  │
+  ├── Test
+  │
+  ├── Git
+  │
+  ├── Models
+  │
+  ├── Tools
+  │
+  ├── Agents
+  │
+  └── Workspace
+
+Chat เป็น ศูนย์กลาง
+
+แต่ไม่ใช่ หน้าจอเดียว
+
+---
+
+2. USER-VISIBLE EXPERIENCE
+
+ทุกความสามารถต้องตอบคำถาม:
+
+«“ผู้ใช้จะเห็นอะไร?”»
+
+และ:
+
+«“ผู้ใช้จะใช้งานมันอย่างไร?”»
+
+และ:
+
+«“ถ้าผู้ใช้ไม่ใช้ AI เขายังสามารถใช้เครื่องมือนี้ด้วยตัวเองได้หรือไม่?”»
+
+ถ้าคำตอบคือ “ใช่”
+
+ต้องสร้าง Full UI สำหรับเครื่องมือนั้น
+
+---
+
+3. TWO-WAY USAGE MODEL
+
+ทุก Tool สำคัญต้องรองรับ 2 วิธี
+
+AI Mode
+
+AI เป็นผู้ใช้ Tool
+
+ตัวอย่าง:
+
+AI เปิด Browser
+AI คลิก
+AI พิมพ์
+AI อ่านหน้าเว็บ
+
+Human Mode
+
+ผู้ใช้เปิด Tool เอง
+
+ตัวอย่าง:
+
+ผู้ใช้เปิด Browser
+ผู้ใช้พิมพ์ URL
+ผู้ใช้เปิดหลาย Tab
+ผู้ใช้กดปุ่ม
+ผู้ใช้ดาวน์โหลดไฟล์
+
+ดังนั้น Tool UI ต้องไม่ถูกสร้างเพื่อ AI อย่างเดียว
+
+---
+
+4. TOOL = REAL PRODUCT
+
+ห้ามทำ Tool UI แบบ:
+
+Tools
+
+Browser
+Terminal
+Git
+Files
+Build
+
+แล้วกดเข้าไปเจอรายการธรรมดา
+
+ต้องทำให้แต่ละ Tool รู้สึกเหมือนเป็น ผลิตภัณฑ์จริงภายใน Application
+
+---
+
+5. BROWSER — FULL UI
+
+Browser เป็นหนึ่งในระบบสำคัญที่สุด
+
+ต้องออกแบบเหมือน Browser จริง
+
+ไม่ใช่:
+
+«WebView + URL Input»
+
+ต้องมี:
+
+Browser Home
+
+- Search
+- URL
+- Recent Sites
+- Bookmarks
+- History
+- Downloads
+- Open Tabs
+
+Browser Toolbar
+
+┌──────────────────────────────┐
+│ ←  →  ↻   URL/Search     ⋮  │
+├──────────────────────────────┤
+│                              │
+│        WEBSITE               │
+│                              │
+│                              │
+├──────────────────────────────┤
+│ Tabs / AI / Tools            │
+└──────────────────────────────┘
+
+---
+
+6. BROWSER TABS
+
+ต้องมี Tab UI จริง
+
+ตัวอย่าง:
+
+┌──────────────────────────────┐
+│ +  Tabs                      │
+├──────────────────────────────┤
+│ GitHub     Google      +     │
+└──────────────────────────────┘
+
+แต่ละ Tab มี:
+
+- Favicon
+- Title
+- Loading State
+- Close
+- Active State
+
+ต้องรองรับ:
+
+- New Tab
+- Close Tab
+- Reopen Tab
+- Switch Tab
+- Duplicate Tab
+
+---
+
+7. BROWSER SESSION
+
+แต่ละ Website/Workspace สามารถมี Session ของตัวเอง
+
+แสดงให้ผู้ใช้เข้าใจว่า:
+
+GitHub Session
+● Active
+
+Google Session
+● Active
+
+Facebook Session
+● Login Required
+
+Cookies / Local Storage / Session Data ต้องแยกตาม Profile/Session Policy
+
+---
+
+8. BROWSER USER CONTROLS
+
+ผู้ใช้ต้องใช้งาน Browser ได้โดยตรง:
+
+- Back
+- Forward
+- Reload
+- URL
+- Search
+- Tabs
+- Bookmark
+- Share
+- Download
+- Upload
+- Find in page
+- Desktop/Mobile mode
+- History
+- Clear data
+
+---
+
+9. BROWSER AI CONTROLS
+
+AI Controls เป็นชั้นเสริม
+
+ตัวอย่าง:
+
+ผู้ใช้เปิดเว็บแล้วกด:
+
+Ask AI
+
+AI สามารถ:
+
+- Analyze page
+- Summarize
+- Find information
+- Click elements
+- Fill forms
+- Extract data
+- Compare pages
+- Complete tasks
+
+แต่ Browser ต้องยังเป็น Browser ที่ใช้งานด้วยมือได้สมบูรณ์
+
+---
+
+10. BROWSER AI ACTIVITY
+
+ถ้า AI กำลังควบคุม Browser:
+
+ต้องมีแถบ:
+
+«AI is controlling this page»
+
+แสดง Action Summary:
+
+Opening GitHub
+✓
+
+Searching repository
+✓
+
+Opening Issues
+●
+
+Waiting for user authentication
+○
+
+ผู้ใช้สามารถ:
+
+Pause AI
+
+Stop AI
+
+Take Control
+
+---
+
+11. CODE EDITOR — FULL UI
+
+Code Editor ต้องเป็น Editor จริง
+
+ต้องมี:
+
+- File Tree
+- Tabs
+- Syntax Highlight
+- Line Numbers
+- Search
+- Replace
+- Go To Line
+- Undo
+- Redo
+- Multiple Files
+- Code Folding
+- Selection
+- Copy/Paste
+
+และ:
+
+AI Assist
+
+---
+
+12. CODE EDITOR USER EXPERIENCE
+
+หน้าหลัก:
+
+┌──────────────────────────────┐
+│ Project        Search   ⋮   │
+├──────────────────────────────┤
+│ Files                        │
+│ ├─ app                       │
+│ │ ├─ Main.kt                 │
+│ │ └─ UI.kt                   │
+│ └─ build.gradle              │
+├──────────────────────────────┤
+│ Main.kt                      │
+├──────────────────────────────┤
+│ 1 class MainActivity {       │
+│ 2                           │
+│ 3 }                          │
+├──────────────────────────────┤
+│ AI  Run  Build  ⋮            │
+└──────────────────────────────┘
+
+---
+
+13. CODE AI FEATURES
+
+ผู้ใช้สามารถเลือก Code แล้ว:
+
+- Explain
+- Fix
+- Refactor
+- Optimize
+- Generate
+- Test
+- Document
+- Convert
+
+AI สามารถเสนอ Diff
+
+ผู้ใช้:
+
+Accept
+
+Reject
+
+Edit
+
+---
+
+14. FILE MANAGER — FULL UI
+
+File Manager ต้องเป็น File Manager จริง
+
+ต้องมี:
+
+- Folder Tree
+- Files
+- Search
+- Sort
+- Filter
+- Grid/List
+- File Preview
+- File Info
+- Rename
+- Copy
+- Move
+- Delete
+- New Folder
+- New File
+- Share
+- Open With
+
+---
+
+15. FILE PREVIEW
+
+รองรับ Preview ตามประเภท:
+
+Text
+
+Code
+
+Image
+
+PDF
+
+JSON
+
+XML
+
+CSV
+
+Markdown
+
+Archive
+
+และประเภทอื่นที่ Runtime รองรับ
+
+---
+
+16. TERMINAL — FULL UI
+
+Terminal ต้องมี UX ของ Terminal จริง
+
+แต่ต้องสวยและใช้งานง่าย
+
+มี:
+
+- Terminal Tabs
+- Sessions
+- Command Input
+- Output
+- Search
+- Copy
+- Clear
+- Stop Process
+- Environment Info
+- Process Info
+
+ตัวอย่าง:
+
+┌──────────────────────────────┐
+│ Terminal       +       ⋮    │
+├──────────────────────────────┤
+│ user@project                 │
+│ $ ./gradlew build            │
+│                              │
+│ BUILD SUCCESSFUL             │
+│                              │
+├──────────────────────────────┤
+│ Command...               ↑   │
+└──────────────────────────────┘
+
+---
+
+17. TERMINAL AI
+
+ผู้ใช้สามารถกด:
+
+Ask AI
+
+แล้ว AI อ่าน Terminal Context
+
+เช่น:
+
+«แก้ Error นี้ให้หน่อย»
+
+AI วิเคราะห์ Output
+
+เสนอ:
+
+- Cause
+- Fix
+- Command
+
+ถ้าต้องการ Execute:
+
+ต้องผ่าน Permission ตาม Policy
+
+---
+
+18. BUILD CENTER — FULL UI
+
+Build ต้องไม่เป็นแค่ข้อความ:
+
+«BUILD SUCCESS»
+
+ต้องมี Build Dashboard
+
+แสดง:
+
+- Current Project
+- Build Variant
+- Build Type
+- Build Progress
+- Logs
+- Errors
+- Warnings
+- Artifacts
+- Build Time
+- Resource Usage
+
+---
+
+19. BUILD RESULT
+
+เมื่อสำเร็จ:
+
+BUILD SUCCESSFUL
+
+APK
+app-debug.apk
+24.6 MB
+
+Build Time
+1m 24s
+
+[Open]
+[Install]
+[Share]
+[View Files]
+
+---
+
+20. TEST CENTER — FULL UI
+
+Test Dashboard:
+
+Tests
+
+All       Passed      Failed
+
+128         124         4
+
+แสดง:
+
+- Test Name
+- Duration
+- Status
+- Error
+- Stack Trace
+- Logs
+
+AI สามารถ:
+
+Fix Failed Tests
+
+แต่ผู้ใช้สามารถเปิดดูรายละเอียดเองได้
+
+---
+
+21. GIT CENTER — FULL UI
+
+Git ต้องเป็น UI จริง
+
+แสดง:
+
+Current Branch
+
+Changes
+
+Commits
+
+History
+
+Branches
+
+Tags
+
+Stash
+
+Diff
+
+Merge
+
+Conflict
+
+---
+
+22. GIT CHANGE UI
+
+ตัวอย่าง:
+
+Changes
+
+Modified
+8 files
+
+Added
+4 files
+
+Deleted
+1 file
+
+แตะไฟล์:
+
+เปิด Diff Viewer
+
+---
+
+23. GITHUB CENTER
+
+ต้องมี UI สำหรับ:
+
+Repositories
+
+Issues
+
+Pull Requests
+
+Branches
+
+Actions
+
+Releases
+
+Commits
+
+User Authentication
+
+AI สามารถทำงานผ่านระบบนี้ แต่ผู้ใช้ก็ต้องใช้งานเองได้
+
+---
+
+24. MODEL CENTER — FULL UI
+
+Model Center ต้องเป็นเหมือน App Store/Manager สำหรับ AI Models
+
+แสดง:
+
+Installed
+
+Available
+
+Downloading
+
+Updates
+
+Broken
+
+Favorites
+
+---
+
+25. MODEL CARD
+
+แต่ละ Model:
+
+Local Smart Model
+
+● Installed
+
+Size
+1.8 GB
+
+Context
+32K
+
+RAM
+~2.4 GB
+
+Speed
+Fast
+
+Status
+Healthy
+
+[Use]
+[Details]
+[Remove]
+
+---
+
+26. TOOL CENTER — FULL UI
+
+Tool Center ต้องไม่เป็น Settings List
+
+ควรมี Card/Category UI
+
+ตัวอย่าง:
+
+Development
+
+┌──────────────────┐
+│ Android SDK      │
+│ Installed ✓      │
+│ v35              │
+│                  │
+│ [Open] [Manage]  │
+└──────────────────┘
+
+หมวด:
+
+Development
+
+AI
+
+Browser
+
+System
+
+Git
+
+Build
+
+Testing
+
+Network
+
+Files
+
+---
+
+27. AGENT CENTER — FULL UI
+
+Agent ต้องมี Dashboard
+
+แสดง:
+
+Active
+
+Idle
+
+Paused
+
+Error
+
+Completed
+
+Agent Card:
+
+Coding Agent
+
+● Working
+
+Task:
+Implement Login
+
+Model:
+Local Smart
+
+Tools:
+Files
+Editor
+Terminal
+
+[Open]
+[Pause]
+
+---
+
+28. TASK CENTER — FULL UI
+
+Task Center ต้องเหมือน Task Manager
+
+แสดง:
+
+Running
+
+Waiting
+
+Completed
+
+Failed
+
+Scheduled
+
+Cancelled
+
+สามารถ:
+
+- Search
+- Filter
+- Sort
+- Group by Project
+
+---
+
+29. MEMORY CENTER — FULL UI
+
+Memory ไม่ควรเป็น Database Viewer
+
+ต้องออกแบบให้คนทั่วไปเข้าใจ
+
+แสดง:
+
+What AI remembers
+
+Project Context
+
+Important Facts
+
+Preferences
+
+Previous Decisions
+
+สามารถ:
+
+Edit
+
+Delete
+
+Forget
+
+---
+
+30. RESOURCE CENTER — FULL UI
+
+แสดงทรัพยากรแบบเข้าใจง่าย:
+
+RAM
+
+CPU
+
+Storage
+
+Battery
+
+Network
+
+Model Memory
+
+Tool Storage
+
+Workspace Storage
+
+ถ้าระบบต้องลด Model:
+
+«Memory is limited»
+
+«Switching to lightweight model»
+
+---
+
+31. LOG CENTER
+
+Logs ต้องมี 2 ระดับ
+
+Simple
+
+«Build completed»
+
+Advanced
+
+Technical logs
+
+- Timestamp
+- Component
+- Severity
+- Event
+- Error
+- Stack Trace
+
+ผู้ใช้ทั่วไปไม่ควรถูกบังคับให้เห็น Technical Logs
+
+---
+
+32. NOTIFICATION CENTER
+
+ทุก Event สำคัญเข้า Notification Center
+
+เช่น:
+
+- Task Complete
+- Build Complete
+- Model Download Complete
+- Permission Required
+- Error
+- Recovery
+- Update Available
+
+---
+
+33. WORKSPACE CONCEPT
+
+ทุก Tool สามารถเปิดเป็น Workspace
+
+ตัวอย่าง:
+
+Project Workspace
+
+Chat
+Code
+Browser
+Files
+Terminal
+Build
+Test
+Git
+
+ผู้ใช้สามารถสลับ Workspace ได้โดยไม่สูญเสีย Context
+
+---
+
+34. TOOL INTEROPERABILITY
+
+Tool ต้องทำงานร่วมกัน
+
+ตัวอย่าง:
+
+Browser
+↓
+Download File
+↓
+File Manager
+↓
+AI Analyze
+↓
+Code Editor
+↓
+Modify Code
+↓
+Terminal
+↓
+Build
+↓
+Test
+↓
+Git
+↓
+GitHub
+
+ทั้งหมดต้องเชื่อมกันผ่าน Application Core
+
+ไม่ใช่แต่ละ Tool เป็นแอปแยกกัน
+
+---
+
+35. USER CONTROL
+
+ผู้ใช้สามารถ:
+
+เปิด Tool เอง
+
+หรือ
+
+ให้ AI เปิด Tool
+
+ตัวอย่าง:
+
+ผู้ใช้:
+
+«เปิด GitHub ให้หน่อย»
+
+AI:
+
+เปิด Browser Workspace
+
+ผู้ใช้สามารถควบคุมต่อเอง
+
+---
+
+36. AI HANDOFF
+
+ต้องสามารถเปลี่ยนจาก:
+
+Human → AI
+
+และ:
+
+AI → Human
+
+ได้ตลอดเวลา
+
+ตัวอย่าง:
+
+AI เปิด Browser
+
+AI ทำงาน 3 ขั้นตอน
+
+ผู้ใช้กด:
+
+Take Control
+
+ผู้ใช้ทำเอง
+
+แล้วกด:
+
+Return to AI
+
+AI ทำงานต่อจาก State ปัจจุบัน
+
+---
+
+37. GLOBAL COMMAND SYSTEM
+
+ทุกหน้าอาจมี AI Command
+
+เช่น Browser:
+
+«วิเคราะห์หน้านี้»
+
+Editor:
+
+«แก้ Error นี้»
+
+Terminal:
+
+«อธิบาย Error»
+
+File Manager:
+
+«สรุปไฟล์เหล่านี้»
+
+Build:
+
+«แก้ Build Error»
+
+Git:
+
+«สรุป Changes»
+
+Test:
+
+«แก้ Tests ที่ Failed»
+
+ทำให้ AI กลายเป็น Layer ที่เชื่อมทุก Tool
+
+---
+
+38. USER SHOULD ALWAYS KNOW CONTEXT
+
+เมื่อผู้ใช้เปิด Tool ต้องเห็นว่าอยู่กับอะไร
+
+เช่น:
+
+Project: My Android App
+Branch: main
+Task: Fix Login
+
+ไม่ควรเปิด Editor แล้วผู้ใช้ไม่รู้ว่า Editor กำลังแก้ Project ไหน
+
+---
+
+39. GLOBAL STATUS BAR
+
+ระบบสามารถมี Global Status Indicator แบบเล็กๆ
+
+เช่น:
+
+● AI Ready
+
+หรือ:
+
+● AI Working
+
+กดแล้วเปิด:
+
+AI Activity
+
+ไม่กินพื้นที่หน้าจอ
+
+---
+
+40. USER-VISIBLE AI ACTIVITY
+
+ต้องมีศูนย์กลาง:
+
+AI Activity
+
+แสดงทุกสิ่งที่ AI กำลังทำ
+
+ตัวอย่าง:
+
+AI Activity
+
+Coding Agent
+● Editing Login.kt
+
+Browser Agent
+● Waiting for authentication
+
+Build Agent
+● Idle
+
+Testing Agent
+● Running tests
+
+---
+
+41. USER-VISIBLE EXECUTION
+
+AI ไม่ควรทำงานแบบ “ดำมืด”
+
+ผู้ใช้ควรเห็นระดับสูงว่า:
+
+AI กำลัง:
+
+- อ่าน
+- วิเคราะห์
+- วางแผน
+- แก้ไข
+- รัน
+- ตรวจสอบ
+- กู้คืน
+
+แต่ไม่ต้องแสดง Internal Chain-of-Thought
+
+---
+
+42. PROGRESSIVE DISCLOSURE
+
+ข้อมูลแบ่งเป็น 3 ระดับ
+
+LEVEL 1 — NORMAL USER
+
+เห็น:
+
+«AI กำลังทำงาน»
+
+LEVEL 2 — POWER USER
+
+กด Details
+
+เห็น:
+
+«Coding Agent
+Local Model
+File Tool
+Build Tool»
+
+LEVEL 3 — DEVELOPER
+
+เปิด Advanced
+
+เห็น:
+
+- Logs
+- Events
+- Resource
+- Tool Calls
+- Execution History
+- Error Details
+
+นี่เป็นหลักสำคัญของ UX
+
+---
+
+43. EVERY FEATURE MUST HAVE UI
+
+กฎบังคับ:
+
+ถ้าระบบมี Feature และผู้ใช้มีสิทธิ์ใช้งาน Feature นั้น
+
+ต้องมี:
+
+1. Entry Point
+2. Main Screen
+3. State
+4. Loading
+5. Empty
+6. Error
+7. Success
+8. Permission
+9. Details
+10. Actions
+11. Help/Explanation เมื่อจำเป็น
+
+ห้ามมี Feature ที่:
+
+«“มี Backend แล้ว แต่ไม่มี UI”»
+
+ถ้า Feature ตั้งใจให้ AI ใช้เบื้องหลังเท่านั้น จึงสามารถไม่มี User UI เต็มรูปแบบได้
+
+---
+
+44. EVERY USER TOOL MUST FEEL COMPLETE
+
+ตัวอย่าง:
+
+ถ้ามี Browser
+
+ต้องไม่ทำเพียง:
+
+"WebView + URL"
+
+ถ้ามี File Manager
+
+ต้องไม่ทำเพียง:
+
+"List<String> files"
+
+ถ้ามี Terminal
+
+ต้องไม่ทำเพียง:
+
+"TextView + EditText"
+
+ถ้ามี Git
+
+ต้องไม่ทำเพียง:
+
+"git status output"
+
+ถ้ามี Model Manager
+
+ต้องไม่ทำเพียง:
+
+"List<Model>"
+
+ต้องออกแบบเป็นผลิตภัณฑ์ที่ใช้งานจริง
+
+---
+
+45. CONSISTENT DESIGN LANGUAGE
+
+แม้ Browser / Editor / Terminal จะมีลักษณะเฉพาะของตัวเอง
+
+แต่ต้องยังรู้สึกว่าเป็น Application เดียวกัน
+
+ใช้ร่วมกัน:
+
+- Navigation
+- Typography
+- Spacing
+- Icons
+- Buttons
+- Dialog
+- Bottom Sheet
+- Status
+- Theme
+- Animation
+
+แต่ไม่บังคับให้ทุก Tool หน้าตาเหมือนกันจนเสียธรรมชาติของ Tool
+
+---
+
+46. EXAMPLE
+
+Browser ต้องดูเป็น Browser
+
+Editor ต้องดูเป็น Editor
+
+Terminal ต้องดูเป็น Terminal
+
+File Manager ต้องดูเป็น File Manager
+
+Git ต้องดูเป็น Git Client
+
+Build Center ต้องดูเป็น Build System
+
+Model Center ต้องดูเป็น Model Manager
+
+แต่ทั้งหมดต้องมี Design Language เดียวกัน
+
+---
+
+47. NO PLACEHOLDER UI
+
+ห้ามสร้าง:
+
+- Empty cards ที่ไม่มีการทำงาน
+- ปุ่มที่กดไม่ได้
+- Fake progress
+- Fake terminal
+- Fake browser
+- Fake build result
+- Mock AI status
+
+ถ้ายังไม่มี Backend:
+
+ให้ระบุชัดเจนว่า:
+
+Not Implemented
+
+หรือ:
+
+Coming Later
+
+ห้ามทำให้ผู้ใช้เข้าใจว่าระบบทำงานแล้ว
+
+---
+
+48. REAL STATE BINDING
+
+UI ทุกส่วนต้องเชื่อมกับ State จริง
+
+ตัวอย่าง:
+
+Browser Tab Count
+
+ต้องมาจาก Browser Runtime
+
+ไม่ใช่ตัวเลข Hardcoded
+
+Build Progress
+
+ต้องมาจาก Build Engine
+
+ไม่ใช่ Animation หลอก
+
+Model Status
+
+ต้องมาจาก Model Manager
+
+ไม่ใช่ Static Text
+
+---
+
+49. PERFORMANCE
+
+UI ทั้งระบบต้อง:
+
+- Smooth
+- Responsive
+- Lazy Load
+- Virtualized
+- Background execution
+- Efficient memory
+- No unnecessary re-render
+- No blocking main thread
+
+โดยเฉพาะ:
+
+Browser
+
+Code Editor
+
+Terminal
+
+Logs
+
+Chat History
+
+File Tree
+
+Task List
+
+ต้องรองรับข้อมูลจำนวนมาก
+
+---
+
+50. MOBILE-FIRST
+
+แอปต้องถูกออกแบบจากมือถือก่อน
+
+ไม่ใช่ Desktop UI ที่ถูกย่อ
+
+ทุกหน้า:
+
+- Touch-friendly
+- Thumb-friendly
+- Keyboard-aware
+- Bottom Sheet compatible
+- Full-screen compatible
+
+Tablet/Desktop สามารถเพิ่มพื้นที่ได้ภายหลัง
+
+---
+
+51. CHAT IS THE FRONT DOOR
+
+หลักการ:
+
+USER
+ ↓
+CHAT
+ ↓
+AI
+ ↓
+WORKSPACE
+ ↓
+TOOLS
+
+แต่ผู้ใช้สามารถเข้าตรงได้:
+
+USER
+ ↓
+BROWSER
+
+หรือ:
+
+USER
+ ↓
+CODE EDITOR
+
+หรือ:
+
+USER
+ ↓
+FILE MANAGER
+
+ทุกทางต้องเชื่อมกลับเข้าสู่ AI Core
+
+---
+
+52. FINAL UX MODEL
+
+แอปต้องให้ประสบการณ์แบบ:
+
+Normal User
+
+เปิดแอป → Chat → สั่งงาน → ได้ผลลัพธ์
+
+Power User
+
+Chat → Task → Workspace → Tools
+
+Developer
+
+Project → Editor → Terminal → Build → Test → Git
+
+AI Agent User
+
+Task → Agent → Browser → Files → Code → Build → Verify
+
+ทุกคนใช้ Application เดียวกัน
+
+แต่เห็น UI ในระดับความซับซ้อนที่เหมาะสมกับการใช้งาน
+
+---
+
+53. FINAL ARCHITECTURE + UI RELATIONSHIP
+
+                         USER
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+           CHAT                       DIRECT TOOL
+             │                           │
+             │               ┌───────────┼───────────┐
+             │               │           │           │
+             │            Browser      Editor      Files
+             │               │           │           │
+             │            Terminal      Git        Build
+             │               │           │           │
+             └───────────────┴───────────┴───────────┘
+                             │
+                             ▼
+                    APPLICATION CORE
+                             │
+                       AI ORCHESTRATOR
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+           AGENTS         MODELS          TOOLS
+              │              │              │
+              └──────────────┼──────────────┘
+                             ▼
+                       EXECUTION
+                             │
+                         VERIFY
+                             │
+                          RESULT
+                             │
+                             ▼
+                           UI
+
+---
+
+54. MASTER RULE
+
+ก่อนเพิ่ม Feature ใดๆ ให้ถาม:
+
+«Feature นี้ผู้ใช้ต้องเห็นหรือไม่?»
+
+ถ้าไม่:
+
+สร้าง Internal Runtime
+
+ถ้าใช่:
+
+ต้องสร้าง Full UI/UX
+
+และถ้าเป็น Tool ที่ผู้ใช้สามารถใช้งานเอง:
+
+ต้องสร้าง Real Tool Interface
+
+ไม่ใช่เพียง:
+
+- รายการ
+- ปุ่ม
+- Log
+- Text
+- Placeholder
+
+---
+
+55. FINAL PRODUCT REQUIREMENT
+
+สิ่งที่กำลังสร้างคือ:
+
+«A complete AI-powered application environment with a ChatGPT-like conversational front door, but with full native workspaces and professional user interfaces for every user-facing capability.»
+
+Chat ต้องใช้ง่าย
+
+Browser ต้องเหมือน Browser จริง
+
+Editor ต้องเหมือน Editor จริง
+
+Terminal ต้องเหมือน Terminal จริง
+
+File Manager ต้องเหมือน File Manager จริง
+
+Git ต้องเหมือน Git Client จริง
+
+Build ต้องเหมือน Build Center จริง
+
+Test ต้องเหมือน Test Center จริง
+
+Model Manager ต้องเหมือน Model Manager จริง
+
+Tool Manager ต้องเหมือน Tool Manager จริง
+
+Project Workspace ต้องเหมือน Workspace จริง
+
+และทั้งหมดต้องเชื่อมกันเป็น ระบบเดียว
+
+ไม่ใช่ Collection of Screens
+
+แต่คือ:
+
+«ONE APPLICATION / ONE DESIGN SYSTEM / ONE STATE SYSTEM / ONE AI CORE / MANY PROFESSIONAL WORKSPACES»

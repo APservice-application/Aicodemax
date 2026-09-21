@@ -1,0 +1,32 @@
+# Android / Gradle
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+*/build/
+captures
+.externalNativeBuild/
+.cxx/
+*.hprof
+
+# APK / AAB / keystore (ไฟล์ใหญ่ + ความลับ ห้ามขึ้น repo)
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Model weights (ไฟล์ใหญ่)
+*.bin
+*.gguf
+*.onnx
+*.tflite
+*.pt
+*.pth
+*.safetensors
+
+# OS / editor
+Thumbs.db
+*.swp
+*~
