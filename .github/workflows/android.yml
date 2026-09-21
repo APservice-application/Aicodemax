@@ -49,6 +49,7 @@ jobs:
           ./gradlew
           :ai:core:testDebugUnitTest :ai:models:testDebugUnitTest
           :tools:gateway:testDebugUnitTest :tools:files:testDebugUnitTest :tools:editor:testDebugUnitTest
+          :tools:terminal_runtime:testDebugUnitTest
           --stacktrace
       - name: Assemble
         run: ./gradlew assembleDebug --stacktrace
