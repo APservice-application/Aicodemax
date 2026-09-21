@@ -1,3 +1,5 @@
+> ARCHITECTURE POSITION (MASTER_ARCHITECTURE §5/§29/§71): Terminal is the **Compatibility Engine / CLI Adapter (CP-31/32/33)** — an optional fallback for CLI-only tools and deep debugging. It is NOT the AI core, NOT the main execution path, and native engines MUST work without it. This plan covers the compat layer only.
+
 # TERMINAL PLAN — ฝัง Terminal ไว้ในแอป (AI-driven)
 
 ตาม AMENDMENT-001 (ฝังในแอปเท่านั้น ห้ามให้ผู้ใช้ลงแอปแยก)

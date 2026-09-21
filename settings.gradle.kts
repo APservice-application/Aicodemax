@@ -31,6 +31,7 @@ include(
     ":tools:builder",
     ":tools:git",
     ":tools:git_runtime",
+    ":tools:capability",
     ":tools:browser",
     ":tools:browser_runtime",
     ":data:checkpoint",

@@ -26,6 +26,7 @@ dependencies {
     api(project(":ai:tasks"))
     api(project(":ai:models"))
     api(project(":tools:registry"))
+    api(project(":tools:capability"))
     implementation(project(":data:memory"))
     implementation(project(":data:conversations"))
     implementation(project(":data:checkpoint"))

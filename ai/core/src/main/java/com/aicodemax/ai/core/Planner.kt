@@ -3,6 +3,8 @@ package com.aicodemax.ai.core
 import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Ids
 import com.aicodemax.core.common.Outcome
+import com.aicodemax.tools.capability.CapabilityResolver
+import com.aicodemax.tools.capability.StandardCapabilities
 
 data class PlanStep(
     val id: String,
@@ -22,31 +24,29 @@ interface Planner {
     suspend fun plan(intent: UserIntent): Outcome<Plan>
 }
 
-/** Rule-based v0 planner: files/editor work today, everything else reports honestly. */
-class RuleBasedPlanner : Planner {
+/**
+ * Rule-based v0 planner — thinks in CAPABILITIES, never in shell commands
+ * (MASTER_ARCHITECTURE §3/§61/§63). Every step goes through the
+ * [CapabilityResolver], which picks native engines first and the terminal
+ * CLI adapter only as a last resort (or honest BLOCKED when nothing runs).
+ */
+class RuleBasedPlanner(
+    private val resolver: CapabilityResolver = StandardCapabilities.defaultResolver(),
+) : Planner {
+    /** Capabilities that always need explicit user permission. */
+    private val sensitive = setOf("files.delete")
+
     override suspend fun plan(intent: UserIntent): Outcome<Plan> {
-        return when (intent.type) {
+        val requests = when (intent.type) {
             IntentType.CREATE_FILE -> {
                 val path = intent.parameters["path"]
                     ?: return Outcome.Failure(
                         AppError("PLAN_NO_PATH", "please include a file name, e.g. สร้างไฟล์ notes.txt: hello"),
                     )
                 val content = intent.parameters["content"] ?: ""
-                Outcome.Success(
-                    Plan(
-                        listOf(
-                            PlanStep(
-                                Ids.newId("step"), "editor", "set",
-                                mapOf("path" to path, "content" to content),
-                                description = "write $path",
-                            ),
-                            PlanStep(
-                                Ids.newId("step"), "editor", "save",
-                                mapOf("path" to path),
-                                description = "save $path",
-                            ),
-                        ),
-                    ),
+                listOf(
+                    "editor.set" to mapOf("path" to path, "content" to content),
+                    "editor.save" to mapOf("path" to path),
                 )
             }
             IntentType.READ_FILE -> {
@@ -54,66 +54,30 @@ class RuleBasedPlanner : Planner {
                     ?: return Outcome.Failure(
                         AppError("PLAN_NO_PATH", "please include a file name, e.g. อ่านไฟล์ notes.txt"),
                     )
-                Outcome.Success(
-                    Plan(
-                        listOf(
-                            PlanStep(
-                                Ids.newId("step"), "files", "read",
-                                mapOf("path" to path),
-                                description = "read $path",
-                            ),
-                        ),
-                    ),
-                )
+                listOf("files.read" to mapOf("path" to path))
             }
-            IntentType.LIST_FILES -> Outcome.Success(
-                Plan(
-                    listOf(
-                        PlanStep(
-                            Ids.newId("step"), "files", "list",
-                            mapOf("path" to (intent.parameters["path"] ?: "")),
-                            description = "list files",
-                        ),
-                    ),
-                ),
+            IntentType.LIST_FILES -> listOf(
+                "files.list" to mapOf("path" to (intent.parameters["path"] ?: "")),
             )
             IntentType.MAKE_DIR -> {
                 val path = intent.parameters["path"]
                     ?: return Outcome.Failure(
                         AppError("PLAN_NO_PATH", "please include a folder name, e.g. mkdir folder docs"),
                     )
-                Outcome.Success(
-                    Plan(
-                        listOf(
-                            PlanStep(
-                                Ids.newId("step"), "files", "mkdir",
-                                mapOf("path" to path),
-                                description = "make dir $path",
-                            ),
-                        ),
-                    ),
-                )
+                listOf("files.mkdir" to mapOf("path" to path))
             }
             IntentType.DELETE_PATH -> {
                 val path = intent.parameters["path"]
                     ?: return Outcome.Failure(
                         AppError("PLAN_NO_PATH", "please include a path to delete"),
                     )
-                Outcome.Success(
-                    Plan(
-                        listOf(
-                            PlanStep(
-                                Ids.newId("step"), "files", "delete",
-                                mapOf("path" to path),
-                                needsPermission = true,
-                                description = "delete $path",
-                            ),
-                        ),
-                    ),
-                )
+                listOf("files.delete" to mapOf("path" to path))
             }
-            IntentType.RUN_COMMAND -> Outcome.Failure(
-                AppError("PLAN_UNAVAILABLE", "terminal runtime wires in Phase 16 — commands cannot run yet"),
+            IntentType.RUN_COMMAND -> listOf(
+                "terminal.exec" to mapOf(
+                    "command" to (intent.parameters["command"] ?: ""),
+                    "sessionId" to (intent.parameters["sessionId"] ?: ""),
+                ),
             )
             IntentType.OPEN_URL -> {
                 val url = intent.parameters["url"]?.trim().orEmpty()
@@ -122,51 +86,62 @@ class RuleBasedPlanner : Planner {
                         AppError("PLAN_NO_URL", "please include a URL, e.g. เปิดเว็บ example.com"),
                     )
                 }
-                Outcome.Success(
-                    Plan(
-                        listOf(
-                            PlanStep(
-                                Ids.newId("step"), "browser", "open",
-                                mapOf("url" to url),
-                                description = "open $url",
-                            ),
-                        ),
-                    ),
-                )
+                listOf("browser.open" to mapOf("url" to url))
             }
-            IntentType.BUILD_PROJECT -> Outcome.Failure(
-                AppError("PLAN_UNAVAILABLE", "on-device build wires in Phase 17"),
+            IntentType.BUILD_PROJECT -> listOf("build.project" to emptyMap())
+            IntentType.RUN_TESTS -> listOf("test.run" to emptyMap())
+            IntentType.GIT_ACTION -> gitRequests(intent) ?: return gitFailure(intent)
+            IntentType.CHAT, IntentType.UNKNOWN -> return Outcome.Failure(
+                AppError("PLAN_NOT_ACTIONABLE", "nothing to plan for chat"),
             )
-            IntentType.RUN_TESTS -> Outcome.Failure(
-                AppError("PLAN_UNAVAILABLE", "on-device test wires in Phase 17"),
-            )
-            IntentType.GIT_ACTION -> {
-                val action = intent.parameters["action"] ?: "status"
-                val repo = intent.parameters["repo"] ?: ""
-                fun step(toolAction: String, extra: Map<String, String> = emptyMap()) = PlanStep(
-                    Ids.newId("step"), "git", toolAction,
-                    mapOf("repo" to repo) + extra,
-                    description = "git $toolAction",
-                )
-                when (action) {
-                    "status", "log", "ensure", "stage" ->
-                        Outcome.Success(Plan(listOf(step(action))))
-                    "commit" -> {
-                        val message = intent.parameters["message"]?.trim().orEmpty()
-                        if (message.isBlank()) {
-                            return Outcome.Failure(
-                                AppError("PLAN_NO_MESSAGE", "please include a message, e.g. git commit -m \"done\""),
-                            )
-                        }
-                        Outcome.Success(Plan(listOf(step("stage"), step("commit", mapOf("message" to message)))))
-                    }
-                    else -> Outcome.Failure(
-                        AppError("PLAN_UNSUPPORTED", "git $action ยังไม่รองรับ (รองรับ: status / log / commit)"),
+        }
+
+        val steps = mutableListOf<PlanStep>()
+        for ((capabilityId, args) in requests) {
+            when (val resolved = resolver.resolve(capabilityId, args)) {
+                is Outcome.Failure -> return resolved
+                is Outcome.Success -> {
+                    val cap = resolved.value
+                    steps.add(
+                        PlanStep(
+                            Ids.newId("step"),
+                            cap.toolId,
+                            cap.action,
+                            cap.args,
+                            needsPermission = capabilityId in sensitive,
+                            description = capabilityId,
+                        ),
                     )
                 }
             }
-            IntentType.CHAT, IntentType.UNKNOWN -> Outcome.Failure(
-                AppError("PLAN_NOT_ACTIONABLE", "nothing to plan for chat"),
+        }
+        return Outcome.Success(Plan(steps))
+    }
+
+    private fun gitRequests(intent: UserIntent): List<Pair<String, Map<String, String>>>? {
+        val action = intent.parameters["action"] ?: "status"
+        val repo = intent.parameters["repo"] ?: ""
+        if (action == "commit") {
+            val message = intent.parameters["message"]?.trim().orEmpty()
+            if (message.isBlank()) return null
+            return listOf(
+                "git.stage" to mapOf("repo" to repo),
+                "git.commit" to mapOf("repo" to repo, "message" to message),
+            )
+        }
+        if (action !in setOf("status", "log", "ensure", "stage")) return null
+        return listOf("git.$action" to mapOf("repo" to repo))
+    }
+
+    private fun gitFailure(intent: UserIntent): Outcome<Plan> {
+        val action = intent.parameters["action"] ?: "status"
+        return if (action == "commit") {
+            Outcome.Failure(
+                AppError("PLAN_NO_MESSAGE", "please include a message, e.g. git commit -m \"done\""),
+            )
+        } else {
+            Outcome.Failure(
+                AppError("PLAN_UNSUPPORTED", "git $action ยังไม่รองรับ (รองรับ: status / log / commit)"),
             )
         }
     }
