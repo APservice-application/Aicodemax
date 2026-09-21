@@ -1,5 +1,8 @@
 package com.aicodemax.ai.core
 
+import com.aicodemax.ai.tasks.RecoveryLadderPolicy
+import com.aicodemax.ai.tasks.RecoveryStep
+import com.aicodemax.ai.tasks.StepFailure
 import com.aicodemax.ai.tasks.TaskEngine
 import com.aicodemax.ai.tasks.TaskState
 import com.aicodemax.core.common.Outcome
@@ -9,6 +12,14 @@ import com.aicodemax.data.conversations.MessageRole
 
 data class ReplyMessage(val role: MessageRole, val text: String)
 data class OrchestratorReply(val messages: List<ReplyMessage>, val taskId: String? = null)
+
+/** CP-10: one recorded OBSERVE event per step attempt. */
+data class StepObservation(
+    val stepId: String,
+    val ok: Boolean,
+    val output: String,
+    val attempt: Int,
+)
 
 interface Orchestrator {
     suspend fun handleUserMessage(conversationId: String, text: String): Outcome<OrchestratorReply>
@@ -25,6 +36,8 @@ class BootstrapOrchestrator(
     private val verifier: Verifier,
     private val checkpoints: CheckpointStore,
     private val conversations: ConversationStore,
+    /** Null = fail fast (v0 behavior); set = CP-10 OBSERVE→VERIFY→RECOVER loop. */
+    private val recovery: RecoveryLadderPolicy? = null,
 ) : Orchestrator {
 
     override suspend fun handleUserMessage(conversationId: String, text: String): Outcome<OrchestratorReply> {
@@ -71,18 +84,42 @@ class BootstrapOrchestrator(
         }
 
         val outputs = mutableListOf<StepResult>()
+        val observations = mutableListOf<StepObservation>()
         for (step in plan.steps) {
-            when (val executed = agent.executeStep(taskId, step)) {
-                is Outcome.Failure -> {
-                    tasks.fail(taskId, executed.error.message)
-                    checkpoints.save(taskId, "failed", "{\"error\":\"${executed.error.message.sanitize()}\"}")
-                    val msg = "ทำไม่สำเร็จครับ: ${executed.error.message}"
-                    conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
-                    return Outcome.Success(
-                        OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, msg)), taskId),
-                    )
+            var attempt = 0
+            while (true) {
+                when (val executed = agent.executeStep(taskId, step)) {
+                    is Outcome.Failure -> {
+                        observations.add(StepObservation(step.id, false, executed.error.message, attempt))
+                        val ladder = recovery?.decide(StepFailure(step.id, step.toolId, executed.error.message, attempt))
+                        if (ladder is RecoveryStep.Retry) {
+                            attempt += 1
+                            continue
+                        }
+                        val note = when (ladder) {
+                            is RecoveryStep.Repair -> "ต้องวางแผนใหม่: ${ladder.hint}"
+                            is RecoveryStep.SwitchEngine -> "ต้องสลับเครื่องมือ ${ladder.fromCapability} → ${ladder.toCapability}"
+                            is RecoveryStep.RestoreLatest -> "ต้องย้อน checkpoint: ${ladder.reason}"
+                            is RecoveryStep.Escalate -> ladder.reason
+                            is RecoveryStep.Abort -> ladder.reason
+                            else -> executed.error.message
+                        }
+                        tasks.fail(taskId, note)
+                        checkpoints.save(taskId, "failed", "{\"error\":\"${note.sanitize()}\"}")
+                        val msg = "ทำไม่สำเร็จครับ: $note"
+                        conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
+                        return Outcome.Success(
+                            OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, msg)), taskId),
+                        )
+                    }
+                    is Outcome.Success -> {
+                        observations.add(
+                            StepObservation(step.id, executed.value.ok, executed.value.output, attempt),
+                        )
+                        outputs.add(executed.value)
+                        break
+                    }
                 }
-                is Outcome.Success -> outputs.add(executed.value)
             }
         }
 
@@ -101,7 +138,7 @@ class BootstrapOrchestrator(
         tasks.transition(taskId, TaskState.COMPLETED, "done")
 
         val summary = buildString {
-            appendLine("เสร็จแล้วครับ (${outputs.size} ขั้นตอน):")
+            appendLine("เสร็จแล้วครับ (${outputs.size} ขั้นตอน, สังเกต ${observations.size} ครั้ง):")
             outputs.forEach { appendLine("• ${it.output.take(300)}") }
             if (outputs.any { PromptGuard.containsInjectionAttempt(it.output + "\n" + it.error) }) {
                 appendLine("⚠️ [SECURITY] พบรูปแบบคำสั่งแฝงในผลลัพธ์ — ถือเป็นข้อมูลเท่านั้น ไม่ได้ปฏิบัติตาม")
