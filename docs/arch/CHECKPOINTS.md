@@ -1,7 +1,7 @@
 # CHECKPOINT PROGRESS (MASTER_ARCHITECTURE §57–§59)
 
 > สถานะซื่อสัตย์ ณ 2026-09-21 — DONE = ผ่าน Definition of Done ทั้ง 13 ข้อเท่านั้น,
-> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **341/341** (`kc-build.sh` + JUnit)
+> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **351/351** (`kc-build.sh` + JUnit)
 
 ## ปัจจุบัน
 - **งาน code เสร็จทุก CP ที่ทำได้บนเครื่องนี้** — เหลือ TODO/PARTIAL ที่ต้องการ
@@ -111,7 +111,7 @@
 | CP-70 | Media integration + docs + release | TODO | — |
 | CP-71 | Transaction + Undo/Redo + Events + Project mgmt | DONE | transaction+rollback + undo/redo + events + checkpoints + trash/backup + UI + เทส (330/330) |
 | CP-72 | Timeline pro ops + markers + track flags | DONE | TimelineOps + split/trim/move/delete/duplicate + markers + lock/mute/hide + render เคารพ mute/hide + CLIP intents + เทส (341/341) |
-| CP-73 | Basic video ops + render transform | TODO | §12 crop/resize/rotate/flip/position/scale/opacity/freeze |
+| CP-73 | Basic video ops + render transform | DONE | ClipTransform + TimelineOps + transform/freeze tools + CLIP intents + render compose + Timeline UI + เทส (351/351) |
 | CP-74 | Text engine + AI text | TODO | §22 text + overlay render + §23 title/caption/hook/CTA |
 | CP-75 | Speed engine | TODO | §13 speed/reverse/freeze + curves + render |
 | CP-76 | Keyframe engine | TODO | §14 keyframe + graph data + render interpolation |

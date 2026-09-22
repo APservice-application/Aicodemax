@@ -60,6 +60,9 @@ enum class IntentType {
     CLIP_MOVE,
     CLIP_DELETE,
     CLIP_DUPLICATE,
+    CLIP_ROTATE,
+    CLIP_FLIP,
+    CLIP_FREEZE,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -330,6 +333,32 @@ object IntentParser {
             return UserIntent(
                 IntentType.CLIP_DUPLICATE, text,
                 params("clipIndex" to parseClipIndex(t), "atMs" to parseTimeMs(t)?.toString()),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipRotateWords)) {
+            val noClip = t.replace(Regex("คลิป(?:ที่)?\\s*\\d+"), "")
+            val deg = Regex("(\\d+)").find(noClip)?.groupValues?.get(1)?.toIntOrNull()
+            val rotation = if (deg == null) 90 else ((deg % 360 + 360) % 360 + 45) / 90 * 90 % 360
+            return UserIntent(
+                IntentType.CLIP_ROTATE, text,
+                params("clipIndex" to parseClipIndex(t), "rotation" to rotation.toString()),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipFlipWords)) {
+            val vertical = t.contains("บนล่าง")
+            return UserIntent(
+                IntentType.CLIP_FLIP, text,
+                params(
+                    "clipIndex" to parseClipIndex(t),
+                    "flipH" to if (vertical) null else "true",
+                    "flipV" to if (vertical) "true" else null,
+                ),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipFreezeWords)) {
+            return UserIntent(
+                IntentType.CLIP_FREEZE, text,
+                params("clipIndex" to parseClipIndex(t), "holdMs" to parseTimeMs(t)?.toString()),
             )
         }
         if (containsAny(t, ThaiVocabulary.projectRenameWords)) {

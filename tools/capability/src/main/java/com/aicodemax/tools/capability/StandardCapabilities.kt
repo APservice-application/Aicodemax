@@ -201,6 +201,10 @@ object StandardCapabilities {
             metadata = meta("media", "ลบมาร์กเกอร์", listOf("markerId"), listOf("ok"), listOf("fs.write"), false, "marker gone", "check id", true, "edit.undo")),
         CapabilityBinding("media.timeline.trackFlags", "media", "timeline.trackFlags", AdapterKind.NATIVE,
             metadata = meta("media", "ตั้งค่าแทร็ก", listOf("trackId,locked?,muted?,hidden?"), listOf("track"), listOf("fs.write"), false, "flags match", "check id", true, "edit.undo")),
+        CapabilityBinding("media.timeline.transformClip", "media", "timeline.transformClip", AdapterKind.NATIVE,
+            metadata = meta("media", "ครอป/หมุน/พลิก/ซูม/ย้าย/โปร่งใสคลิป", listOf("clipIndex,rotation?,flipH?,flipV?,crop?,scale?,pos?,opacity?"), listOf("ok"), listOf("fs.write"), false, "transform shown", "fix args", true, "edit.undo")),
+        CapabilityBinding("media.timeline.freezeFrame", "media", "timeline.freezeFrame", AdapterKind.NATIVE,
+            metadata = meta("media", "ฟรีซเฟรม", listOf("clipIndex,frameMs?,holdMs?"), listOf("ok"), listOf("fs.write"), false, "still inserted", "video only", true, "edit.undo")),
         // Subtitle engine (native, SRT + burn-in).
         CapabilityBinding("subtitle.make", "subtitle", "make", AdapterKind.NATIVE,
             metadata = meta("subtitle", "ทำไฟล์ซับจากข้อความ", listOf("transcript,mediaPath?,durationMs?"), listOf("srt"), listOf("fs.write"), false, "cues > 0", "fix text")),

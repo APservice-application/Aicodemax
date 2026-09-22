@@ -90,6 +90,11 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             action = "เปิด" to { onOpen(Routes.RENDER) },
         )
         StatusCard(
+            title = "ไทม์ไลน์",
+            line = "คลิป / ครอป-หมุน-พลิก / ฟรีซ / เลิกทำ",
+            action = "เปิด" to { onOpen(Routes.TIMELINE) },
+        )
+        StatusCard(
             title = "เทอร์มินัล (dev)",
             line = terminalLine(services),
             action = "เปิด" to { onOpen(Routes.TERMINAL) },

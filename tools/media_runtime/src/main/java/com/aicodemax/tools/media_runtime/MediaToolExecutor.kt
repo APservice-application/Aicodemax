@@ -5,6 +5,7 @@ import com.aicodemax.core.common.fold
 import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.gateway.ToolExecutor
 import com.aicodemax.tools.gateway.ToolResult
+import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.tools.media.InMemoryMediaProject
 import com.aicodemax.tools.media.MediaProjectPort
 import kotlinx.coroutines.Dispatchers
@@ -59,7 +60,8 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                         onSuccess = { timeline ->
                             val ordered = timeline.orderedClips()
                             val lines = ordered.mapIndexed { i, (track, clip) ->
-                                "  ${i + 1}. ${track.id}: ${clip.assetId} ${clip.startMs}..${clip.endMs} @${clip.atMs} [${clip.id}]"
+                                "  ${i + 1}. ${track.id}: ${clip.assetId} ${clip.startMs}..${clip.endMs} @${clip.atMs} [${clip.id}]" +
+                                    (clip.transform?.summary()?.ifBlank { null }?.let { " <$it>" } ?: "")
                             }
                             val flags = timeline.tracks.joinToString(" ") { track ->
                                 buildString {
@@ -274,6 +276,49 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                         ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
                     media.duplicateClip(projectId, clipId, call.args["atMs"]?.toLongOrNull(), call.actor).fold(
                         onSuccess = { done(true, "สำเนาคลิปแล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.transformClip" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val base = timeline.findClip(clipId)?.second?.transform ?: ClipTransform()
+                    val crop = call.args["crop"]?.split(",")?.mapNotNull { it.trim().toIntOrNull() }
+                    val pos = call.args["pos"]?.split(",")?.mapNotNull { it.trim().toIntOrNull() }
+                    val next = base.copy(
+                        rotation = call.args["rotation"]?.toIntOrNull() ?: base.rotation,
+                        flipH = parseFlag(call.args["flipH"]) ?: base.flipH,
+                        flipV = parseFlag(call.args["flipV"]) ?: base.flipV,
+                        cropX = crop?.getOrNull(0) ?: base.cropX,
+                        cropY = crop?.getOrNull(1) ?: base.cropY,
+                        cropW = crop?.getOrNull(2) ?: base.cropW,
+                        cropH = crop?.getOrNull(3) ?: base.cropH,
+                        scale = call.args["scale"]?.toIntOrNull() ?: base.scale,
+                        posX = pos?.getOrNull(0) ?: base.posX,
+                        posY = pos?.getOrNull(1) ?: base.posY,
+                        opacity = call.args["opacity"]?.toIntOrNull() ?: base.opacity,
+                    )
+                    media.transformClip(projectId, clipId, next, call.actor).fold(
+                        onSuccess = { done(true, "เปลี่ยนภาพคลิปแล้ว (${next.summary().ifBlank { "ปกติ" }}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.freezeFrame" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    media.freezeFrame(
+                        projectId, clipId,
+                        call.args["frameMs"]?.toLongOrNull(),
+                        call.args["holdMs"]?.toLongOrNull() ?: 2000,
+                        call.actor,
+                    ).fold(
+                        onSuccess = { done(true, "ฟรีซเฟรมแล้ว timeline ยาว ${it.timeline.durationMs}ms (เลิกทำได้: edit.undo)") },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

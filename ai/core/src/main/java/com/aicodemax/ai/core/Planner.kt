@@ -252,6 +252,34 @@ class RuleBasedPlanner(
                 intent.parameters["atMs"]?.let { args["atMs"] = it }
                 listOf("media.timeline.duplicateClip" to args)
             }
+            IntentType.CLIP_ROTATE -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "หมุนคลิปที่เท่าไหร่ครับ? เช่น หมุนคลิปที่ 1 90"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["rotation"]?.let { args["rotation"] = it }
+                listOf("media.timeline.transformClip" to args)
+            }
+            IntentType.CLIP_FLIP -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "พลิกคลิปที่เท่าไหร่ครับ? เช่น พลิกคลิปที่ 1"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["flipH"]?.let { args["flipH"] = it }
+                intent.parameters["flipV"]?.let { args["flipV"] = it }
+                listOf("media.timeline.transformClip" to args)
+            }
+            IntentType.CLIP_FREEZE -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ฟรีซคลิปที่เท่าไหร่ครับ? เช่น ฟรีซคลิปที่ 1 3 วิ"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["holdMs"]?.let { args["holdMs"] = it }
+                listOf("media.timeline.freezeFrame" to args)
+            }
             IntentType.MARKER_ADD -> {
                 val at = intent.parameters["atMs"]
                     ?: return Outcome.Failure(

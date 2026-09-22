@@ -51,6 +51,7 @@ object Routes {
     const val BUILD = "build"
     const val SKILLS = "skills"
     const val RENDER = "render"
+    const val TIMELINE = "timeline"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -78,6 +79,7 @@ private fun titleFor(route: String): String = when (route) {
     Routes.BUILD -> "Build & Test"
     Routes.SKILLS -> "Skills"
     Routes.RENDER -> "เรนเดอร์"
+    Routes.TIMELINE -> "ไทม์ไลน์"
     else -> "Aicodemax"
 }
 
@@ -134,6 +136,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                         if (toolId == "build") nav.navigateSingle(Routes.BUILD)
                         if (toolId == "skill") nav.navigateSingle(Routes.SKILLS)
                         if (toolId == "render") nav.navigateSingle(Routes.RENDER)
+                        if (toolId == "media") nav.navigateSingle(Routes.TIMELINE)
                         if (toolId == "memory" || toolId == "debug") nav.navigateSingle(Routes.CHAT)
                     },
                     onSelfTest = { toolId -> selfTest(services, toolId) },
@@ -167,6 +170,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
             composable(Routes.BUILD) { BuildScreen(services) }
             composable(Routes.SKILLS) { SkillsScreen(services) }
             composable(Routes.RENDER) { RenderScreen(services) }
+            composable(Routes.TIMELINE) { TimelineScreen(services) }
         }
     }
 }

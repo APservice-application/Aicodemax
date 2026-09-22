@@ -24,6 +24,54 @@ data class MediaAsset(
     val addedAt: Long = 0,
 )
 
+/** CP-73 basic video transform (§12): crop/rotate/flip/scale/position/opacity. */
+@Serializable
+data class ClipTransform(
+    /** Clockwise rotation: 0/90/180/270. */
+    val rotation: Int = 0,
+    val flipH: Boolean = false,
+    val flipV: Boolean = false,
+    /** Crop window in percent (0..100); 0,0,100,100 = no crop. */
+    val cropX: Int = 0,
+    val cropY: Int = 0,
+    val cropW: Int = 100,
+    val cropH: Int = 100,
+    /** Zoom percent 1..400 (100 = fit). */
+    val scale: Int = 100,
+    /** Offset in output px from center. */
+    val posX: Int = 0,
+    val posY: Int = 0,
+    /** Opacity 0..100 (v0: blended over black). */
+    val opacity: Int = 100,
+) {
+    val isIdentity: Boolean get() = this == ClipTransform()
+
+    /** Thai error strings (empty = valid). */
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (rotation !in setOf(0, 90, 180, 270)) errors.add("มุมหมุนต้องเป็น 0/90/180/270 (ได้ $rotation)")
+        if (cropX !in 0..100 || cropY !in 0..100) errors.add("จุดเริ่มครอปต้องอยู่ 0..100")
+        if (cropW < 1 || cropH < 1 || cropX + cropW > 100 || cropY + cropH > 100) {
+            errors.add("ขนาดครอปไม่ถูก ($cropX,$cropY ${cropW}x$cropH)")
+        }
+        if (scale !in 1..400) errors.add("ซูมต้องอยู่ 1..400% (ได้ $scale)")
+        if (posX !in -4000..4000 || posY !in -4000..4000) errors.add("ตำแหน่งต้องอยู่ ±4000px")
+        if (opacity !in 0..100) errors.add("ความทึบต้องอยู่ 0..100 (ได้ $opacity)")
+        return errors
+    }
+
+    /** Compact chat/UI summary, e.g. R90 ↔ 150% α80. */
+    fun summary(): String = buildList {
+        if (rotation != 0) add("R$rotation")
+        if (flipH) add("↔")
+        if (flipV) add("↕")
+        if (cropX != 0 || cropY != 0 || cropW != 100 || cropH != 100) add("crop")
+        if (scale != 100) add("$scale%")
+        if (posX != 0 || posY != 0) add("$posX,$posY")
+        if (opacity != 100) add("α$opacity")
+    }.joinToString(" ")
+}
+
 /** One placed piece of an asset on a track. Times in ms. */
 @Serializable
 data class Clip(
@@ -36,6 +84,8 @@ data class Clip(
     val atMs: Long,
     /** Volume 0..100 for audio/video clips (default 100). */
     val volume: Int = 100,
+    /** Visual transform (null = identity). */
+    val transform: ClipTransform? = null,
 ) {
     val durationMs: Long get() = endMs - startMs
 }
@@ -97,6 +147,7 @@ data class Timeline(
                 if (clip.volume !in 0..100) {
                     errors.add("คลิป ${clip.id} เสียงต้อง 0..100 (ได้ ${clip.volume})")
                 }
+                clip.transform?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
             }
         }
         for (marker in markers) {

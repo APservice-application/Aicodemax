@@ -16,6 +16,7 @@ import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
 import com.aicodemax.core.common.fold
 import com.aicodemax.data.media.Clip
+import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.MediaAsset
 import com.aicodemax.data.media.MediaKind
 import com.aicodemax.data.media.Project
@@ -208,6 +209,7 @@ class AndroidRenderPort(
         val kind: MediaKind,
         val width: Int = -1,
         val height: Int = -1,
+        val transform: ClipTransform? = null,
     )
 
     private data class RenderPlan(
@@ -232,7 +234,7 @@ class AndroidRenderPort(
                 val file = File(File(mediaRoot, "${project.id}/assets"), asset.fileName)
                 if (!file.isFile) return null
                 when (track.kind) {
-                    MediaKind.VIDEO, MediaKind.IMAGE -> videoSegs += Segment(clip, file, track.kind)
+                    MediaKind.VIDEO, MediaKind.IMAGE -> videoSegs += Segment(clip, file, track.kind, transform = clip.transform)
                     MediaKind.AUDIO -> if (job.preset.includeAudio) {
                         audioSegs += Segment(clip, file, track.kind)
                     }
@@ -252,6 +254,7 @@ class AndroidRenderPort(
         val fast = single != null && single.kind == MediaKind.VIDEO &&
             audioSegs.isEmpty() && single.clip.volume == 100 &&
             single.clip.atMs == 0L &&
+            (single.transform == null || single.transform.isIdentity) &&
             single.height in 1..job.preset.maxHeight
         return RenderPlan(
             timeline = timeline,
@@ -430,7 +433,7 @@ class AndroidRenderPort(
                     if (seg.kind == MediaKind.IMAGE) {
                         feedStill(seg, outW, outH, planar, feed)
                     } else {
-                        decodeSegment(seg, outW, outH, planar, feed)
+                        decodeSegment(seg, outW, outH, planar, seg.transform, feed)
                     }
                     progress(5 + 70 * (index + 1) / total.coerceAtLeast(1))
                 }
@@ -491,8 +494,10 @@ class AndroidRenderPort(
         outW: Int,
         outH: Int,
         planar: Boolean,
+        transform: ClipTransform?,
         feed: (ByteArray) -> Unit,
     ) {
+        val active = transform?.takeUnless { it.isIdentity }
         val startUs = seg.clip.startMs * 1000
         val endUs = seg.clip.endMs * 1000
         val readerW = if (seg.width > 0) seg.width else outW
@@ -537,7 +542,7 @@ class AndroidRenderPort(
                             val image = acquireImage(reader)
                             if (image != null) {
                                 try {
-                                    feed(frameToYuv(image, outW, outH, planar))
+                                    feed(if (active == null) frameToYuv(image, outW, outH, planar) else transformFrameToYuv(image, active, outW, outH, planar))
                                 } finally {
                                     image.close()
                                 }
@@ -569,6 +574,11 @@ class AndroidRenderPort(
         feed: (ByteArray) -> Unit,
     ) {
         val raw = BitmapFactory.decodeFile(seg.file.path) ?: return
+        val active = seg.transform?.takeUnless { it.isIdentity }
+        if (active != null) {
+            feedStillTransformed(raw, active, seg, outW, outH, planar, feed)
+            return
+        }
         val scaled = centerCrop(raw, outW, outH)
         val pixels = IntArray(outW * outH)
         scaled.getPixels(pixels, 0, outW, 0, 0, outW, outH)
@@ -576,6 +586,137 @@ class AndroidRenderPort(
         val yuv = if (planar) Yuv.toI420(pixels, outW, outH) else Yuv.toNV12(pixels, outW, outH)
         val frames = ((seg.clip.endMs - seg.clip.startMs) * 30 / 1000).toInt().coerceIn(1, 30 * 600)
         repeat(frames) { feed(yuv) }
+    }
+
+    // ---- CP-73 clip transform (§12) ----
+
+    private fun transformFrameToYuv(
+        image: android.media.Image,
+        t: ClipTransform,
+        outW: Int,
+        outH: Int,
+        planar: Boolean,
+    ): ByteArray {
+        val pixels = yuv420888ToArgb(image)
+        val composed = composeFrame(pixels, image.width, image.height, t, outW, outH)
+        return if (planar) Yuv.toI420(composed, outW, outH) else Yuv.toNV12(composed, outW, outH)
+    }
+
+    private fun feedStillTransformed(
+        raw: Bitmap,
+        t: ClipTransform,
+        seg: Segment,
+        outW: Int,
+        outH: Int,
+        planar: Boolean,
+        feed: (ByteArray) -> Unit,
+    ) {
+        val pixels = IntArray(raw.width * raw.height)
+        raw.getPixels(pixels, 0, raw.width, 0, 0, raw.width, raw.height)
+        val composed = composeFrame(pixels, raw.width, raw.height, t, outW, outH)
+        val yuv = if (planar) Yuv.toI420(composed, outW, outH) else Yuv.toNV12(composed, outW, outH)
+        val frames = ((seg.clip.endMs - seg.clip.startMs) * 30 / 1000).toInt().coerceIn(1, 30 * 600)
+        repeat(frames) { feed(yuv) }
+    }
+
+    /** BT.601 YUV_420_888 → ARGB (stride-aware). */
+    private fun yuv420888ToArgb(image: android.media.Image): IntArray {
+        val w = image.width
+        val h = image.height
+        val y = readPlane(image.planes[0], w, h)
+        val srcW = (w / 2).coerceAtLeast(1)
+        val srcH = (h / 2).coerceAtLeast(1)
+        val u = if (image.planes.size > 1) readPlane(image.planes[1], srcW, srcH) else ByteArray(srcW * srcH) { 128.toByte() }
+        val v = if (image.planes.size > 2) readPlane(image.planes[2], srcW, srcH) else ByteArray(srcW * srcH) { 128.toByte() }
+        val out = IntArray(w * h)
+        for (row in 0 until h) {
+            for (col in 0 until w) {
+                val yy = (y[row * w + col].toInt() and 0xFF) - 16
+                val uu = (u[(row / 2) * srcW + (col / 2)].toInt() and 0xFF) - 128
+                val vv = (v[(row / 2) * srcW + (col / 2)].toInt() and 0xFF) - 128
+                val r = (298 * yy + 409 * vv + 128) shr 8
+                val g = (298 * yy - 100 * uu - 208 * vv + 128) shr 8
+                val b = (298 * yy + 516 * uu + 128) shr 8
+                out[row * w + col] = 0xFF000000.toInt() or
+                    (r.coerceIn(0, 255) shl 16) or (g.coerceIn(0, 255) shl 8) or b.coerceIn(0, 255)
+            }
+        }
+        return out
+    }
+
+    /**
+     * Composes one transformed frame: crop% → rotate/flip → center-crop fill
+     * × scale → offset position → opacity over black.
+     */
+    private fun composeFrame(
+        pixels: IntArray,
+        w: Int,
+        h: Int,
+        t: ClipTransform,
+        outW: Int,
+        outH: Int,
+    ): IntArray {
+        val cx = (w * t.cropX / 100).coerceIn(0, w - 1)
+        val cy = (h * t.cropY / 100).coerceIn(0, h - 1)
+        val cw = (w * t.cropW / 100).coerceIn(1, w - cx)
+        val ch = (h * t.cropH / 100).coerceIn(1, h - cy)
+        val cropped = IntArray(cw * ch)
+        for (row in 0 until ch) {
+            pixels.copyInto(cropped, row * cw, (cy + row) * w + cx, (cy + row) * w + cx + cw)
+        }
+        val (oriented, ow, oh) = rotateFlip(cropped, cw, ch, t.rotation, t.flipH, t.flipV)
+        val src = Bitmap.createBitmap(ow, oh, Bitmap.Config.ARGB_8888)
+        src.setPixels(oriented, 0, ow, 0, 0, ow, oh)
+        val canvas = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+        canvas.eraseColor(0xFF000000.toInt())
+        val fill = maxOf(outW.toDouble() / ow, outH.toDouble() / oh)
+        val s = fill * t.scale / 100.0
+        val dw = (ow * s).toInt().coerceAtLeast(1)
+        val dh = (oh * s).toInt().coerceAtLeast(1)
+        val dx = (outW - dw) / 2 + t.posX
+        val dy = (outH - dh) / 2 + t.posY
+        val paint = android.graphics.Paint().apply {
+            alpha = (t.opacity * 255 / 100).coerceIn(0, 255)
+            isFilterBitmap = true
+        }
+        val cv = android.graphics.Canvas(canvas)
+        cv.drawBitmap(src, null, android.graphics.Rect(dx, dy, dx + dw, dy + dh), paint)
+        src.recycle()
+        val out = IntArray(outW * outH)
+        canvas.getPixels(out, 0, outW, 0, 0, outW, outH)
+        canvas.recycle()
+        return out
+    }
+
+    private fun rotateFlip(
+        pixels: IntArray,
+        w: Int,
+        h: Int,
+        rotation: Int,
+        flipH: Boolean,
+        flipV: Boolean,
+    ): Triple<IntArray, Int, Int> {
+        val swap = rotation == 90 || rotation == 270
+        val ow = if (swap) h else w
+        val oh = if (swap) w else h
+        val out = IntArray(ow * oh)
+        for (y in 0 until oh) {
+            for (x in 0 until ow) {
+                // Flip lives in output space: un-flip first, then inverse-rotate.
+                var sx = x
+                var sy = y
+                if (flipH) sx = ow - 1 - sx
+                if (flipV) sy = oh - 1 - sy
+                val src = when (rotation) {
+                    90 -> (h - 1 - sx) * w + sy
+                    180 -> (h - 1 - sy) * w + (w - 1 - sx)
+                    270 -> sx * w + (w - 1 - sy)
+                    else -> sy * w + sx
+                }
+                out[y * ow + x] = pixels[src.coerceIn(0, pixels.size - 1)]
+            }
+        }
+        return Triple(out, ow, oh)
     }
 
     private fun centerCrop(src: Bitmap, outW: Int, outH: Int): Bitmap {
