@@ -21,6 +21,7 @@ import com.aicodemax.data.media.ProjectEventTypes
 import com.aicodemax.data.media.ProjectSnapshot
 import com.aicodemax.data.media.Timeline
 import com.aicodemax.data.media.TimelineMarker
+import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.TimelineOps
 import com.aicodemax.data.media.Track
 import com.aicodemax.data.media.UndoEntry
@@ -78,6 +79,10 @@ interface MediaProjectPort {
         holdMs: Long = 2000,
         actor: String = "AI",
     ): Outcome<Project>
+    // CP-74 text overlays (§22).
+    suspend fun addText(projectId: String, overlay: OverlayText, actor: String = "AI"): Outcome<Project>
+    suspend fun updateText(projectId: String, id: String, overlay: OverlayText, actor: String = "AI"): Outcome<Project>
+    suspend fun removeText(projectId: String, id: String, actor: String = "AI"): Outcome<Project>
     suspend fun addMarker(projectId: String, atMs: Long, label: String = "", actor: String = "AI"): Outcome<TimelineMarker>
     suspend fun removeMarker(projectId: String, markerId: String, actor: String = "AI"): Outcome<Unit>
     suspend fun setTrackFlags(
@@ -239,7 +244,7 @@ class FileMediaProject(
             tracks[idx] = track.copy(clips = track.clips + clip)
         }
         // setTimeline nests inside this transaction (single undo entry).
-        setTimeline(projectId, Timeline(tracks, timeline.markers), actor)
+        setTimeline(projectId, Timeline(tracks, timeline.markers, timeline.texts), actor)
     }
 
     override suspend fun splitClip(projectId: String, clipId: String, atMs: Long, actor: String): Outcome<Project> =
@@ -387,6 +392,21 @@ class FileMediaProject(
             tmp.delete()
         }
     }
+
+    override suspend fun addText(projectId: String, overlay: OverlayText, actor: String): Outcome<Project> =
+        editTimeline(projectId, "เพิ่มข้อความ", ProjectEventTypes.TEXT_ADDED, actor) {
+            TimelineOps.addText(it, overlay)
+        }
+
+    override suspend fun updateText(projectId: String, id: String, overlay: OverlayText, actor: String): Outcome<Project> =
+        editTimeline(projectId, "แก้ข้อความ", ProjectEventTypes.TEXT_UPDATED, actor) {
+            TimelineOps.updateText(it, id) { overlay }
+        }
+
+    override suspend fun removeText(projectId: String, id: String, actor: String): Outcome<Project> =
+        editTimeline(projectId, "ลบข้อความ", ProjectEventTypes.TEXT_REMOVED, actor) {
+            TimelineOps.removeText(it, id)
+        }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(
@@ -792,7 +812,7 @@ class InMemoryMediaProject : MediaProjectPort {
             }
             tracks[idx] = tracks[idx].copy(clips = tracks[idx].clips + clip)
         }
-        setTimeline(projectId, Timeline(tracks, timeline.markers), actor)
+        setTimeline(projectId, Timeline(tracks, timeline.markers, timeline.texts), actor)
     }
 
     override suspend fun splitClip(projectId: String, clipId: String, atMs: Long, actor: String): Outcome<Project> =
@@ -918,6 +938,21 @@ class InMemoryMediaProject : MediaProjectPort {
             Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "ฟรีซไม่ได้"))
         }
     }
+
+    override suspend fun addText(projectId: String, overlay: OverlayText, actor: String): Outcome<Project> =
+        editTimeline(projectId, "เพิ่มข้อความ", ProjectEventTypes.TEXT_ADDED, actor) {
+            TimelineOps.addText(it, overlay)
+        }
+
+    override suspend fun updateText(projectId: String, id: String, overlay: OverlayText, actor: String): Outcome<Project> =
+        editTimeline(projectId, "แก้ข้อความ", ProjectEventTypes.TEXT_UPDATED, actor) {
+            TimelineOps.updateText(it, id) { overlay }
+        }
+
+    override suspend fun removeText(projectId: String, id: String, actor: String): Outcome<Project> =
+        editTimeline(projectId, "ลบข้อความ", ProjectEventTypes.TEXT_REMOVED, actor) {
+            TimelineOps.removeText(it, id)
+        }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(projectId, "บันทึกเวอร์ชัน", ProjectEventTypes.VERSION_SAVED, actor) {

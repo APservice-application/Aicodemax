@@ -17,6 +17,7 @@ import com.aicodemax.core.common.Outcome
 import com.aicodemax.core.common.fold
 import com.aicodemax.data.media.Clip
 import com.aicodemax.data.media.ClipTransform
+import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.MediaAsset
 import com.aicodemax.data.media.MediaKind
 import com.aicodemax.data.media.Project
@@ -218,6 +219,7 @@ class AndroidRenderPort(
         val audioClips: List<Segment>,
         val wantAudio: Boolean,
         val fast: Boolean,
+        val texts: List<OverlayText> = emptyList(),
     )
 
     private suspend fun planRender(project: Project, assets: List<MediaAsset>, job: RenderJob): RenderPlan? {
@@ -255,13 +257,15 @@ class AndroidRenderPort(
             audioSegs.isEmpty() && single.clip.volume == 100 &&
             single.clip.atMs == 0L &&
             (single.transform == null || single.transform.isIdentity) &&
-            single.height in 1..job.preset.maxHeight
+            single.height in 1..job.preset.maxHeight &&
+            timeline.texts.isEmpty()
         return RenderPlan(
             timeline = timeline,
             segments = probed.sortedBy { it.clip.atMs },
             audioClips = audioSegs,
             wantAudio = audioSegs.isNotEmpty(),
             fast = fast,
+            texts = timeline.texts,
         )
     }
 
@@ -431,9 +435,9 @@ class AndroidRenderPort(
                 val total = plan.segments.size
                 plan.segments.forEachIndexed { index, seg ->
                     if (seg.kind == MediaKind.IMAGE) {
-                        feedStill(seg, outW, outH, planar, feed)
+                        feedStill(seg, outW, outH, planar, plan.texts, feed)
                     } else {
-                        decodeSegment(seg, outW, outH, planar, seg.transform, feed)
+                        decodeSegment(seg, outW, outH, planar, seg.transform, plan.texts, feed)
                     }
                     progress(5 + 70 * (index + 1) / total.coerceAtLeast(1))
                 }
@@ -495,6 +499,7 @@ class AndroidRenderPort(
         outH: Int,
         planar: Boolean,
         transform: ClipTransform?,
+        texts: List<OverlayText>,
         feed: (ByteArray) -> Unit,
     ) {
         val active = transform?.takeUnless { it.isIdentity }
@@ -542,7 +547,8 @@ class AndroidRenderPort(
                             val image = acquireImage(reader)
                             if (image != null) {
                                 try {
-                                    feed(if (active == null) frameToYuv(image, outW, outH, planar) else transformFrameToYuv(image, active, outW, outH, planar))
+                                    val timelineMs = seg.clip.atMs + (decInfo.presentationTimeUs / 1000 - seg.clip.startMs)
+                                    feed(frameYuv(image, active, texts, timelineMs, outW, outH, planar))
                                 } finally {
                                     image.close()
                                 }
@@ -571,12 +577,15 @@ class AndroidRenderPort(
         outW: Int,
         outH: Int,
         planar: Boolean,
+        texts: List<OverlayText>,
         feed: (ByteArray) -> Unit,
     ) {
         val raw = BitmapFactory.decodeFile(seg.file.path) ?: return
         val active = seg.transform?.takeUnless { it.isIdentity }
-        if (active != null) {
-            feedStillTransformed(raw, active, seg, outW, outH, planar, feed)
+        val stillEnd = seg.clip.atMs + (seg.clip.endMs - seg.clip.startMs)
+        val live = texts.filter { it.startMs < stillEnd && it.endMs > seg.clip.atMs }
+        if (active != null || live.isNotEmpty()) {
+            feedStillComposed(raw, active, live, seg, outW, outH, planar, feed)
             return
         }
         val scaled = centerCrop(raw, outW, outH)
@@ -602,9 +611,10 @@ class AndroidRenderPort(
         return if (planar) Yuv.toI420(composed, outW, outH) else Yuv.toNV12(composed, outW, outH)
     }
 
-    private fun feedStillTransformed(
+    private fun feedStillComposed(
         raw: Bitmap,
-        t: ClipTransform,
+        t: ClipTransform?,
+        live: List<OverlayText>,
         seg: Segment,
         outW: Int,
         outH: Int,
@@ -613,10 +623,180 @@ class AndroidRenderPort(
     ) {
         val pixels = IntArray(raw.width * raw.height)
         raw.getPixels(pixels, 0, raw.width, 0, 0, raw.width, raw.height)
-        val composed = composeFrame(pixels, raw.width, raw.height, t, outW, outH)
-        val yuv = if (planar) Yuv.toI420(composed, outW, outH) else Yuv.toNV12(composed, outW, outH)
+        val base = if (t != null) {
+            composeFrame(pixels, raw.width, raw.height, t, outW, outH)
+        } else {
+            scaleArgb(centerCropPixels(pixels, raw.width, raw.height, outW, outH), outW, outH, outW, outH)
+        }
         val frames = ((seg.clip.endMs - seg.clip.startMs) * 30 / 1000).toInt().coerceIn(1, 30 * 600)
-        repeat(frames) { feed(yuv) }
+        if (live.isEmpty()) {
+            val yuv = if (planar) Yuv.toI420(base, outW, outH) else Yuv.toNV12(base, outW, outH)
+            repeat(frames) { feed(yuv) }
+            return
+        }
+        repeat(frames) { i ->
+            val timelineMs = seg.clip.atMs + i * 1000L / 30
+            val frame = base.copyOf()
+            drawTexts(frame, outW, outH, live.filter { timelineMs in it.startMs until it.endMs }, timelineMs)
+            feed(if (planar) Yuv.toI420(frame, outW, outH) else Yuv.toNV12(frame, outW, outH))
+        }
+    }
+
+    private fun centerCropPixels(pixels: IntArray, w: Int, h: Int, outW: Int, outH: Int): IntArray {
+        val srcAspect = w.toDouble() / h
+        val dstAspect = outW.toDouble() / outH
+        val cw: Int
+        val ch: Int
+        if (srcAspect > dstAspect) {
+            ch = h
+            cw = (h * dstAspect).toInt().coerceIn(1, w)
+        } else {
+            cw = w
+            ch = (w / dstAspect).toInt().coerceIn(1, h)
+        }
+        val x0 = (w - cw) / 2
+        val y0 = (h - ch) / 2
+        // Reuse Bitmap for the crop+scale (still path runs once per still).
+        val src = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        src.setPixels(pixels, 0, w, 0, 0, w, h)
+        val cropped = Bitmap.createBitmap(src, x0, y0, cw, ch)
+        val scaled = Bitmap.createScaledBitmap(cropped, outW, outH, true)
+        val out = IntArray(outW * outH)
+        scaled.getPixels(out, 0, outW, 0, 0, outW, outH)
+        src.recycle()
+        if (cropped != src) cropped.recycle()
+        if (scaled != cropped) scaled.recycle()
+        return out
+    }
+
+    /** One decoded frame → output YUV, with optional transform + text overlay. */
+    private fun frameYuv(
+        image: android.media.Image,
+        t: ClipTransform?,
+        texts: List<OverlayText>,
+        timelineMs: Long,
+        outW: Int,
+        outH: Int,
+        planar: Boolean,
+    ): ByteArray {
+        val live = texts.filter { timelineMs in it.startMs until it.endMs }
+        if (t == null && live.isEmpty()) return frameToYuv(image, outW, outH, planar)
+        val argb = yuv420888ToArgb(image)
+        val base = if (t != null) {
+            composeFrame(argb, image.width, image.height, t, outW, outH)
+        } else {
+            scaleArgb(argb, image.width, image.height, outW, outH)
+        }
+        if (live.isNotEmpty()) drawTexts(base, outW, outH, live, timelineMs)
+        return if (planar) Yuv.toI420(base, outW, outH) else Yuv.toNV12(base, outW, outH)
+    }
+
+    private fun scaleArgb(pixels: IntArray, w: Int, h: Int, outW: Int, outH: Int): IntArray {
+        if (w == outW && h == outH) return pixels
+        val out = IntArray(outW * outH)
+        for (y in 0 until outH) {
+            val sy = (y * h / outH).coerceIn(0, h - 1)
+            for (x in 0 until outW) {
+                out[y * outW + x] = pixels[sy * w + (x * w / outW).coerceIn(0, w - 1)]
+            }
+        }
+        return out
+    }
+
+    /** Draws live texts onto outWxH ARGB pixels (in place). */
+    private fun drawTexts(
+        base: IntArray,
+        outW: Int,
+        outH: Int,
+        live: List<OverlayText>,
+        timelineMs: Long,
+    ) {
+        val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+        bmp.setPixels(base, 0, outW, 0, 0, outW, outH)
+        val cv = android.graphics.Canvas(bmp)
+        for (t in live.sortedBy { it.startMs }) drawOneText(cv, t, timelineMs, outW, outH)
+        bmp.getPixels(base, 0, outW, 0, 0, outW, outH)
+        bmp.recycle()
+    }
+
+    private fun drawOneText(
+        cv: android.graphics.Canvas,
+        t: OverlayText,
+        timelineMs: Long,
+        outW: Int,
+        outH: Int,
+    ) {
+        val elapsed = timelineMs - t.startMs
+        val remain = t.endMs - timelineMs
+        var alpha = t.opacity * 255 / 100
+        var dy = 0f
+        var scale = 1f
+        var visible = t.text
+        when (t.animIn) {
+            "fade" -> if (elapsed < 400) alpha = (alpha * elapsed / 400).toInt()
+            "slide" -> if (elapsed < 400) dy = outH * 0.08f * (1 - elapsed / 400f)
+            "pop" -> if (elapsed < 300) scale = 0.5f + 0.5f * elapsed / 300f
+            "typewriter" -> {
+                val span = (t.endMs - t.startMs).coerceIn(1, 3000)
+                visible = t.text.take(((t.text.length * elapsed) / span).toInt().coerceIn(0, t.text.length))
+            }
+        }
+        if (t.animOut == "fade" && remain < 400) alpha = (alpha * remain / 400).toInt()
+        if (alpha <= 0 || visible.isEmpty()) return
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = t.color.toInt()
+            textSize = (outH * t.sizePct / 100f * scale).coerceAtLeast(8f)
+            textAlign = when (t.align) {
+                "left" -> android.graphics.Paint.Align.LEFT
+                "right" -> android.graphics.Paint.Align.RIGHT
+                else -> android.graphics.Paint.Align.CENTER
+            }
+            this.alpha = alpha.coerceIn(0, 255)
+            if (t.bold) typeface = android.graphics.Typeface.DEFAULT_BOLD
+            if (t.shadow) setShadowLayer(6f, 0f, 3f, 0xCC000000.toInt())
+        }
+        val lines = visible.split("\n")
+        val lineH = paint.textSize * 1.25f
+        val cx = outW * t.xPct / 100f
+        val cy = outH * t.yPct / 100f + dy
+        val top = cy - lineH * (lines.size - 1) / 2 - paint.textSize
+        cv.save()
+        cv.rotate(t.rotation.toFloat(), cx, cy)
+        if (t.background) {
+            val widest = lines.maxOfOrNull { paint.measureText(it) } ?: 0f
+            val left = when (t.align) {
+                "left" -> cx
+                "right" -> cx - widest
+                else -> cx - widest / 2
+            }
+            val bgAlpha = ((t.bgColor ushr 24) and 0xFF).toInt().coerceIn(0, 255)
+            val bg = android.graphics.Paint().apply {
+                color = t.bgColor.toInt()
+                alpha = (bgAlpha * alpha / 255).coerceIn(0, 255)
+            }
+            cv.drawRoundRect(
+                android.graphics.RectF(left - 20f, top - 14f, left + widest + 20f, top + lineH * lines.size + 14f),
+                16f, 16f, bg,
+            )
+        }
+        if (t.strokePx > 0) {
+            val stroke = android.graphics.Paint(paint).apply {
+                style = android.graphics.Paint.Style.STROKE
+                strokeWidth = t.strokePx * outH / 720f
+                color = t.strokeColor.toInt()
+            }
+            var baseline = top + paint.textSize
+            for (line in lines) {
+                cv.drawText(line, cx, baseline, stroke)
+                baseline += lineH
+            }
+        }
+        var baseline = top + paint.textSize
+        for (line in lines) {
+            cv.drawText(line, cx, baseline, paint)
+            baseline += lineH
+        }
+        cv.restore()
     }
 
     /** BT.601 YUV_420_888 → ARGB (stride-aware). */

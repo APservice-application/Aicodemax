@@ -229,6 +229,16 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp74TextPlansRealSteps() = runBlocking {
+        val add = (planner.plan(UserIntent(IntentType.TEXT_ADD, "t", mapOf("text" to "hi"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.addText", add.steps[0].action)
+        val idea = (planner.plan(UserIntent(IntentType.TEXT_IDEA, "t", mapOf("kind" to "hook", "topic" to "x"))) as Outcome.Success<Plan>).value
+        assertEquals("text.ideas", idea.steps[0].action)
+        val missing = planner.plan(UserIntent(IntentType.TEXT_ADD, "t"))
+        assertEquals("PLAN_NO_TEXT", (missing as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp73TransformPlansRealSteps() = runBlocking {
         val rotate = (planner.plan(UserIntent(IntentType.CLIP_ROTATE, "t", mapOf("clipIndex" to "1", "rotation" to "90"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.transformClip", rotate.steps[0].action)

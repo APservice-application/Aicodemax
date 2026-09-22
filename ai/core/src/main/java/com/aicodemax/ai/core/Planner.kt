@@ -280,6 +280,29 @@ class RuleBasedPlanner(
                 intent.parameters["holdMs"]?.let { args["holdMs"] = it }
                 listOf("media.timeline.freezeFrame" to args)
             }
+            IntentType.TEXT_ADD -> {
+                val content = intent.parameters["text"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_TEXT", "ใส่ข้อความว่าอะไรครับ? เช่น เพิ่มข้อความ: เปิดร้านแล้ว!"),
+                    )
+                val args = mutableMapOf("text" to content)
+                intent.parameters["preset"]?.let { args["preset"] = it }
+                intent.parameters["startMs"]?.let { args["startMs"] = it }
+                listOf("media.timeline.addText" to args)
+            }
+            IntentType.TEXT_REMOVE -> {
+                val index = intent.parameters["textIndex"] ?: intent.parameters["textId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_TEXT", "ลบข้อความที่เท่าไหร่ครับ? ดูเลขจาก ดูไทม์ไลน์"),
+                    )
+                listOf("media.timeline.removeText" to mapOf("textIndex" to index))
+            }
+            IntentType.TEXT_IDEA -> {
+                val args = mutableMapOf("kind" to (intent.parameters["kind"] ?: "caption"))
+                intent.parameters["topic"]?.let { args["topic"] = it }
+                intent.parameters["platform"]?.let { args["platform"] = it }
+                listOf("media.text.ideas" to args)
+            }
             IntentType.MARKER_ADD -> {
                 val at = intent.parameters["atMs"]
                     ?: return Outcome.Failure(

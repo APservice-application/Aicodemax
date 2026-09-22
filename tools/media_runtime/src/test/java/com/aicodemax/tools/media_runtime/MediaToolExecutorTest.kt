@@ -113,4 +113,17 @@ class MediaToolExecutorTest {
         val undone = run("edit.undo", mapOf("projectId" to projectId))
         assertTrue(undone.ok)
     }
+
+    @Test
+    fun textFlowAndIdeas(): Unit = runBlocking {
+        val projectId = (media.createProject("tx") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val added = run("timeline.addText", mapOf("projectId" to projectId, "text" to "สวัสดี", "preset" to "hook"))
+        assertTrue(added.output, added.ok)
+        val listed = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed.output, listed.ok && listed.output.contains("สวัสดี"))
+        val ideas = run("text.ideas", mapOf("kind" to "cta", "topic" to "กาแฟ"))
+        assertTrue(ideas.output, ideas.ok && ideas.output.contains("กาแฟ"))
+        val removed = run("timeline.removeText", mapOf("projectId" to projectId, "textIndex" to "1"))
+        assertTrue(removed.output, removed.ok)
+    }
 }

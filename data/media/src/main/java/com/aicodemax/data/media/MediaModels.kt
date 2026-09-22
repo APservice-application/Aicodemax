@@ -115,10 +115,72 @@ data class TimelineMarker(
     val color: String = "",
 )
 
+/** CP-74 styled text overlay on the timeline (§22). Times in ms. */
+@Serializable
+data class OverlayText(
+    val id: String,
+    val text: String,
+    val startMs: Long,
+    val endMs: Long,
+    /** Anchor center in percent of output (0..100). */
+    val xPct: Int = 50,
+    val yPct: Int = 82,
+    /** Text size as percent of output height (1..30). */
+    val sizePct: Int = 6,
+    /** ARGB as Long (0xAARRGGBB). */
+    val color: Long = 0xFFFFFFFFL,
+    /** left/center/right. */
+    val align: String = "center",
+    val bold: Boolean = false,
+    /** Outline width at 720p (0 = none, scaled with output). */
+    val strokePx: Int = 0,
+    val strokeColor: Long = 0xFF000000L,
+    val shadow: Boolean = true,
+    val background: Boolean = true,
+    /** Background box ARGB (used when background=true). */
+    val bgColor: Long = 0xA8000000L,
+    val rotation: Int = 0,
+    val opacity: Int = 100,
+    /** none/fade/slide/pop/typewriter. */
+    val animIn: String = "none",
+    /** none/fade. */
+    val animOut: String = "none",
+) {
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (text.isBlank()) errors.add("ข้อความว่างไม่ได้")
+        if (endMs <= startMs || startMs < 0) errors.add("ช่วงเวลาไม่ถูก ($startMs..$endMs)")
+        if (xPct !in 0..100 || yPct !in 0..100) errors.add("ตำแหน่งต้องอยู่ 0..100")
+        if (sizePct !in 1..30) errors.add("ขนาดต้องอยู่ 1..30% (ได้ $sizePct)")
+        if (align !in setOf("left", "center", "right")) errors.add("align ต้องเป็น left/center/right")
+        if (strokePx !in 0..40) errors.add("เส้นขอบต้องอยู่ 0..40")
+        if (rotation !in -180..180) errors.add("มุมหมุนต้องอยู่ ±180")
+        if (opacity !in 0..100) errors.add("ความทึบต้องอยู่ 0..100")
+        if (animIn !in setOf("none", "fade", "slide", "pop", "typewriter")) errors.add("animIn ไม่รู้จัก ($animIn)")
+        if (animOut !in setOf("none", "fade")) errors.add("animOut ไม่รู้จัก ($animOut)")
+        return errors
+    }
+
+    fun summary(): String = "\"$text\" $startMs..$endMs" + if (animIn != "none") " +$animIn" else ""
+
+    companion object {
+        /** Named style presets (§22 quick styles). */
+        fun preset(name: String): OverlayText = when (name.lowercase()) {
+            "title" -> OverlayText("", "", 0, 0, yPct = 20, sizePct = 9, bold = true, animIn = "fade")
+            "lower" -> OverlayText("", "", 0, 0, xPct = 30, yPct = 78, sizePct = 5, align = "left", background = true)
+            "caption" -> OverlayText("", "", 0, 0, yPct = 88, sizePct = 5, animIn = "fade")
+            "hook" -> OverlayText("", "", 0, 0, yPct = 35, sizePct = 8, bold = true, color = 0xFFFFFF00L, strokePx = 3, animIn = "pop")
+            "cta" -> OverlayText("", "", 0, 0, yPct = 65, sizePct = 7, bold = true, color = 0xFF000000L, background = true, bgColor = 0xE8FFFFFFL, animIn = "slide")
+            else -> OverlayText("", "", 0, 0)
+        }
+    }
+}
+
 @Serializable
 data class Timeline(
     val tracks: List<Track> = emptyList(),
     val markers: List<TimelineMarker> = emptyList(),
+    val texts: List<OverlayText> = emptyList(),
 ) {
     val durationMs: Long get() = tracks.flatMap { it.clips }.maxOfOrNull { it.atMs + it.durationMs } ?: 0
 
@@ -154,6 +216,9 @@ data class Timeline(
             if (marker.atMs < 0) {
                 errors.add("มาร์กเกอร์ ${marker.id} ตำแหน่งติดลบ (${marker.atMs})")
             }
+        }
+        for (overlay in texts) {
+            overlay.validate().forEach { errors.add("ข้อความ ${overlay.id}: $it") }
         }
         return errors
     }

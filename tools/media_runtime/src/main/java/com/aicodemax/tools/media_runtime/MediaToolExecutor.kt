@@ -6,6 +6,9 @@ import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.gateway.ToolExecutor
 import com.aicodemax.tools.gateway.ToolResult
 import com.aicodemax.data.media.ClipTransform
+import com.aicodemax.core.common.Ids
+import com.aicodemax.data.media.OverlayText
+import com.aicodemax.tools.media.TextIdeas
 import com.aicodemax.tools.media.InMemoryMediaProject
 import com.aicodemax.tools.media.MediaProjectPort
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +76,9 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                             }
                             val markers = if (timeline.markers.isEmpty()) "ไม่มีมาร์กเกอร์"
                             else timeline.markers.joinToString(", ") { "${it.label.ifBlank { "มาร์ก" }}@${it.atMs} [${it.id}]" }
-                            done(true, "timeline ${timeline.durationMs}ms, ${lines.size} คลิป\nแทร็ก: $flags\n" + lines.joinToString("\n") + "\n$markers")
+                            val texts = if (timeline.texts.isEmpty()) "ไม่มีข้อความ"
+                            else timeline.texts.mapIndexed { i, t -> "T${i + 1}. ${t.summary()} [${t.id}]" }.joinToString("\n")
+                            done(true, "timeline ${timeline.durationMs}ms, ${lines.size} คลิป\nแทร็ก: $flags\n" + lines.joinToString("\n") + "\n$markers\n$texts")
                         },
                         onFailure = { done(false, error = it.message) },
                     )
@@ -322,6 +327,78 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "timeline.addText" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val text = call.args["text"]
+                        ?: return@withContext done(false, error = "missing arg: text")
+                    val base = OverlayText.preset(call.args["preset"] ?: "caption")
+                    val duration = ((media.getTimeline(projectId) as? Outcome.Success)?.value?.durationMs ?: 0)
+                    val overlay = base.copy(
+                        id = Ids.newId("text"),
+                        text = text,
+                        startMs = call.args["startMs"]?.toLongOrNull() ?: 0,
+                        endMs = call.args["endMs"]?.toLongOrNull()
+                            ?: if (duration > 0) duration else 3000,
+                        xPct = call.args["x"]?.toIntOrNull() ?: base.xPct,
+                        yPct = call.args["y"]?.toIntOrNull() ?: base.yPct,
+                        sizePct = call.args["size"]?.toIntOrNull() ?: base.sizePct,
+                        color = call.args["color"]?.let { parseColor(it) } ?: base.color,
+                        align = call.args["align"] ?: base.align,
+                        bold = parseFlag(call.args["bold"]) ?: base.bold,
+                        opacity = call.args["opacity"]?.toIntOrNull() ?: base.opacity,
+                        animIn = call.args["animIn"] ?: base.animIn,
+                        animOut = call.args["animOut"] ?: base.animOut,
+                    )
+                    media.addText(projectId, overlay, call.actor).fold(
+                        onSuccess = { done(true, "เพิ่มข้อความแล้ว (${overlay.summary()}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.updateText" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val id = resolveText(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: textId/textIndex (ดูเลขจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val base = timeline.texts.firstOrNull { it.id == id }
+                        ?: return@withContext done(false, error = "ไม่มีข้อความ $id")
+                    val next = base.copy(
+                        text = call.args["text"] ?: base.text,
+                        startMs = call.args["startMs"]?.toLongOrNull() ?: base.startMs,
+                        endMs = call.args["endMs"]?.toLongOrNull() ?: base.endMs,
+                        xPct = call.args["x"]?.toIntOrNull() ?: base.xPct,
+                        yPct = call.args["y"]?.toIntOrNull() ?: base.yPct,
+                        sizePct = call.args["size"]?.toIntOrNull() ?: base.sizePct,
+                        color = call.args["color"]?.let { parseColor(it) } ?: base.color,
+                        align = call.args["align"] ?: base.align,
+                        bold = parseFlag(call.args["bold"]) ?: base.bold,
+                        opacity = call.args["opacity"]?.toIntOrNull() ?: base.opacity,
+                        animIn = call.args["animIn"] ?: base.animIn,
+                        animOut = call.args["animOut"] ?: base.animOut,
+                    )
+                    media.updateText(projectId, id, next, call.actor).fold(
+                        onSuccess = { done(true, "แก้ข้อความแล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.removeText" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val id = resolveText(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: textId/textIndex (ดูเลขจาก timeline.get)")
+                    media.removeText(projectId, id, call.actor).fold(
+                        onSuccess = { done(true, "ลบข้อความแล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "text.ideas" -> {
+                    val kind = call.args["kind"] ?: "caption"
+                    val topic = call.args["topic"] ?: ""
+                    val ideas = TextIdeas.ideas(kind, topic, call.args["platform"])
+                    done(true, ideas.mapIndexed { i, idea -> "${i + 1}. $idea" }.joinToString("\n"))
+                }
                 "timeline.addMarker" -> {
                     val projectId = call.args["projectId"] ?: latestProject()
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
@@ -361,6 +438,25 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
         }
 
     /** clipId direct, or 1-based clipIndex from timeline.get order. */
+    private suspend fun resolveText(projectId: String, args: Map<String, String>): String? {
+        args["textId"]?.let { return it }
+        val index = args["textIndex"]?.toIntOrNull() ?: return null
+        val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value ?: return null
+        return timeline.texts.getOrNull(index - 1)?.id
+    }
+
+    /** Accepts #RRGGBB / #AARRGGBB / decimal long. */
+    private fun parseColor(raw: String): Long? = try {
+        val hex = raw.trim().removePrefix("#")
+        when (hex.length) {
+            6 -> ("FF$hex").toLong(16)
+            8 -> hex.toLong(16)
+            else -> raw.trim().toLongOrNull()
+        }
+    } catch (_: Exception) {
+        null
+    }
+
     private suspend fun resolveClip(projectId: String, args: Map<String, String>): String? {
         args["clipId"]?.let { return it }
         val index = args["clipIndex"]?.toIntOrNull() ?: return null

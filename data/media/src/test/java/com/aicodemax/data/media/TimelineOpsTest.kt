@@ -144,4 +144,35 @@ class TimelineOpsTest {
             assertTrue(e.message!!.contains("100..30000"))
         }
     }
+
+    @Test
+    fun textAddUpdateRemove() {
+        var t = TimelineOps.addText(timeline(), OverlayText("t1", "สวัสดี", 0, 3000))
+        assertEquals(1, t.texts.size)
+        t = TimelineOps.updateText(t, "t1") { it.copy(text = "แก้แล้ว", animIn = "fade") }
+        assertEquals("แก้แล้ว", t.texts[0].text)
+        assertEquals("fade", t.texts[0].animIn)
+        t = TimelineOps.removeText(t, "t1")
+        assertTrue(t.texts.isEmpty())
+        try {
+            TimelineOps.addText(t, OverlayText("t2", "", 0, 1000))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("ว่าง"))
+        }
+        try {
+            TimelineOps.removeText(t, "missing")
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("ไม่มีข้อความ"))
+        }
+    }
+
+    @Test
+    fun textPresetsValidate() {
+        for (name in listOf("title", "lower", "caption", "hook", "cta", "nope")) {
+            val preset = OverlayText.preset(name).copy(id = "x", text = "T", startMs = 0, endMs = 1000)
+            assertTrue(name, preset.validate().isEmpty())
+        }
+    }
 }
