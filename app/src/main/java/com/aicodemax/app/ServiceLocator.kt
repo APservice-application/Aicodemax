@@ -73,6 +73,9 @@ import com.aicodemax.tools.git.gitDescriptorToday
 import com.aicodemax.tools.git_runtime.GitToolExecutor
 import com.aicodemax.tools.memory_runtime.MemoryToolExecutor
 import com.aicodemax.tools.skill_runtime.SkillToolExecutor
+import com.aicodemax.tools.image.ImagePort
+import com.aicodemax.tools.image.imageDescriptorToday
+import com.aicodemax.tools.image_runtime.ImageToolExecutor
 import com.aicodemax.tools.voice.VoicePort
 import com.aicodemax.tools.voice.voiceDescriptorToday
 import com.aicodemax.tools.voice_runtime.VoiceToolExecutor
@@ -100,6 +103,7 @@ class ServiceLocator(context: Context) {
     val memory: MemoryStore = FileMemoryStore(File(appContext.filesDir, "state"))
     val skills: FileSkillStore = FileSkillStore(File(appContext.filesDir, "skills"))
     val voice: VoicePort = AndroidVoicePort(appContext)
+    val images: ImagePort = AndroidImagePort()
     val settings: SettingsRepository = DataStoreSettingsRepository(appContext)
 
     val resources: ResourceMonitor = AndroidResourceMonitor(appContext)
@@ -162,6 +166,7 @@ class ServiceLocator(context: Context) {
         toolRegistry.register(memoryDescriptorToday())
         toolRegistry.register(skillDescriptorToday())
         toolRegistry.register(voiceDescriptorToday())
+        toolRegistry.register(imageDescriptorToday())
 
         gateway = DefaultToolGateway(
             toolRegistry,
@@ -179,6 +184,7 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(MemoryToolExecutor(MemoryEngine(memory)))
         gateway.registerExecutor(SkillToolExecutor(skills, files))
         gateway.registerExecutor(VoiceToolExecutor(voice))
+        gateway.registerExecutor(ImageToolExecutor(images))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry)
 

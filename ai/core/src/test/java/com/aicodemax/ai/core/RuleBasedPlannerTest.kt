@@ -96,4 +96,34 @@ class RuleBasedPlannerTest {
         val empty = planner.plan(UserIntent(IntentType.VOICE_SPEAK, "t", mapOf("text" to " ")))
         assertEquals("PLAN_NO_VOICE", (empty as Outcome.Failure).error.code)
     }
+
+    @Test
+    fun cp61ImagePlansRealSteps() = runBlocking {
+        val info = UserIntent(IntentType.IMAGE_INFO, "t", mapOf("path" to "a.png"))
+        val infoPlan = (planner.plan(info) as Outcome.Success<Plan>).value
+        assertEquals("image", infoPlan.steps[0].toolId)
+        assertEquals("info", infoPlan.steps[0].action)
+
+        val resize = UserIntent(IntentType.IMAGE_RESIZE, "t", mapOf("path" to "a.png", "maxDim" to "800"))
+        val resizePlan = (planner.plan(resize) as Outcome.Success<Plan>).value
+        assertEquals("resize", resizePlan.steps[0].action)
+        assertEquals("800", resizePlan.steps[0].args["maxDim"])
+
+        val crop = UserIntent(
+            IntentType.IMAGE_CROP, "t",
+            mapOf("path" to "a.png", "x" to "1", "y" to "2", "w" to "3", "h" to "4"),
+        )
+        val cropPlan = (planner.plan(crop) as Outcome.Success<Plan>).value
+        assertEquals("crop", cropPlan.steps[0].action)
+        assertEquals("3", cropPlan.steps[0].args["w"])
+
+        val gray = UserIntent(IntentType.IMAGE_GRAY, "t", mapOf("path" to "a.png"))
+        val grayPlan = (planner.plan(gray) as Outcome.Success<Plan>).value
+        assertEquals("grayscale", grayPlan.steps[0].action)
+
+        val noPath = planner.plan(UserIntent(IntentType.IMAGE_INFO, "t"))
+        assertEquals("PLAN_NO_IMAGE", (noPath as Outcome.Failure).error.code)
+        val noRect = planner.plan(UserIntent(IntentType.IMAGE_CROP, "t", mapOf("path" to "a.png")))
+        assertEquals("PLAN_NO_CROP", (noRect as Outcome.Failure).error.code)
+    }
 }

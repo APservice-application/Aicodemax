@@ -149,6 +149,54 @@ class RuleBasedPlanner(
                 listOf("voice.speak" to mapOf("text" to say))
             }
             IntentType.VOICE_LISTEN -> listOf("voice.listen" to emptyMap())
+            IntentType.IMAGE_INFO -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_IMAGE", "ดูรูปไหนครับ? เช่น ข้อมูลรูป photo.png"),
+                    )
+                listOf("image.info" to mapOf("path" to path))
+            }
+            IntentType.IMAGE_RESIZE -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_IMAGE", "ย่อรูปไหนครับ? เช่น ย่อรูป photo.png เหลือ 800"),
+                    )
+                val args = mutableMapOf("src" to path)
+                intent.parameters["maxDim"]?.let { args["maxDim"] = it }
+                listOf("image.resize" to args)
+            }
+            IntentType.IMAGE_CROP -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_IMAGE", "ครอปรูปไหนครับ? เช่น ครอปรูป a.png 10,20,100,100"),
+                    )
+                val x = intent.parameters["x"]
+                val y = intent.parameters["y"]
+                val w = intent.parameters["w"]
+                val h = intent.parameters["h"]
+                if (x == null || y == null || w == null || h == null) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_CROP", "บอกกรอบด้วยครับ เช่น ครอปรูป a.png 10,20,100,100 (x,y,กว้าง,สูง)"),
+                    )
+                }
+                listOf("image.crop" to mapOf("src" to path, "x" to x, "y" to y, "w" to w, "h" to h))
+            }
+            IntentType.IMAGE_ROTATE -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_IMAGE", "หมุนรูปไหนครับ? เช่น หมุนรูป a.png 90"),
+                    )
+                val args = mutableMapOf("src" to path)
+                intent.parameters["degrees"]?.let { args["degrees"] = it }
+                listOf("image.rotate" to args)
+            }
+            IntentType.IMAGE_GRAY -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_IMAGE", "ทำรูปไหนให้ขาวดำครับ? เช่น รูปขาวดำ a.png"),
+                    )
+                listOf("image.grayscale" to mapOf("src" to path))
+            }
             IntentType.SKILL_LIST -> listOf("skill.list" to emptyMap())
             IntentType.SKILL_GET -> {
                 val id = intent.parameters["id"]?.trim().orEmpty()

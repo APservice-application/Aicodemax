@@ -41,6 +41,8 @@ include(
     ":tools:skill_runtime",
     ":tools:voice",
     ":tools:voice_runtime",
+    ":tools:image",
+    ":tools:image_runtime",
     ":tools:github",
     ":tools:browser",
     ":tools:browser_runtime",

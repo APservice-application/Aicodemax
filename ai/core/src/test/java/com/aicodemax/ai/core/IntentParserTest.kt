@@ -122,4 +122,28 @@ class IntentParserTest {
         assertEquals(IntentType.VOICE_LISTEN, IntentParser.parse("ฟังเสียงหน่อย").type)
         assertEquals(IntentType.VOICE_LISTEN, IntentParser.parse("รับคำสั่งเสียง").type)
     }
+
+    @Test
+    fun cp61ImageIntents() {
+        val info = IntentParser.parse("ข้อมูลรูป photo.png")
+        assertEquals(IntentType.IMAGE_INFO, info.type)
+        assertEquals("photo.png", info.parameters["path"])
+        val resize = IntentParser.parse("ย่อรูป photo.png เหลือ 800")
+        assertEquals(IntentType.IMAGE_RESIZE, resize.type)
+        assertEquals("800", resize.parameters["maxDim"])
+        // Digits in the file name must not leak into params.
+        val resize2 = IntentParser.parse("ย่อรูป photo2.png")
+        assertEquals("photo2.png", resize2.parameters["path"])
+        assertEquals(null, resize2.parameters["maxDim"])
+        val crop = IntentParser.parse("ครอปรูป a.png 10,20,100,100")
+        assertEquals(IntentType.IMAGE_CROP, crop.type)
+        assertEquals("10", crop.parameters["x"])
+        assertEquals("100", crop.parameters["h"])
+        val rot = IntentParser.parse("หมุนรูป a.png 180")
+        assertEquals(IntentType.IMAGE_ROTATE, rot.type)
+        assertEquals("180", rot.parameters["degrees"])
+        val gray = IntentParser.parse("ทำรูปขาวดำ a.png หน่อย")
+        assertEquals(IntentType.IMAGE_GRAY, gray.type)
+        assertEquals("a.png", gray.parameters["path"])
+    }
 }

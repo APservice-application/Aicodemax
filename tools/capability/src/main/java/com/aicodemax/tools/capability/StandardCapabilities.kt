@@ -111,6 +111,17 @@ object StandardCapabilities {
             metadata = meta("voice", "หยุดเสียงที่กำลังพูด", emptyList(), listOf("ok"), emptyList(), false, "silent", "re-stop")),
         CapabilityBinding("voice.status", "voice", "status", AdapterKind.NATIVE,
             metadata = meta("voice", "เช็คความพร้อม STT/TTS", emptyList(), listOf("status"), emptyList(), false, "engine probe", "re-check")),
+        // Image engine (native, header probe + pixel ops).
+        CapabilityBinding("image.info", "image", "info", AdapterKind.NATIVE,
+            metadata = meta("image", "ดูฟอร์แมต+ขนาดรูป", listOf("path"), listOf("info"), emptyList(), false, "header parsed", "re-probe")),
+        CapabilityBinding("image.resize", "image", "resize", AdapterKind.NATIVE,
+            metadata = meta("image", "ย่อรูปด้านยาวสุด", listOf("src,maxDim?"), listOf("dst"), listOf("fs.write"), false, "dims fit", "retry")),
+        CapabilityBinding("image.crop", "image", "crop", AdapterKind.NATIVE,
+            metadata = meta("image", "ครอปรูปตามกรอบ", listOf("src,x,y,w,h"), listOf("dst"), listOf("fs.write"), false, "dims match", "fix rect")),
+        CapabilityBinding("image.rotate", "image", "rotate", AdapterKind.NATIVE,
+            metadata = meta("image", "หมุนรูป 90/180/270", listOf("src,degrees?"), listOf("dst"), listOf("fs.write"), false, "dims swapped", "retry")),
+        CapabilityBinding("image.grayscale", "image", "grayscale", AdapterKind.NATIVE,
+            metadata = meta("image", "ทำรูปขาวดำ", listOf("src"), listOf("dst"), listOf("fs.write"), false, "luma only", "retry")),
         // Compatibility engine — CLI adapter, LAST resort (§29, CP-32).
         CapabilityBinding("terminal.open", "terminal", "open", AdapterKind.CLI_ADAPTER,
             metadata = meta("terminal", "เปิด terminal session", emptyList(), listOf("sessionId"), listOf("terminal"), false, "session listed", "re-open")),
@@ -134,7 +145,7 @@ object StandardCapabilities {
      */
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
-        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice")) {
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -164,6 +175,7 @@ private fun meta(
         "memory" to ("Memory Engine" to "FileMemoryStore"),
         "skill" to ("Skill Engine" to "FileSkillStore"),
         "voice" to ("Voice Engine" to "SpeechRecognizer + TTS"),
+        "image" to ("Image Engine" to "header probe + pixel ops"),
         "terminal" to ("Compatibility Engine" to "Termux bridge (pending device work)"),
     )
     val (engine, runtime) = engines.getValue(tool)
