@@ -48,6 +48,8 @@ fun GenScreen(services: ServiceLocator) {
     var synthSecs by remember { mutableStateOf("10") }
     var sfxKind by remember { mutableStateOf("impact") }
     var lastDst by remember { mutableStateOf<String?>(null) }
+    var aiMode by remember { mutableStateOf("story") }
+    var aiTopic by remember { mutableStateOf("") }
     var photoPath by remember { mutableStateOf("") }
     var photoScale by remember { mutableStateOf("2") }
 
@@ -131,6 +133,29 @@ fun GenScreen(services: ServiceLocator) {
                             busy = false
                         }
                     }, enabled = !busy && project != null) { Text(if (busy) "กำลังสร้าง…" else "สร้าง") }
+                }
+            }
+            item {
+                Text("AI วางแผนคอนเทนต์ (5 โหมด)", style = MaterialTheme.typography.titleSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        listOf("commercial", "story", "vlog", "tutorial", "review").forEach { m ->
+                            OutlinedButton(onClick = { aiMode = m }, enabled = !busy) {
+                                Text(if (m == aiMode) "●$m" else m)
+                            }
+                        }
+                    }
+                    TextField(value = aiTopic, onValueChange = { aiTopic = it }, label = { Text("หัวข้อ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedButton(onClick = {
+                        busy = true
+                        scope.launch {
+                            services.gateway.call(ToolCall(Ids.newId("ui"), "media", "text.aiplan", mapOf("mode" to aiMode, "topic" to aiTopic.trim()), actor = "HUMAN")).fold(
+                                onSuccess = { message = if (it.ok) it.output else it.error },
+                                onFailure = { message = it.message },
+                            )
+                            busy = false
+                        }
+                    }, enabled = !busy) { Text("วางแผน") }
                 }
             }
             item {

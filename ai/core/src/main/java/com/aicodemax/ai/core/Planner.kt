@@ -608,6 +608,13 @@ class RuleBasedPlanner(
                     )
                 listOf("audio.normalize" to mapOf("src" to src))
             }
+            IntentType.AI_PLAN -> {
+                val args = mutableMapOf<String, String>()
+                (intent.parameters["mode"] ?: "story").let { args["mode"] = it }
+                intent.parameters["topic"]?.let { args["topic"] = it }
+                intent.parameters["platform"]?.let { args["platform"] = it }
+                listOf("media.text.aiplan" to args)
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

@@ -257,6 +257,14 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp96AiPlanIntent() {
+        val p = IntentParser.parse("วางแผนคลิปรีวิวกาแฟดริป")
+        assertEquals(IntentType.AI_PLAN, p.type)
+        assertEquals("review", p.parameters["mode"])
+        assertTrue(p.parameters["topic"]!!.contains("กาแฟดริป"))
+    }
+
+    @Test
     fun cp95PodcastIntents() {
         val pod = IntentParser.parse("พอดแคสต์ voice.wav เพลง bed.wav")
         assertEquals(IntentType.PODCAST, pod.type)

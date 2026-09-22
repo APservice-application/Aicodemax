@@ -444,6 +444,15 @@ class MediaToolExecutor(
                     val ideas = TextIdeas.ideas(kind, topic, call.args["platform"])
                     done(true, ideas.mapIndexed { i, idea -> "${i + 1}. $idea" }.joinToString("\n"))
                 }
+                "text.aiplan" -> {
+                    val mode = call.args["mode"] ?: "story"
+                    val topic = call.args["topic"] ?: ""
+                    try {
+                        done(true, com.aicodemax.tools.media.AiModes.plan(mode, topic, call.args["platform"]))
+                    } catch (e: IllegalArgumentException) {
+                        done(false, error = e.message ?: "โหมดไม่ถูก")
+                    }
+                }
                 "timeline.setSpeed" -> {
                     val projectId = call.args["projectId"] ?: latestProject()
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")

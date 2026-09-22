@@ -240,6 +240,13 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp96AiPlanPlans() = runBlocking {
+        val p = (planner.plan(UserIntent(IntentType.AI_PLAN, "t", mapOf("mode" to "vlog", "topic" to "ทะเล"))) as Outcome.Success<Plan>).value
+        assertEquals("text.aiplan", p.steps[0].action)
+        assertEquals("vlog", p.steps[0].args["mode"])
+    }
+
+    @Test
     fun cp95PodcastPlans() = runBlocking {
         val pod = (planner.plan(UserIntent(IntentType.PODCAST, "t", mapOf("voice" to "v.wav"))) as Outcome.Success<Plan>).value
         assertEquals("podcast", pod.steps[0].action)

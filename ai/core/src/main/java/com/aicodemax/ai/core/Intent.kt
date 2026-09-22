@@ -114,6 +114,7 @@ enum class IntentType {
     PODCAST,
     AUDIO_MIX,
     AUDIO_NORMALIZE,
+    AI_PLAN,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -694,6 +695,20 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.normalizeWords)) {
             return UserIntent(IntentType.AUDIO_NORMALIZE, text, params("src" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.aiPlanWords)) {
+            var mode: String? = null
+            for ((word, m) in ThaiVocabulary.aiModeWords) {
+                if (t.contains(word)) {
+                    mode = m
+                    break
+                }
+            }
+            var topic = t
+            for (w in ThaiVocabulary.aiPlanWords) topic = topic.replace(w, "")
+            for (w in ThaiVocabulary.aiModeWords.keys) topic = topic.replace(w, "")
+            topic = topic.replace(Regex("\\s+"), " ").trim().removePrefix(":").trim()
+            return UserIntent(IntentType.AI_PLAN, text, params("mode" to mode, "topic" to topic.ifBlank { null }))
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value
