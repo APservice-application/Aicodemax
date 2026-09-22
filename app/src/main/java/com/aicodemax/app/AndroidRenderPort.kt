@@ -97,6 +97,10 @@ class AndroidRenderPort(
                     onSuccess = { it },
                     onFailure = { return@withContext fail(current, it.message) },
                 )
+                try {
+                    media.checkpoint(job.projectId, "before-render", "AI")
+                } catch (_: Exception) {
+                }
                 val plan = planRender(project, assets, job)
                     ?: return@withContext fail(current, planError(project, assets))
                 progress(5)
@@ -173,6 +177,10 @@ class AndroidRenderPort(
             }
             if (!File(job.outputPath).isFile) {
                 return@withContext Outcome.Failure(AppError("RENDER_NO_FILE", "ไม่พบไฟล์ ${job.outputPath}"))
+            }
+            try {
+                media.checkpoint(job.projectId, "before-export", "AI")
+            } catch (_: Exception) {
             }
             when (val uri = exportFile(job)) {
                 is Outcome.Failure -> uri

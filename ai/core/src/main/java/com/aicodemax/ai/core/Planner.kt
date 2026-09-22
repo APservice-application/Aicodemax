@@ -202,6 +202,18 @@ class RuleBasedPlanner(
                 }
                 listOf("subtitle.burn" to mapOf("src" to src, "srt" to srt))
             }
+            IntentType.PROJECT_RENAME -> {
+                val name = intent.parameters["name"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_NAME", "ตั้งชื่อใหม่ว่าอะไรครับ? เช่น เปลี่ยนชื่อโปรเจกต์ ทริปทะเล"),
+                    )
+                listOf("media.project.rename" to mapOf("name" to name))
+            }
+            IntentType.PROJECT_DELETE -> listOf("media.project.delete" to emptyMap())
+            IntentType.PROJECT_DUPLICATE -> listOf("media.project.duplicate" to emptyMap())
+            IntentType.PROJECT_CHECKPOINT -> listOf("media.checkpoint.save" to emptyMap())
+            IntentType.EDIT_UNDO -> listOf("media.edit.undo" to emptyMap())
+            IntentType.EDIT_REDO -> listOf("media.edit.redo" to emptyMap())
             IntentType.RENDER_START -> {
                 val args = mutableMapOf<String, String>()
                 intent.parameters["preset"]?.let { args["preset"] = it }

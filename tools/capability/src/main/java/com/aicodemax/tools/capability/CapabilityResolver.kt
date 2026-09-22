@@ -60,6 +60,8 @@ data class CapabilityMetadata(
     val verification: String = "",
     val recovery: String = "",
     val version: String = "0.1.0",
+    val undoable: Boolean = false,
+    val undoHint: String = "",
 )
 
 data class CapabilityBinding(

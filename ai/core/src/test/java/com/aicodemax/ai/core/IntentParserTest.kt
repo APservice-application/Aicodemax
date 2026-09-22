@@ -203,6 +203,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp71UndoMgmtIntents() {
+        assertEquals(IntentType.EDIT_UNDO, IntentParser.parse("ย้อนกลับ").type)
+        assertEquals(IntentType.EDIT_REDO, IntentParser.parse("ทำซ้ำ").type)
+        assertEquals(IntentType.PROJECT_DELETE, IntentParser.parse("ลบโปรเจกต์").type)
+        assertEquals(IntentType.PROJECT_DUPLICATE, IntentParser.parse("สำเนาโปรเจกต์").type)
+        assertEquals(IntentType.PROJECT_CHECKPOINT, IntentParser.parse("เช็คพอยต์").type)
+        val rename = IntentParser.parse("เปลี่ยนชื่อโปรเจกต์ ทริปทะเล")
+        assertEquals(IntentType.PROJECT_RENAME, rename.type)
+        assertEquals("ทริปทะเล", rename.parameters["name"])
+    }
+
+    @Test
     fun cp67RenderIntents() {
         val start = IntentParser.parse("เรนเดอร์ 720p")
         assertEquals(IntentType.RENDER_START, start.type)
