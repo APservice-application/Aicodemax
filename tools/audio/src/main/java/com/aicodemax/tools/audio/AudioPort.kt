@@ -41,6 +41,15 @@ interface AudioPort {
     /** CP-86 §30: procedural one-shot SFX → WAV. */
     suspend fun synthSfx(kind: String, dst: String): Outcome<AudioInfo>
 
+    /** CP-95: mix bed under voice. */
+    suspend fun mix(srcA: String, srcB: String, dst: String, gainB: Double = 1.0, offsetMs: Long = 0): Outcome<AudioInfo>
+
+    /** CP-95: peak normalize. */
+    suspend fun normalize(src: String, dst: String, peakDb: Double = -3.0): Outcome<AudioInfo>
+
+    /** CP-95: drop silent ranges (offline speech gate). */
+    suspend fun autocut(src: String, dst: String, thresholdDb: Double = -40.0, minSpeechMs: Long = 300, minSilenceMs: Long = 500, padMs: Long = 150): Outcome<AudioInfo>
+
     /** CP-94: starts in-app audio recording to [dst] (MediaRecorder on Android). */
     suspend fun recordStart(dst: String): Outcome<Unit>
 
@@ -133,6 +142,17 @@ class InMemoryAudioPort : AudioPort {
 
     override suspend fun synthSfx(kind: String, dst: String): Outcome<AudioInfo> =
         synthTo(dst, "AUDIO_SYNTH") { Synth.sfx(kind) }
+
+    override suspend fun mix(srcA: String, srcB: String, dst: String, gainB: Double, offsetMs: Long): Outcome<AudioInfo> =
+        edit(listOf(srcA, srcB), dst, "AUDIO_MIX") { AudioOps.mix(it[0], it[1], gainB, offsetMs) }
+
+    override suspend fun normalize(src: String, dst: String, peakDb: Double): Outcome<AudioInfo> =
+        edit(listOf(src), dst, "AUDIO_NORMALIZE") { AudioOps.normalize(it.first(), peakDb) }
+
+    override suspend fun autocut(src: String, dst: String, thresholdDb: Double, minSpeechMs: Long, minSilenceMs: Long, padMs: Long): Outcome<AudioInfo> =
+        edit(listOf(src), dst, "AUDIO_AUTOCUT") {
+            AudioOps.autocut(it.first(), Speech.analyze(it.first(), thresholdDb, minSpeechMs, minSilenceMs, padMs).ranges)
+        }
 
     private var pendingRecord: String? = null
 

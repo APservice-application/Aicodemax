@@ -57,6 +57,8 @@ fun RecordScreen(services: ServiceLocator) {
     var script by remember { mutableStateOf("") }
     var speed by remember { mutableStateOf("40") }
     var prompting by remember { mutableStateOf(false) }
+    var podVoice by remember { mutableStateOf("") }
+    var podBed by remember { mutableStateOf("") }
     val promptScroll = rememberScrollState()
 
     val project = projects.getOrNull(projectIndex)
@@ -204,6 +206,32 @@ fun RecordScreen(services: ServiceLocator) {
                         message = "เครื่องนี้ไม่มีแอปกล้อง"
                     }
                 }) { Text("เปิดกล้องถ่ายวิดีโอ") }
+            }
+            item {
+                Text("พอดแคสต์ (ตัดเงียบ+นอร์มัลไลซ์+ดนตรี)", style = MaterialTheme.typography.titleSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    TextField(value = podVoice, onValueChange = { podVoice = it }, label = { Text("ไฟล์เสียงพูด") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    TextField(value = podBed, onValueChange = { podBed = it }, label = { Text("ไฟล์ดนตรี (ไม่บังคับ)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedButton(onClick = {
+                        busy = true
+                        scope.launch {
+                            val dst = services.workspaceDir.path + "/podcast-" + System.currentTimeMillis() + ".wav"
+                            val args = mutableMapOf("voice" to podVoice.trim(), "dst" to dst)
+                            if (podBed.isNotBlank()) args["bed"] = podBed.trim()
+                            services.gateway.call(ToolCall(Ids.newId("ui"), "audio", "podcast", args, actor = "HUMAN")).fold(
+                                onSuccess = {
+                                    message = if (it.ok) it.output else it.error
+                                    if (it.ok) {
+                                        podVoice = ""
+                                        podBed = ""
+                                    }
+                                },
+                                onFailure = { message = it.message },
+                            )
+                            busy = false
+                        }
+                    }, enabled = !busy && podVoice.isNotBlank()) { Text("ทำพอดแคสต์") }
+                }
             }
             item {
                 Text("อัดหน้าจอ", style = MaterialTheme.typography.titleSmall)

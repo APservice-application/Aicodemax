@@ -580,6 +580,34 @@ class RuleBasedPlanner(
                     ),
                 )
             }
+            IntentType.PODCAST -> {
+                val voice = intent.parameters["voice"] ?: intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_VOICE", "ทำพอดแคสต์จากเสียงไหนครับ? เช่น พอดแคสต์ voice.wav เพลง bed.wav"),
+                    )
+                val args = mutableMapOf("voice" to voice)
+                intent.parameters["bed"]?.let { args["bed"] = it }
+                intent.parameters["dst"]?.let { args["dst"] = it }
+                listOf("audio.podcast" to args)
+            }
+            IntentType.AUDIO_MIX -> {
+                val a = intent.parameters["srcA"] ?: intent.parameters["src"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "ผสมเสียงไฟล์ไหนครับ? เช่น ผสมเสียง a.wav กับ b.wav"),
+                    )
+                val b = intent.parameters["srcB"] ?: intent.parameters["bed"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "ผสมกับไฟล์ไหนครับ? เช่น ผสมเสียง a.wav กับ b.wav"),
+                    )
+                listOf("audio.mix" to mapOf("srcA" to a, "srcB" to b))
+            }
+            IntentType.AUDIO_NORMALIZE -> {
+                val src = intent.parameters["src"] ?: intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "นอร์มัลไลซ์ไฟล์ไหนครับ? เช่น นอร์มัลไลซ์ a.wav"),
+                    )
+                listOf("audio.normalize" to mapOf("src" to src))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

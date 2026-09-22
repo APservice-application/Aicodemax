@@ -111,6 +111,32 @@ class AndroidAudioPort : AudioPort {
     override suspend fun gain(src: String, dst: String, db: Double): Outcome<AudioInfo> =
         editOne(src, dst, "AUDIO_GAIN") { clip -> AudioOps.gain(clip, db) }
 
+    override suspend fun mix(srcA: String, srcB: String, dst: String, gainB: Double, offsetMs: Long): Outcome<AudioInfo> =
+        withContext(Dispatchers.IO) {
+            val a = when (val decoded = decode(srcA)) {
+                is Outcome.Failure -> return@withContext decoded
+                is Outcome.Success -> decoded.value
+            }
+            val b = when (val decoded = decode(srcB)) {
+                is Outcome.Failure -> return@withContext decoded
+                is Outcome.Success -> decoded.value
+            }
+            val out = try {
+                AudioOps.mix(a, b, gainB, offsetMs)
+            } catch (e: IllegalArgumentException) {
+                return@withContext Outcome.Failure(AppError("AUDIO_MIX", e.message ?: "bad args"))
+            }
+            writeOut(dst, out, "AUDIO_MIX")
+        }
+
+    override suspend fun normalize(src: String, dst: String, peakDb: Double): Outcome<AudioInfo> =
+        editOne(src, dst, "AUDIO_NORMALIZE") { clip -> AudioOps.normalize(clip, peakDb) }
+
+    override suspend fun autocut(src: String, dst: String, thresholdDb: Double, minSpeechMs: Long, minSilenceMs: Long, padMs: Long): Outcome<AudioInfo> =
+        editOne(src, dst, "AUDIO_AUTOCUT") { clip ->
+            AudioOps.autocut(clip, com.aicodemax.tools.audio.Speech.analyze(clip, thresholdDb, minSpeechMs, minSilenceMs, padMs).ranges)
+        }
+
     override suspend fun fade(src: String, dst: String, fadeInMs: Long, fadeOutMs: Long): Outcome<AudioInfo> =
         editOne(src, dst, "AUDIO_FADE") { clip -> AudioOps.fade(clip, fadeInMs, fadeOutMs) }
 

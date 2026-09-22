@@ -100,6 +100,52 @@ object AudioOps {
         return PcmAudio(targetRate, src.channels, out)
     }
 
+    /**
+     * CP-95: mixes [b] under [a] at [offsetMs] with linear gain [gainB].
+     * [b] is auto-resampled to [a]'s rate; mono is upmixed to stereo.
+     */
+    fun mix(a: PcmAudio, b: PcmAudio, gainB: Double = 1.0, offsetMs: Long = 0): PcmAudio {
+        require(gainB in 0.0..4.0) { "gainB ต้องอยู่ 0..4" }
+        var bb = resample(b, a.sampleRate)
+        if (bb.channels == 1 && a.channels == 2) {
+            bb = PcmAudio(bb.sampleRate, 2, FloatArray(bb.frames * 2) { i -> bb.samples[i / 2] })
+        }
+        require(bb.channels == a.channels) { "mix needs matching channels" }
+        val off = ((offsetMs * a.sampleRate) / 1000).coerceAtLeast(0).toInt()
+        val total = maxOf(a.frames, off + bb.frames)
+        val out = FloatArray(total * a.channels)
+        a.samples.copyInto(out, 0, 0, a.samples.size)
+        val g = gainB.toFloat()
+        for (f in 0 until bb.frames) {
+            for (c in 0 until a.channels) {
+                val idx = (off + f) * a.channels + c
+                out[idx] = (out[idx] + bb.samples[f * bb.channels + c] * g).coerceIn(-1f, 1f)
+            }
+        }
+        return PcmAudio(a.sampleRate, a.channels, out)
+    }
+
+    /** CP-95: scales so the peak hits [peakDb] (default -3). Silence passes through. */
+    fun normalize(src: PcmAudio, peakDb: Double = -3.0): PcmAudio {
+        require(peakDb in -24.0..0.0) { "peakDb ต้องอยู่ -24..0" }
+        val peak = peak(src)
+        if (peak <= 0f) return src
+        val target = Math.pow(10.0, peakDb / 20.0).toFloat()
+        val k = target / peak
+        return PcmAudio(src.sampleRate, src.channels, FloatArray(src.samples.size) { (src.samples[it] * k).coerceIn(-1f, 1f) })
+    }
+
+    /** CP-95: keeps only [ranges] (source ms), concatenated. Empty → honest error. */
+    fun autocut(src: PcmAudio, ranges: List<SpeechRange>): PcmAudio {
+        val kept = ranges.mapNotNull { r ->
+            val s = r.startMs.coerceAtLeast(0)
+            val e = r.endMs.coerceAtMost(src.durationMs)
+            if (e - s >= 50) trim(src, s, e) else null
+        }
+        require(kept.isNotEmpty()) { "ไม่มีช่วงเสียงให้เก็บ" }
+        return concat(kept)
+    }
+
     /** Peak level 0..1 (analysis helper). */
     fun peak(src: PcmAudio): Float {
         var max = 0f

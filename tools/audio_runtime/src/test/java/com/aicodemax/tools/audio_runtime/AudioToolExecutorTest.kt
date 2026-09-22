@@ -73,6 +73,22 @@ class AudioToolExecutorTest {
     }
 
     @Test
+    fun podcastFlow() {
+        val p = port()
+        val mix = run(p, "mix", mapOf("srcA" to "/tmp/a.wav", "srcB" to "/tmp/b.wav", "gainB" to "0.5"))
+        assertTrue(mix.output.ifBlank { mix.error }, mix.ok)
+        val norm = run(p, "normalize", mapOf("src" to "/tmp/b.wav"))
+        assertTrue(norm.output.ifBlank { norm.error }, norm.ok)
+        val cut = run(p, "autocut", mapOf("src" to "/tmp/a.wav"))
+        assertTrue(cut.output.ifBlank { cut.error }, cut.ok)
+        val pod = run(p, "podcast", mapOf("voice" to "/tmp/a.wav", "bed" to "/tmp/b.wav", "dst" to "/tmp/pod.wav"))
+        assertTrue(pod.output.ifBlank { pod.error }, pod.ok && pod.output.contains("พอดแคสต์"))
+        assertTrue(p.get("/tmp/pod.wav") != null)
+        val solo = run(p, "podcast", mapOf("voice" to "/tmp/b.wav", "dst" to "/tmp/solo.wav"))
+        assertTrue(solo.ok)
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         val p = port()
         assertTrue(!run(p, "info", emptyMap()).ok)

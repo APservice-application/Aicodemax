@@ -257,6 +257,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp95PodcastIntents() {
+        val pod = IntentParser.parse("พอดแคสต์ voice.wav เพลง bed.wav")
+        assertEquals(IntentType.PODCAST, pod.type)
+        assertEquals("voice.wav", pod.parameters["voice"])
+        assertEquals("bed.wav", pod.parameters["bed"])
+        val mix = IntentParser.parse("ผสมเสียง a.wav กับ b.wav")
+        assertEquals(IntentType.AUDIO_MIX, mix.type)
+        val norm = IntentParser.parse("นอร์มัลไลซ์ a.wav")
+        assertEquals(IntentType.AUDIO_NORMALIZE, norm.type)
+    }
+
+    @Test
     fun cp94RecordIntents() {
         val start = IntentParser.parse("อัดเสียงที่ rec.m4a")
         assertEquals(IntentType.RECORD_START, start.type)

@@ -146,7 +146,71 @@ class AudioToolExecutor(private val audio: AudioPort = InMemoryAudioPort()) : To
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade/beats/voicefx/synthmusic/synthsfx/speech/recordStart/recordStop)")
+                "mix" -> {
+                    val a = call.args["srcA"] ?: call.args["src"]
+                        ?: return@withContext done(false, error = "missing arg: srcA")
+                    val b = call.args["srcB"] ?: call.args["bed"]
+                        ?: return@withContext done(false, error = "missing arg: srcB")
+                    val dst = call.args["dst"] ?: defaultDst(a, "mix")
+                    audio.mix(a, b, dst, call.args["gainB"]?.toDoubleOrNull() ?: 1.0, call.args["offsetMs"]?.toLongOrNull() ?: 0L).fold(
+                        onSuccess = { done(true, "ผสมเสียงแล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "normalize" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    val dst = call.args["dst"] ?: defaultDst(src, "norm")
+                    audio.normalize(src, dst, call.args["peakDb"]?.toDoubleOrNull() ?: -3.0).fold(
+                        onSuccess = { done(true, "นอร์มัลไลซ์แล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "autocut" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    val dst = call.args["dst"] ?: defaultDst(src, "cut")
+                    audio.autocut(
+                        src, dst,
+                        call.args["thresholdDb"]?.toDoubleOrNull() ?: -40.0,
+                        call.args["minSpeechMs"]?.toLongOrNull() ?: 300L,
+                        call.args["minSilenceMs"]?.toLongOrNull() ?: 500L,
+                        call.args["padMs"]?.toLongOrNull() ?: 150L,
+                    ).fold(
+                        onSuccess = { done(true, "ตัดเงียบเสียงแล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "podcast" -> {
+                    val voice = call.args["voice"] ?: call.args["src"]
+                        ?: return@withContext done(false, error = "missing arg: voice")
+                    val dst = call.args["dst"] ?: defaultDst(voice, "podcast")
+                    val bed = call.args["bed"]
+                    val bedGain = call.args["bedGain"]?.toDoubleOrNull() ?: 0.15
+                    val tmpCut = dst + ".cut.wav"
+                    val tmpNorm = dst + ".norm.wav"
+                    val cut = audio.autocut(voice, tmpCut)
+                    if (cut is Outcome.Failure) {
+                        return@withContext done(false, error = cut.error.message)
+                    }
+                    val norm = audio.normalize((cut as Outcome.Success).value.path, tmpNorm)
+                    if (norm is Outcome.Failure) {
+                        return@withContext done(false, error = norm.error.message)
+                    }
+                    val normPath = (norm as Outcome.Success).value.path
+                    if (bed == null) {
+                        audio.gain(normPath, dst, 0.0).fold(
+                            onSuccess = { done(true, "พอดแคสต์พร้อมแล้ว $dst (ตัดเงียบ+นอร์มัลไลซ์): ${it.summary}") },
+                            onFailure = { done(false, error = it.message) },
+                        )
+                    } else {
+                        audio.mix(normPath, bed, dst, bedGain).fold(
+                            onSuccess = { done(true, "พอดแคสต์พร้อมแล้ว $dst (ตัดเงียบ+นอร์มัลไลซ์+ดนตรี): ${it.summary}") },
+                            onFailure = { done(false, error = it.message) },
+                        )
+                    }
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade/beats/voicefx/synthmusic/synthsfx/speech/recordStart/recordStop/mix/normalize/autocut/podcast)")
             }
         }
 

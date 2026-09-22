@@ -240,6 +240,16 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp95PodcastPlans() = runBlocking {
+        val pod = (planner.plan(UserIntent(IntentType.PODCAST, "t", mapOf("voice" to "v.wav"))) as Outcome.Success<Plan>).value
+        assertEquals("podcast", pod.steps[0].action)
+        val mix = (planner.plan(UserIntent(IntentType.AUDIO_MIX, "t", mapOf("srcA" to "a.wav", "srcB" to "b.wav"))) as Outcome.Success<Plan>).value
+        assertEquals("mix", mix.steps[0].action)
+        val norm = (planner.plan(UserIntent(IntentType.AUDIO_NORMALIZE, "t", mapOf("src" to "a.wav"))) as Outcome.Success<Plan>).value
+        assertEquals("normalize", norm.steps[0].action)
+    }
+
+    @Test
     fun cp94RecordPlans() = runBlocking {
         val start = (planner.plan(UserIntent(IntentType.RECORD_START, "t", mapOf("dst" to "r.m4a"))) as Outcome.Success<Plan>).value
         assertEquals("recordStart", start.steps[0].action)

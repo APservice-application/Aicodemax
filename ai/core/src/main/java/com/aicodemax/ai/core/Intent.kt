@@ -111,6 +111,9 @@ enum class IntentType {
     RECORD_START,
     RECORD_STOP,
     SCREEN_RECORD,
+    PODCAST,
+    AUDIO_MIX,
+    AUDIO_NORMALIZE,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -680,6 +683,17 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.recordStartWords)) {
             return UserIntent(IntentType.RECORD_START, text, params("dst" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.podcastWords)) {
+            val files = fileNamePattern.findAll(t).map { it.value }.toList()
+            return UserIntent(IntentType.PODCAST, text, params("voice" to files.getOrNull(0), "bed" to files.getOrNull(1)))
+        }
+        if (containsAny(t, ThaiVocabulary.audioMixWords)) {
+            val files = fileNamePattern.findAll(t).map { it.value }.toList()
+            return UserIntent(IntentType.AUDIO_MIX, text, params("srcA" to files.getOrNull(0), "srcB" to files.getOrNull(1)))
+        }
+        if (containsAny(t, ThaiVocabulary.normalizeWords)) {
+            return UserIntent(IntentType.AUDIO_NORMALIZE, text, params("src" to file))
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value
