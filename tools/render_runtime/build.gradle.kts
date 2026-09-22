@@ -1,12 +1,31 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+}
+
+android {
+    namespace = "com.aicodemax.tools.render_runtime"
+    compileSdk = 34
+
+    defaultConfig {
+        minSdk = 26
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {
-    implementation(project(":core"))
-    implementation(project(":tools:capability"))
-    implementation(project(":tools:runtime"))
+    api(project(":core:common"))
+    implementation(project(":tools:registry"))
     implementation(project(":tools:render"))
     implementation(project(":tools:media"))
-    implementation(libs.kotlinx.coroutines.core)
+    implementation(project(":tools:gateway"))
+    implementation(libs.coroutines.android)
+    testImplementation(libs.junit4)
 }
