@@ -91,6 +91,82 @@ class RuleBasedPlanner(
             IntentType.BUILD_PROJECT -> listOf("build.project" to emptyMap())
             IntentType.RUN_TESTS -> listOf("test.run" to emptyMap())
             IntentType.GIT_ACTION -> gitRequests(intent) ?: return gitFailure(intent)
+            IntentType.SEARCH_FILES -> {
+                val query = intent.parameters["query"]?.trim().orEmpty()
+                if (query.isBlank()) {
+                    return Outcome.Failure(AppError("PLAN_NO_QUERY", "ค้นหาอะไรครับ? เช่น ค้นหา TODO"))
+                }
+                listOf("files.search" to mapOf("query" to query))
+            }
+            IntentType.BROWSER_OPEN -> {
+                val url = intent.parameters["url"]?.trim().orEmpty()
+                if (url.isBlank()) {
+                    return Outcome.Failure(AppError("PLAN_NO_URL", "เปิดเว็บไหนครับ? เช่น เปิดดู example.com"))
+                }
+                listOf("browser.open" to mapOf("url" to url))
+            }
+            IntentType.BROWSER_CLOSE -> {
+                val tabId = intent.parameters["tabId"]?.trim().orEmpty()
+                if (tabId.isBlank()) {
+                    return Outcome.Failure(AppError("PLAN_NO_TAB", "ปิดแท็บไหนครับ? เช่น ปิดแท็บ 1"))
+                }
+                listOf("browser.close" to mapOf("tabId" to tabId))
+            }
+            IntentType.BROWSER_LIST -> listOf("browser.list" to emptyMap())
+            IntentType.DEBUG_CODE -> {
+                val error = intent.parameters["error"]?.trim().orEmpty()
+                if (error.isBlank()) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_ERROR", "วาง error มาเลยครับ เช่น แก้บั๊ก: NullPointerException ..."),
+                    )
+                }
+                listOf("debug.analyze" to mapOf("error" to error))
+            }
+            IntentType.MEMORY_SAVE -> {
+                val key = intent.parameters["key"]?.trim().orEmpty()
+                val value = intent.parameters["value"]?.trim().orEmpty()
+                if (key.isBlank() || value.isBlank()) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_MEMORY", "บันทึกอะไรครับ? เช่น บันทึก wifi: รหัส 1234"),
+                    )
+                }
+                listOf("memory.save" to mapOf("key" to key, "value" to value))
+            }
+            IntentType.MEMORY_RECALL -> {
+                val key = intent.parameters["key"]?.trim().orEmpty()
+                if (key.isBlank()) {
+                    return Outcome.Failure(AppError("PLAN_NO_MEMORY", "ถามเรื่องอะไรครับ? เช่น ความจำ wifi"))
+                }
+                listOf("memory.recall" to mapOf("key" to key))
+            }
+            // Chat-handled or pending-engine intents: honest guidance, no fake steps.
+            IntentType.STOP_TASK -> return Outcome.Failure(
+                AppError("PLAN_STOP", "กดปุ่มหยุดในแชท/Task Center ได้เลยครับ งานจะหยุดทันที"),
+            )
+            IntentType.SYSTEM_STATUS -> return Outcome.Failure(
+                AppError("PLAN_STATUS", "ดูสถานะเครื่องได้ที่หน้า Home ครับ"),
+            )
+            IntentType.OPEN_SETTINGS -> return Outcome.Failure(
+                AppError("PLAN_SETTINGS", "เปิดหน้า Settings ที่แถบล่าง (ไอคอนฟันเฟือง) ได้เลยครับ"),
+            )
+            IntentType.MEDIA_EDIT -> return Outcome.Failure(
+                AppError(
+                    "PLAN_MEDIA_PENDING",
+                    "ระบบตัดต่อวิดีโอ/รูป/เสียงกำลังมาใน CP-61..63 ครับ — ตอนนี้ยังตัดให้จริงไม่ได้ เลยไม่แกล้งทำ",
+                ),
+            )
+            IntentType.SHARE_MEDIA -> return Outcome.Failure(
+                AppError(
+                    "PLAN_SHARE_PENDING",
+                    "ระบบแชร์/โพสต์มาพร้อมหน้า Export ใน CP-67 ครับ",
+                ),
+            )
+            IntentType.LLM_CONNECT -> return Outcome.Failure(
+                AppError(
+                    "PLAN_LLM_PENDING",
+                    "ตัวต่อ LLM มาจริงใน CP-59 ครับ (ใส่ key ที่หน้า Models — ไม่ต้องพิมพ์ในแชท)",
+                ),
+            )
             IntentType.CHAT, IntentType.UNKNOWN -> return Outcome.Failure(
                 AppError("PLAN_NOT_ACTIONABLE", "nothing to plan for chat"),
             )

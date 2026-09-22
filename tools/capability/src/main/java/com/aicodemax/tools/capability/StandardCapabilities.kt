@@ -83,6 +83,14 @@ object StandardCapabilities {
             metadata = meta("browser", "list แท็บ", emptyList(), listOf("tabs"), emptyList(), false, "tab count", "re-list")),
         CapabilityBinding("browser.navigate", "browser", "navigate", AdapterKind.NATIVE,
             metadata = meta("browser", "เปลี่ยน URL ในแท็บ", listOf("tabId,url"), listOf("ok"), listOf("network"), true, "tab url", "go back")),
+        // Debug engine (native).
+        CapabilityBinding("debug.analyze", "debug", "analyze", AdapterKind.NATIVE,
+            metadata = meta("debug", "วิเคราะห์ stack trace หาสาเหตุ", listOf("error"), listOf("finding"), emptyList(), false, "parse confidence", "ask for full trace")),
+        // Memory engine (native).
+        CapabilityBinding("memory.save", "memory", "save", AdapterKind.NATIVE,
+            metadata = meta("memory", "จำ key=value ระดับ global", listOf("key,value"), listOf("ok"), emptyList(), false, "read-back", "retry")),
+        CapabilityBinding("memory.recall", "memory", "recall", AdapterKind.NATIVE,
+            metadata = meta("memory", "ทวนความจำ global", listOf("key"), listOf("value"), emptyList(), false, "record found", "ask user")),
         // Compatibility engine — CLI adapter, LAST resort (§29, CP-32).
         CapabilityBinding("terminal.open", "terminal", "open", AdapterKind.CLI_ADAPTER,
             metadata = meta("terminal", "เปิด terminal session", emptyList(), listOf("sessionId"), listOf("terminal"), false, "session listed", "re-open")),
@@ -106,7 +114,7 @@ object StandardCapabilities {
      */
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
-        for (toolId in listOf("files", "editor", "git", "browser")) {
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -132,6 +140,8 @@ private fun meta(
         "editor" to ("Code Engine" to "FileBackedEditor"),
         "git" to ("Git Engine" to "JGit"),
         "browser" to ("Browser Engine" to "WebView + tab store"),
+        "debug" to ("Debug Engine" to "StackTraceParser + DebugSession"),
+        "memory" to ("Memory Engine" to "FileMemoryStore"),
         "terminal" to ("Compatibility Engine" to "Termux bridge (pending device work)"),
     )
     val (engine, runtime) = engines.getValue(tool)

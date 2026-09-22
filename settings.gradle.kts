@@ -36,6 +36,8 @@ include(
     ":tools:project",
     ":tools:tester",
     ":tools:debug",
+    ":tools:debug_runtime",
+    ":tools:memory_runtime",
     ":tools:github",
     ":tools:browser",
     ":tools:browser_runtime",
