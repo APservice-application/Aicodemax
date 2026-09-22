@@ -39,6 +39,8 @@ include(
     ":tools:debug_runtime",
     ":tools:memory_runtime",
     ":tools:skill_runtime",
+    ":tools:voice",
+    ":tools:voice_runtime",
     ":tools:github",
     ":tools:browser",
     ":tools:browser_runtime",

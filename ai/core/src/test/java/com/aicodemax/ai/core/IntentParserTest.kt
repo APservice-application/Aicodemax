@@ -111,4 +111,15 @@ class IntentParserTest {
         assertEquals(IntentType.SKILL_REMOVE, remove.type)
         assertEquals("my-note", remove.parameters["id"])
     }
+
+    @Test
+    fun cp60VoiceIntents() {
+        val speak = IntentParser.parse("อ่านให้ฟัง: สวัสดีตอนเช้า")
+        assertEquals(IntentType.VOICE_SPEAK, speak.type)
+        assertEquals("สวัสดีตอนเช้า", speak.parameters["text"])
+        val speak2 = IntentParser.parse("ช่วยพูดให้ฟังหน่อยครับ")
+        assertEquals(IntentType.VOICE_SPEAK, speak2.type)
+        assertEquals(IntentType.VOICE_LISTEN, IntentParser.parse("ฟังเสียงหน่อย").type)
+        assertEquals(IntentType.VOICE_LISTEN, IntentParser.parse("รับคำสั่งเสียง").type)
+    }
 }

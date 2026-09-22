@@ -139,6 +139,16 @@ class RuleBasedPlanner(
                 }
                 listOf("memory.recall" to mapOf("key" to key))
             }
+            IntentType.VOICE_SPEAK -> {
+                val say = intent.parameters["text"]?.trim().orEmpty()
+                if (say.isBlank()) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_VOICE", "ให้พูดว่าอะไรครับ? เช่น อ่านให้ฟัง: สวัสดีตอนเช้า"),
+                    )
+                }
+                listOf("voice.speak" to mapOf("text" to say))
+            }
+            IntentType.VOICE_LISTEN -> listOf("voice.listen" to emptyMap())
             IntentType.SKILL_LIST -> listOf("skill.list" to emptyMap())
             IntentType.SKILL_GET -> {
                 val id = intent.parameters["id"]?.trim().orEmpty()

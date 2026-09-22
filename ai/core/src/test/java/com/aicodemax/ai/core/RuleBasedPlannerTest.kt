@@ -78,4 +78,22 @@ class RuleBasedPlannerTest {
         val chat = planner.plan(UserIntent(IntentType.CHAT, "hi"))
         assertEquals("PLAN_NOT_ACTIONABLE", (chat as Outcome.Failure).error.code)
     }
+
+    @Test
+    fun cp60VoicePlansRealSteps() = runBlocking {
+        val speak = UserIntent(IntentType.VOICE_SPEAK, "t", mapOf("text" to "สวัสดี"))
+        val speakPlan = (planner.plan(speak) as Outcome.Success<Plan>).value
+        assertEquals(1, speakPlan.steps.size)
+        assertEquals("voice", speakPlan.steps[0].toolId)
+        assertEquals("speak", speakPlan.steps[0].action)
+        assertEquals("สวัสดี", speakPlan.steps[0].args["text"])
+
+        val listen = UserIntent(IntentType.VOICE_LISTEN, "t")
+        val listenPlan = (planner.plan(listen) as Outcome.Success<Plan>).value
+        assertEquals("voice", listenPlan.steps[0].toolId)
+        assertEquals("listen", listenPlan.steps[0].action)
+
+        val empty = planner.plan(UserIntent(IntentType.VOICE_SPEAK, "t", mapOf("text" to " ")))
+        assertEquals("PLAN_NO_VOICE", (empty as Outcome.Failure).error.code)
+    }
 }

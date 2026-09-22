@@ -25,6 +25,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberDrawerState
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.aicodemax.data.conversations.ChatMessage
@@ -57,6 +62,27 @@ fun ChatRoute(
     val conversations by viewModel.conversationsList.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    // CP-60 voice: mic transcript lands in the composer via pendingPrompt.
+    val context = LocalContext.current
+    var micText by remember { mutableStateOf<String?>(null) }
+    var micDenied by remember { mutableStateOf(false) }
+    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            viewModel.voiceInput(onText = { micText = it }, onError = { micText = null })
+        } else {
+            micDenied = true
+        }
+    }
+    fun onMic() {
+        micDenied = false
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            viewModel.voiceInput(onText = { micText = it }, onError = { micText = null })
+        } else {
+            micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
     LaunchedEffect(Unit) {
         viewModel.ensureOpen()
         viewModel.refreshConversations()
@@ -84,15 +110,18 @@ fun ChatRoute(
             ChatScreen(
                 messages = state.messages,
                 sending = state.sending,
-                error = state.error,
+                error = state.error
+                    ?: if (micDenied) "ต้องอนุญาตไมโครโฟนก่อนถึงจะใช้เสียงได้ครับ" else null,
                 lastTaskId = state.lastTaskId,
                 onSend = viewModel::send,
                 onStop = viewModel::stop,
                 onMenu = { scope.launch { drawerState.open() } },
                 onNewChat = viewModel::newChat,
                 onOpenTasks = onOpenTasks,
-                pendingPrompt = pendingHandoff,
-                onPromptConsumed = { workingSet?.consumePrompt() },
+                pendingPrompt = pendingHandoff ?: micText,
+                onPromptConsumed = { workingSet?.consumePrompt(); micText = null },
+                onMic = ::onMic,
+                onSpeak = viewModel::speak,
             )
         },
     )
@@ -145,6 +174,8 @@ fun ChatScreen(
     onOpenTasks: () -> Unit = {},
     pendingPrompt: String? = null,
     onPromptConsumed: () -> Unit = {},
+    onMic: () -> Unit = {},
+    onSpeak: (String) -> Unit = {},
 ) {
     val spacing = LocalSpacing.current
     var input by remember { mutableStateOf("") }
@@ -180,7 +211,7 @@ fun ChatScreen(
                 contentPadding = PaddingValues(spacing.md),
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
-                items(messages, key = { it.id }) { message -> MessageBubble(message) }
+                items(messages, key = { it.id }) { message -> MessageBubble(message, onSpeak) }
                 if (sending) {
                     item(key = "__sending__") { SendingRow() }
                 }
@@ -205,6 +236,7 @@ fun ChatScreen(
                 input = ""
             },
             onStop = onStop,
+            onMic = onMic,
         )
     }
 }
@@ -230,7 +262,7 @@ private fun EmptyChat(modifier: Modifier = Modifier, onSuggest: (String) -> Unit
 }
 
 @Composable
-private fun MessageBubble(message: ChatMessage) {
+private fun MessageBubble(message: ChatMessage, onSpeak: (String) -> Unit = {}) {
     when (message.role) {
         MessageRole.USER -> Row(
             modifier = Modifier.fillMaxWidth().padding(start = 48.dp),
@@ -247,13 +279,18 @@ private fun MessageBubble(message: ChatMessage) {
                 )
             }
         }
-        MessageRole.AI -> Row(modifier = Modifier.fillMaxWidth().padding(end = 48.dp)) {
+        MessageRole.AI -> Row(
+            modifier = Modifier.fillMaxWidth().padding(end = 48.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.weight(1f, fill = false),
             ) {
                 MarkdownText(text = message.text, modifier = Modifier.padding(12.dp))
             }
+            TextButton(onClick = { onSpeak(message.text) }) { Text("\uD83D\uDD0A") }
         }
         MessageRole.STATUS -> StatusCard(message.text)
         MessageRole.SYSTEM -> Text(
@@ -316,6 +353,7 @@ private fun ChatComposer(
     sending: Boolean,
     onSend: () -> Unit,
     onStop: () -> Unit,
+    onMic: () -> Unit = {},
 ) {
     val spacing = LocalSpacing.current
     Row(
@@ -333,6 +371,7 @@ private fun ChatComposer(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() }),
         )
+        TextButton(onClick = onMic, enabled = !sending) { Text("\uD83C\uDFA4") }
         if (sending) {
             Button(onClick = onStop) {
                 Text("หยุด")

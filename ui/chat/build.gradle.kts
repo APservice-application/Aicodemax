@@ -33,6 +33,8 @@ dependencies {
     implementation(project(":ai:tasks"))
     implementation(project(":core:resources"))
     implementation(project(":data:conversations"))
+    implementation(project(":tools:voice"))
+    implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.coroutines.android)
     implementation(platform(libs.compose.bom))
