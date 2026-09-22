@@ -338,6 +338,32 @@ class RuleBasedPlanner(
                 }
                 listOf("media.timeline.setFx" to args)
             }
+            IntentType.CLIP_MASK -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "มาสก์คลิปที่เท่าไหร่ครับ? เช่น มาสก์คลิปที่ 1 วงรี"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["shape"]?.let { args["shape"] = it }
+                listOf("media.timeline.setMask" to args)
+            }
+            IntentType.CLIP_CHROMA -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "กรีนสกรีนคลิปที่เท่าไหร่ครับ? เช่น กรีนสกรีนคลิปที่ 1"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["hue"]?.let { args["hue"] = it }
+                intent.parameters["off"]?.let { args["off"] = it }
+                listOf("media.timeline.setChroma" to args)
+            }
+            IntentType.BG_SET -> {
+                val args = mutableMapOf<String, String>()
+                intent.parameters["mode"]?.let { args["mode"] = it }
+                intent.parameters["color"]?.let { args["color"] = it }
+                intent.parameters["assetId"]?.let { args["assetId"] = it }
+                listOf("media.timeline.setBackground" to args)
+            }
             IntentType.IMAGE_SCOPES -> {
                 val path = intent.parameters["path"]
                     ?: return Outcome.Failure(

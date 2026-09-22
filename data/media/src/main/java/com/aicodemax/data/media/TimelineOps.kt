@@ -374,6 +374,51 @@ object TimelineOps {
         return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(color = next) else it })
     }
 
+    /** CP-79: replaces the clip's shape mask (§17). Identity clears to null. */
+    fun mask(timeline: Timeline, clipId: String, mask: ClipMask): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (track.kind == MediaKind.AUDIO) {
+            throw IllegalArgumentException("คลิปเสียงใช้มาสก์ไม่ได้")
+        }
+        val problems = mask.validate()
+        if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        val next = if (mask.isIdentity) null else mask
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(mask = next) else it })
+    }
+
+    /** CP-79: replaces the clip's chroma key (§18). Null clears. */
+    fun chroma(timeline: Timeline, clipId: String, chroma: ClipChroma?): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (track.kind == MediaKind.AUDIO) {
+            throw IllegalArgumentException("คลิปเสียงใช้ chroma ไม่ได้")
+        }
+        if (chroma != null) {
+            val problems = chroma.validate()
+            if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        }
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(chroma = chroma) else it })
+    }
+
+    /** CP-79: replaces the timeline background (§19). Null/identity clears. */
+    fun background(timeline: Timeline, background: ClipBackground?): Timeline {
+        if (background != null) {
+            val problems = background.validate()
+            if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+            if (background.mode == "image") {
+                val ids = timeline.tracks.flatMap { it.clips }.map { it.assetId }.toSet()
+                if (background.assetId !in ids) {
+                    throw IllegalArgumentException("พื้นหลังอ้าง asset ที่ไม่มีในไทม์ไลน์ (${background.assetId})")
+                }
+            }
+        }
+        val next = if (background == null || background.isIdentity) null else background
+        return timeline.copy(background = next)
+    }
+
     private fun checkUnlocked(track: Track) {
         if (track.locked) throw IllegalArgumentException("แทร็ก ${track.id} ล็อกอยู่")
     }

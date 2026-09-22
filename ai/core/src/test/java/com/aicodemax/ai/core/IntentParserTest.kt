@@ -257,6 +257,21 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp79MaskChromaBgIntents() {
+        val mask = IntentParser.parse("มาสก์คลิปที่ 1 วงรี")
+        assertEquals(IntentType.CLIP_MASK, mask.type)
+        assertEquals("1", mask.parameters["clipIndex"])
+        assertEquals("ellipse", mask.parameters["shape"])
+        val chroma = IntentParser.parse("กรีนสกรีนคลิปที่ 2")
+        assertEquals(IntentType.CLIP_CHROMA, chroma.type)
+        assertEquals("2", chroma.parameters["clipIndex"])
+        val bg = IntentParser.parse("พื้นหลังสีแดง")
+        assertEquals(IntentType.BG_SET, bg.type)
+        assertEquals("color", bg.parameters["mode"])
+        assertEquals("FF0000", bg.parameters["color"])
+    }
+
+    @Test
     fun cp78ColorScopesIntents() {
         val warm = IntentParser.parse("สีคลิปที่ 1 โทนอุ่น")
         assertEquals(IntentType.CLIP_COLOR, warm.type)

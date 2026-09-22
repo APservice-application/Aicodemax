@@ -1,7 +1,7 @@
 # CHECKPOINT PROGRESS (MASTER_ARCHITECTURE §57–§59)
 
 > สถานะซื่อสัตย์ ณ 2026-09-21 — DONE = ผ่าน Definition of Done ทั้ง 13 ข้อเท่านั้น,
-> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **390/390** (`kc-build.sh` + JUnit)
+> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **397/397** (`kc-build.sh` + JUnit)
 
 ## ปัจจุบัน
 - **งาน code เสร็จทุก CP ที่ทำได้บนเครื่องนี้** — เหลือ TODO/PARTIAL ที่ต้องการ
@@ -117,7 +117,7 @@
 | CP-76 | Keyframe engine | DONE | KeyPoint/ClipKeyframes + Easing(linear/ease/bezier) + set/remove/clear + split-shift + render interp (video/still/reverse/audio) + intents + UI + เทส (373/373) |
 | CP-77 | Transitions + basic effects | DONE | edge transitions (fade/dissolve/wipe, in-bounds v0) + ClipFx blur/vignette/grain + video/still/reverse/audio render + intents + UI + เทส (381/381) |
 | CP-78 | Color engine + scopes | DONE | ClipColor basic+HSL + presets + render grade + histogram scopes (image.scopes + render QC exposure) + intents + UI + เทส (390/390) |
-| CP-79 | Mask + chroma + background | TODO | §17/§18/§19 + render |
+| CP-79 | Mask + chroma + background | DONE | ClipMask rect/ellipse + ClipChroma key/despill + ClipBackground color/image/blur + alpha composite render + intents + UI + เทส (397/397) |
 | CP-80 | Tracking-lite + stabilize | TODO | §15 template-matching + §43 stabilize (ซื่อสัตย์ไม่มี ML) |
 | CP-81 | Audio pro + voice + beat | TODO | §28 pro + §29 voice changer + §31 beat/BPM |
 | CP-82 | STT + auto captions + transcript | TODO | §24–27 SpeechRecognizer + word timing + แปล + filler |
