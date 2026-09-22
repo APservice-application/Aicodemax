@@ -82,7 +82,7 @@ class AndroidGenPort(
             color = android.graphics.Color.WHITE
             textAlign = Paint.Align.CENTER
             isFakeBoldText = true
-            shadowLayer = h / 90f, 0f, h / 180f, 0xAA000000.toInt()
+            setShadowLayer(h / 90f, 0f, h / 180f, 0xAA000000.toInt())
         }
         val lines = wrap(request.prompt.trim().take(200), paint, w * 0.86f, h * 0.16f)
         paint.textSize = h * 0.16f
