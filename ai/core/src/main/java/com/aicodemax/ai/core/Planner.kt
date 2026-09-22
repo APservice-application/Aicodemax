@@ -312,6 +312,32 @@ class RuleBasedPlanner(
                 intent.parameters["rate"]?.let { args["rate"] = it }
                 listOf("media.timeline.setSpeed" to args)
             }
+            IntentType.TRANSITION_SET -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ใส่ทรานซิชันคลิปที่เท่าไหร่ครับ? เช่น ทรานซิชันคลิปที่ 2 เฟด"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["edge"]?.let { args["edge"] = it }
+                intent.parameters["kind"]?.let { args["kind"] = it }
+                listOf("media.timeline.setTransition" to args)
+            }
+            IntentType.CLIP_FX -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ใส่เอฟเฟกต์คลิปที่เท่าไหร่ครับ? เช่น เบลอคลิปที่ 1 5"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                for (k in listOf("blur", "vignette", "grain")) {
+                    intent.parameters[k]?.let { args[k] = it }
+                }
+                if (args.size < 2) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_FX", "เอฟเฟกต์อะไรครับ? เบลอ/วิกเน็ต/เกรน + ระดับ เช่น เบลอคลิปที่ 1 5"),
+                    )
+                }
+                listOf("media.timeline.setFx" to args)
+            }
             IntentType.KEYFRAME_SET -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

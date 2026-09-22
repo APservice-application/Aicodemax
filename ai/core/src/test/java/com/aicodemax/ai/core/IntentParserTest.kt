@@ -256,6 +256,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp77TransitionFxIntents() {
+        val tr = IntentParser.parse("ทรานซิชันคลิปที่ 2 ดีซอล์ฟ")
+        assertEquals(IntentType.TRANSITION_SET, tr.type)
+        assertEquals("2", tr.parameters["clipIndex"])
+        assertEquals("dissolve", tr.parameters["kind"])
+        assertEquals("in", tr.parameters["edge"])
+        val fx = IntentParser.parse("เบลอคลิปที่ 1 5")
+        assertEquals(IntentType.CLIP_FX, fx.type)
+        assertEquals("5", fx.parameters["blur"])
+    }
+
+    @Test
     fun cp76KeyframeIntents() {
         val set = IntentParser.parse("คีย์เฟรมสเกลคลิปที่ 1 150 ตอน 2 วิ")
         assertEquals(IntentType.KEYFRAME_SET, set.type)

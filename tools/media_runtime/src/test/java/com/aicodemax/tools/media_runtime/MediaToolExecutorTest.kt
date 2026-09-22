@@ -168,4 +168,25 @@ class MediaToolExecutorTest {
         val bad = run("timeline.setKeyframe", mapOf("projectId" to projectId, "clipIndex" to "1", "prop" to "scale", "atMs" to "0", "value" to "999"))
         assertTrue(!bad.ok)
     }
+
+    @Test
+    fun transitionFxFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("tf") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val imported = run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4"))
+        assertTrue(imported.ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        val clip = run(
+            "timeline.addClip",
+            mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0"),
+        )
+        assertTrue(clip.ok)
+        val tr = run("timeline.setTransition", mapOf("projectId" to projectId, "clipIndex" to "1", "edge" to "in", "kind" to "fade", "durationMs" to "400"))
+        assertTrue(tr.output, tr.ok)
+        val fx = run("timeline.setFx", mapOf("projectId" to projectId, "clipIndex" to "1", "grain" to "20"))
+        assertTrue(fx.output, fx.ok)
+        val listed = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed.output, listed.ok && listed.output.contains("{IN:fade400}") && listed.output.contains("{FX:g20}"))
+        val bad = run("timeline.setFx", mapOf("projectId" to projectId, "clipIndex" to "1", "blur" to "99"))
+        assertTrue(!bad.ok)
+    }
 }

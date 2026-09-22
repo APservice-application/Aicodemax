@@ -240,6 +240,18 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp77TransitionFxPlansRealSteps() = runBlocking {
+        val tr = (planner.plan(UserIntent(IntentType.TRANSITION_SET, "t", mapOf("clipIndex" to "2", "edge" to "in", "kind" to "dissolve"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setTransition", tr.steps[0].action)
+        assertEquals("dissolve", tr.steps[0].args["kind"])
+        val fx = (planner.plan(UserIntent(IntentType.CLIP_FX, "t", mapOf("clipIndex" to "1", "grain" to "20"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setFx", fx.steps[0].action)
+        assertEquals("20", fx.steps[0].args["grain"])
+        val missing = planner.plan(UserIntent(IntentType.CLIP_FX, "t", mapOf("clipIndex" to "1")))
+        assertEquals("PLAN_NO_FX", (missing as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp76KeyframePlansRealSteps() = runBlocking {
         val set = (planner.plan(UserIntent(IntentType.KEYFRAME_SET, "t", mapOf("clipIndex" to "1", "prop" to "scale", "atMs" to "2000", "value" to "150"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.setKeyframe", set.steps[0].action)

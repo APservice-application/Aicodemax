@@ -346,6 +346,52 @@ object Easing {
     }
 }
 
+/** CP-77 transition on one clip edge (§21). v0 renders inside clip bounds (no overlap). */
+@Serializable
+data class ClipTransition(
+    val kind: String = "fade",
+    val durationMs: Long = 500,
+) {
+    fun validate(edge: String): List<String> {
+        val errors = mutableListOf<String>()
+        val allowed = if (edge == "out") OUT_KINDS else IN_KINDS
+        if (kind !in allowed) errors.add("ทรานซิชันขา$edge ใช้ได้แค่ ${allowed.joinToString("/")}")
+        if (durationMs !in 100..2000) errors.add("ทรานซิชันยาว 100..2000ms (ได้ $durationMs)")
+        return errors
+    }
+
+    fun summary(): String = "$kind$durationMs"
+
+    companion object {
+        val IN_KINDS = listOf("cut", "fade", "dissolve", "wipeleft", "wiperight", "wipeup", "wipedown")
+        val OUT_KINDS = listOf("cut", "fade")
+    }
+}
+
+/** CP-77 basic per-clip image effects (§20). All zero = off. */
+@Serializable
+data class ClipFx(
+    val blur: Int = 0,
+    val vignette: Int = 0,
+    val grain: Int = 0,
+) {
+    val isIdentity: Boolean get() = blur == 0 && vignette == 0 && grain == 0
+
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (blur !in 0..10) errors.add("blur ต้องอยู่ 0..10 (ได้ $blur)")
+        if (vignette !in 0..100) errors.add("vignette ต้องอยู่ 0..100 (ได้ $vignette)")
+        if (grain !in 0..100) errors.add("grain ต้องอยู่ 0..100 (ได้ $grain)")
+        return errors
+    }
+
+    fun summary(): String = buildList {
+        if (blur > 0) add("b$blur")
+        if (vignette > 0) add("v$vignette")
+        if (grain > 0) add("g$grain")
+    }.joinToString("/")
+}
+
 /** One placed piece of an asset on a track. Times in ms. */
 @Serializable
 data class Clip(
@@ -364,6 +410,12 @@ data class Clip(
     val speed: ClipSpeed? = null,
     /** Animated properties (null/empty = static base values). */
     val keyframes: ClipKeyframes? = null,
+    /** CP-77 how this clip enters (needs same-track predecessor for dissolve/wipe). */
+    val transitionIn: ClipTransition? = null,
+    /** CP-77 how this clip exits (fade to black; cut = hard). */
+    val transitionOut: ClipTransition? = null,
+    /** CP-77 basic image effects (null/identity = off). */
+    val fx: ClipFx? = null,
 ) {
     val durationMs: Long get() = endMs - startMs
 
@@ -503,6 +555,14 @@ data class Timeline(
                 clip.transform?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.speed?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.keyframes?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.transitionIn?.validate("in")?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.transitionOut?.validate("out")?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.fx?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                for (tr in listOfNotNull(clip.transitionIn, clip.transitionOut)) {
+                    if (tr.kind != "cut" && tr.durationMs > clip.outputDurationMs()) {
+                        errors.add("คลิป ${clip.id}: ทรานซิชันยาวกว่าคลิป")
+                    }
+                }
             }
         }
         for (marker in markers) {

@@ -70,6 +70,8 @@ enum class IntentType {
     CLIP_REVERSE,
     KEYFRAME_SET,
     KEYFRAME_CLEAR,
+    TRANSITION_SET,
+    CLIP_FX,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -401,6 +403,36 @@ object IntentParser {
             return UserIntent(
                 IntentType.TEXT_IDEA, text,
                 params("kind" to kind, "topic" to topic.ifBlank { null }, "platform" to findPlatform(t)),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.transitionWords)) {
+            val kind = when {
+                t.contains("ดีซอล์ฟ") || t.contains("ละลาย") -> "dissolve"
+                t.contains("ไวป์") || t.contains("ปาด") -> when {
+                    t.contains("ขวา") -> "wiperight"
+                    t.contains("บน") -> "wipeup"
+                    t.contains("ล่าง") -> "wipedown"
+                    else -> "wipeleft"
+                }
+                else -> "fade"
+            }
+            val edge = if (t.contains("ขาออก") || t.contains("ท้าย")) "out" else "in"
+            return UserIntent(
+                IntentType.TRANSITION_SET, text,
+                params("clipIndex" to parseClipIndex(t), "edge" to edge, "kind" to kind),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipFxWords)) {
+            val noClip = t.replace(Regex("คลิป(?:ที่)?\\s*\\d+"), "")
+            val value = Regex("(\\d+)").find(noClip)?.groupValues?.get(1)
+            return UserIntent(
+                IntentType.CLIP_FX, text,
+                params(
+                    "clipIndex" to parseClipIndex(t),
+                    "blur" to (value.takeIf { t.contains("เบลอ") }),
+                    "vignette" to (value.takeIf { t.contains("วิกเน็ต") }),
+                    "grain" to (value.takeIf { t.contains("เกรน") }),
+                ),
             )
         }
         if (containsAny(t, ThaiVocabulary.keyframeClearWords)) {

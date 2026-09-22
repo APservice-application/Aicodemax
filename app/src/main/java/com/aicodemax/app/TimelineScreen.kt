@@ -486,6 +486,84 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }
                             }
                         }
+                        // CP-77 transitions (§21) + fx (§20).
+                        val inKinds = listOf("cut", "fade", "dissolve", "wipeleft", "wiperight", "wipeup", "wipedown")
+                        val outKinds = listOf("cut", "fade")
+                        Text(
+                            "ทรานซิชัน: เข้า=${clip.transitionIn?.summary() ?: "cut"} ออก=${clip.transitionOut?.summary() ?: "cut"}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(onClick = {
+                                val cur = clip.transitionIn?.kind ?: "cut"
+                                val next = inKinds[(inKinds.indexOf(cur) + 1) % inKinds.size]
+                                keyCall { projectId, clipId ->
+                                    services.media.setTransition(projectId, clipId, "in", next, clip.transitionIn?.durationMs ?: 500L, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("เข้า:${clip.transitionIn?.kind ?: "cut"}") }
+                            OutlinedButton(onClick = {
+                                val cur = clip.transitionOut?.kind ?: "cut"
+                                val next = outKinds[(outKinds.indexOf(cur) + 1) % outKinds.size]
+                                keyCall { projectId, clipId ->
+                                    services.media.setTransition(projectId, clipId, "out", next, clip.transitionOut?.durationMs ?: 500L, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ออก:${clip.transitionOut?.kind ?: "cut"}") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val d = ((clip.transitionIn?.durationMs ?: 500L) - 100).coerceAtLeast(100)
+                                    services.media.setTransition(projectId, clipId, "in", clip.transitionIn?.kind ?: "fade", d, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("สั้น") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val d = ((clip.transitionIn?.durationMs ?: 500L) + 100).coerceAtMost(2000)
+                                    services.media.setTransition(projectId, clipId, "in", clip.transitionIn?.kind ?: "fade", d, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ยาว") }
+                        }
+                        Text(
+                            "เอฟเฟกต์: ${(clip.fx?.summary()?.ifBlank { null } ?: "ปิด")}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            val fx = clip.fx ?: com.aicodemax.data.media.ClipFx()
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipFx(projectId, clipId, fx.copy(blur = (fx.blur + 2) % 12), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("เบลอ:${fx.blur}") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipFx(projectId, clipId, fx.copy(vignette = (fx.vignette + 25) % 125), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("วิกเน็ต:${fx.vignette}") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipFx(projectId, clipId, fx.copy(grain = (fx.grain + 25) % 125), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("เกรน:${fx.grain}") }
+                        }
                     }
                 }
             }

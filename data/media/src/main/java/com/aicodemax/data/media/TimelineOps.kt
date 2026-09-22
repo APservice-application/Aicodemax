@@ -17,8 +17,8 @@ object TimelineOps {
         }
         val cut = clip.startMs + clip.outputToSource(atTimelineMs - start)
         val leftLen = atTimelineMs - start
-        val left = clip.copy(endMs = cut, keyframes = clip.keyframes?.splitAt(leftLen)?.first)
-        val right = clip.copy(id = newId, startMs = cut, atMs = atTimelineMs, keyframes = clip.keyframes?.splitAt(leftLen)?.second)
+        val left = clip.copy(endMs = cut, keyframes = clip.keyframes?.splitAt(leftLen)?.first, transitionOut = null)
+        val right = clip.copy(id = newId, startMs = cut, atMs = atTimelineMs, keyframes = clip.keyframes?.splitAt(leftLen)?.second, transitionIn = null)
         return timeline.replaceClips(track.id, track.clips.flatMap { if (it.id == clipId) listOf(left, right) else listOf(it) })
     }
 
@@ -303,6 +303,61 @@ object TimelineOps {
             )
         }
         return left.takeUnless { it.isEmpty } to right.takeUnless { it.isEmpty }
+    }
+
+    /** CP-77: sets the transition on one clip edge (§21). kind=cut clears. */
+    fun transition(
+        timeline: Timeline,
+        clipId: String,
+        edge: String,
+        kind: String,
+        durationMs: Long = 500,
+    ): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (edge != "in" && edge != "out") throw IllegalArgumentException("edge ต้องเป็น in/out")
+        if (track.kind == MediaKind.AUDIO && kind != "fade" && kind != "cut") {
+            throw IllegalArgumentException("คลิปเสียงใช้ได้แค่ fade/cut")
+        }
+        if (kind == "cut") return clearTransition(timeline, clipId, edge)
+        val tr = ClipTransition(kind, durationMs)
+        val problems = tr.validate(edge)
+        if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        if (durationMs > clip.outputDurationMs()) {
+            throw IllegalArgumentException("ทรานซิชันยาวกว่าคลิป (${clip.outputDurationMs()}ms)")
+        }
+        val next = if (edge == "in") clip.copy(transitionIn = tr) else clip.copy(transitionOut = tr)
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) next else it })
+    }
+
+    /** CP-77: clears one (or both, when edge=null) transition edges. */
+    fun clearTransition(timeline: Timeline, clipId: String, edge: String? = null): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (edge != null && edge != "in" && edge != "out") {
+            throw IllegalArgumentException("edge ต้องเป็น in/out")
+        }
+        val next = clip.copy(
+            transitionIn = if (edge == null || edge == "in") null else clip.transitionIn,
+            transitionOut = if (edge == null || edge == "out") null else clip.transitionOut,
+        )
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) next else it })
+    }
+
+    /** CP-77: replaces the clip's basic image effects (§20). Identity clears to null. */
+    fun fx(timeline: Timeline, clipId: String, fx: ClipFx): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (track.kind == MediaKind.AUDIO) {
+            throw IllegalArgumentException("คลิปเสียงใช้เอฟเฟกต์ภาพไม่ได้")
+        }
+        val problems = fx.validate()
+        if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        val next = if (fx.isIdentity) null else fx
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(fx = next) else it })
     }
 
     private fun checkUnlocked(track: Track) {
