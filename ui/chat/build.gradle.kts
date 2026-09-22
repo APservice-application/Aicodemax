@@ -31,6 +31,7 @@ dependencies {
     implementation(project(":ui:designsystem"))
     implementation(project(":ai:core"))
     implementation(project(":ai:tasks"))
+    implementation(project(":core:resources"))
     implementation(project(":data:conversations"))
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.coroutines.android)

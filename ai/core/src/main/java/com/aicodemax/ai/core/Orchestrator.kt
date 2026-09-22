@@ -38,20 +38,56 @@ class BootstrapOrchestrator(
     private val conversations: ConversationStore,
     /** Null = fail fast (v0 behavior); set = CP-10 OBSERVE→VERIFY→RECOVER loop. */
     private val recovery: RecoveryLadderPolicy? = null,
+    /** CP-57 pending questionnaires (dynamic slot-filling dialog). */
+    private val questionnaires: QuestionnaireStore = InMemoryQuestionnaireStore(),
 ) : Orchestrator {
 
     override suspend fun handleUserMessage(conversationId: String, text: String): Outcome<OrchestratorReply> {
         conversations.appendMessage(conversationId, MessageRole.USER, text)
+
+        // Pending questionnaire? Treat this message as the answer.
+        questionnaires.pending(conversationId)?.let { state ->
+            val advanced = state.answer(text)
+            if (!advanced.done) {
+                questionnaires.save(conversationId, advanced)
+                return statusReply(conversationId, advanced.questionText())
+            }
+            questionnaires.save(conversationId, null)
+            return runIntent(conversationId, advanced.completedIntent(), text)
+        }
+
         val intent = IntentParser.parse(text)
+
+        // Missing slots? Start the questionnaire instead of planning.
+        val slots = QuestionnaireSlots.forIntent(intent)
+        if (slots.isNotEmpty()) {
+            val state = QuestionnaireState(intent, slots)
+            questionnaires.save(conversationId, state)
+            return statusReply(conversationId, state.questionText())
+        }
+        return runIntent(conversationId, intent, text)
+    }
+
+    private suspend fun statusReply(conversationId: String, text: String): Outcome<OrchestratorReply> {
+        conversations.appendMessage(conversationId, MessageRole.STATUS, text)
+        return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, text))))
+    }
+
+    private suspend fun runIntent(
+        conversationId: String,
+        intent: UserIntent,
+        text: String,
+    ): Outcome<OrchestratorReply> {
 
         if (intent.type == IntentType.CHAT || intent.type == IntentType.UNKNOWN) {
             val status = "รับทราบครับ — เชื่อมต่อ AI bootstrap แล้ว (v0).\n" +
                 "ตอนนี้สั่งได้จริง เช่น:\n" +
-                "• สร้างไฟล์ notes.txt: สวัสดี\n" +
-                "• อ่านไฟล์ notes.txt / ดูไฟล์\n" +
-                "• เปิดเว็บ example.com\n" +
+                "• สร้างไฟล์ notes.txt: สวัสดี / อ่านไฟล์ / ดูไฟล์ / ค้นหา TODO\n" +
+                "• เปิดเว็บ example.com / เปิดดู ... / ปิดแท็บ 1 / แท็บ\n" +
+                "• บันทึก wifi: รหัส 1234 / ความจำ wifi\n" +
+                "• แก้บั๊ก: <วาง error> / สถานะระบบ / หยุดงาน\n" +
                 "• git status / git commit -m \"done\"\n" +
-                "ส่วน terminal / build จะตามมาใน Phase ถัดไปครับ"
+                "ส่วน terminal / build / ตัดต่อวิดีโอ จะตามมาใน CP ถัดไปครับ"
             conversations.appendMessage(conversationId, MessageRole.STATUS, status)
             return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, status))))
         }

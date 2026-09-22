@@ -31,6 +31,8 @@ import com.aicodemax.data.checkpoint.FileCheckpointStore
 import com.aicodemax.data.conversations.ConversationStore
 import com.aicodemax.data.conversations.FileConversationStore
 import com.aicodemax.data.memory.FileMemoryStore
+import com.aicodemax.data.memory.MemoryEngine
+import com.aicodemax.data.memory.memoryDescriptorToday
 import com.aicodemax.data.memory.MemoryStore
 import com.aicodemax.data.settings.DataStoreSettingsRepository
 import com.aicodemax.data.settings.SettingsRepository
@@ -43,6 +45,8 @@ import com.aicodemax.tools.browser_runtime.BrowserToolExecutor
 import com.aicodemax.tools.builder.ArtifactStore
 import com.aicodemax.tools.builder.PipelineBuildEngine
 import com.aicodemax.tools.builder.buildDescriptorToday
+import com.aicodemax.tools.debug.debugDescriptorToday
+import com.aicodemax.tools.debug_runtime.DebugToolExecutor
 import com.aicodemax.tools.editor.EditorPort
 import com.aicodemax.tools.editor.EditorToolExecutor
 import com.aicodemax.tools.editor.FileBackedEditor
@@ -61,6 +65,7 @@ import com.aicodemax.tools.git.GitPort
 import com.aicodemax.tools.git.JGitGitPort
 import com.aicodemax.tools.git.gitDescriptorToday
 import com.aicodemax.tools.git_runtime.GitToolExecutor
+import com.aicodemax.tools.memory_runtime.MemoryToolExecutor
 import com.aicodemax.tools.project.ProjectManager
 import com.aicodemax.tools.registry.InMemoryToolRegistry
 import com.aicodemax.tools.registry.ToolRegistry
@@ -122,6 +127,8 @@ class ServiceLocator(context: Context) {
         toolRegistry.register(browserDescriptorToday())
         toolRegistry.register(buildDescriptorToday())
         toolRegistry.register(gitDescriptorToday())
+        toolRegistry.register(debugDescriptorToday())
+        toolRegistry.register(memoryDescriptorToday())
 
         gateway = DefaultToolGateway(
             toolRegistry,
@@ -135,6 +142,8 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(EditorToolExecutor(editor))
         gateway.registerExecutor(GitToolExecutor(git, workspaceDir.path))
         gateway.registerExecutor(BrowserToolExecutor(browser))
+        gateway.registerExecutor(DebugToolExecutor())
+        gateway.registerExecutor(MemoryToolExecutor(MemoryEngine(memory)))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry)
 

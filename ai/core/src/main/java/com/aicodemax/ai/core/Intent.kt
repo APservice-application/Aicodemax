@@ -12,6 +12,19 @@ enum class IntentType {
     BUILD_PROJECT,
     RUN_TESTS,
     GIT_ACTION,
+    SEARCH_FILES,
+    STOP_TASK,
+    SYSTEM_STATUS,
+    MEMORY_SAVE,
+    MEMORY_RECALL,
+    BROWSER_OPEN,
+    BROWSER_CLOSE,
+    BROWSER_LIST,
+    DEBUG_CODE,
+    MEDIA_EDIT,
+    SHARE_MEDIA,
+    OPEN_SETTINGS,
+    LLM_CONNECT,
     UNKNOWN,
 }
 
@@ -26,34 +39,49 @@ data class UserIntent(
 object IntentParser {
     private val fileNamePattern = Regex("[\\w\\-.]+\\.[A-Za-z0-9]{1,5}")
     private val dirPattern = Regex("(?:^|\\s)(?:folder|โฟลเดอร์|dir)\\s+([\\w\\-.]+)", RegexOption.IGNORE_CASE)
+    private val digitsPattern = Regex("\\d+")
 
-    // Polite Thai request wrappers (vocabulary adopted from the previous app).
-    // Longest-first; stripped only when ≥2 chars remain.
-    private val leadingPrefixes = listOf(
-        "ช่วยด้วย", "ช่วยหน่อย", "ฉันอยากให้", "ฉันต้องการ", "ผมอยากให้", "ผมต้องการ",
-        "รบกวน", "กรุณา", "ช่วย", "กูขอ", "กุขอ", "ขอ",
-    ).sortedByDescending { it.length }
-    private val trailingSuffixes = listOf(
-        "หน่อยครับ", "หน่อยค่ะ", "หน่อยคับ", "หน่อยนะ", "หน่อยสิ", "หน่อยเถอะ",
-        "สักหน่อย", "ให้หน่อย", "ให้ด้วย", "ด้วยครับ", "ด้วยค่ะ", "ด้วยเลย",
-        "นะครับ", "นะค่ะ", "หน่อย", "ด้วย", "ครับ", "ค่ะ", "คับ", "จ้า", "จ๊ะ", "นะ", "สิ", "ที",
-    ).sortedByDescending { it.length }
-
-    /** Strips polite wrappers so "ช่วยสร้างไฟล์ a.txt หน่อยครับ" parses as a command. */
+    /** Strips polite wrappers + fillers so "ช่วยสร้างไฟล์ a.txt หน่อยครับ" parses as a command. */
     fun clean(text: String): String {
         var s = text.trim()
-        for (prefix in leadingPrefixes) {
+        for (prefix in ThaiVocabulary.politePrefixes) {
             if (s.startsWith(prefix) && s.length - prefix.length >= 2) {
                 s = s.drop(prefix.length).trim()
             }
         }
-        for (suffix in trailingSuffixes) {
+        for (suffix in ThaiVocabulary.politeSuffixes) {
             if (s.endsWith(suffix) && s.length - suffix.length >= 2) {
                 s = s.dropLast(suffix.length).trim()
             }
         }
+        // Leading fillers (location qualifiers, greetings, hesitations).
+        var changed = true
+        while (changed) {
+            changed = false
+            for (filler in ThaiVocabulary.leadingFillers) {
+                if (s != filler && s.startsWith(filler) && s.length - filler.length >= 2) {
+                    s = s.drop(filler.length).trim()
+                    changed = true
+                }
+            }
+        }
+        // Trailing fillers: scope qualifiers only (never content).
+        for (filler in ThaiVocabulary.trailingFillers) {
+            if (s != filler && s.endsWith(filler) && s.length - filler.length >= 2) {
+                s = s.dropLast(filler.length).trim()
+            }
+        }
         return s
     }
+
+    private fun containsAny(haystack: String, words: List<String>): Boolean =
+        words.any { haystack.contains(it) }
+
+    private fun findPlatform(text: String): String? =
+        ThaiVocabulary.platforms.entries
+            .sortedByDescending { it.key.length }
+            .firstOrNull { text.contains(it.key) }
+            ?.value
 
     fun parse(text: String): UserIntent {
         val t = clean(text)
@@ -64,11 +92,77 @@ object IntentParser {
         fun params(vararg pairs: Pair<String, String?>): Map<String, String> =
             pairs.mapNotNull { (k, v) -> v?.let { k to it } }.toMap()
 
+        // CP-57 automation intents (specific phrases first).
+        if (containsAny(t, ThaiVocabulary.stopWords)) {
+            return UserIntent(IntentType.STOP_TASK, text)
+        }
+        if (containsAny(t, ThaiVocabulary.mediaWords)) {
+            return UserIntent(IntentType.MEDIA_EDIT, text, params("platform" to findPlatform(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.shareWords)) {
+            return UserIntent(IntentType.SHARE_MEDIA, text, params("platform" to findPlatform(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.debugWords)) {
+            val error = t.substringAfter(":", t).trim()
+            return UserIntent(IntentType.DEBUG_CODE, text, params("error" to error.ifBlank { t }))
+        }
+        if (containsAny(t, ThaiVocabulary.searchWords)) {
+            val query = t.substringAfter("ค้นหา").trim().ifBlank { t }
+            return UserIntent(IntentType.SEARCH_FILES, text, params("query" to query))
+        }
+        if (containsAny(t, ThaiVocabulary.memorySaveWords)) {
+            val rest = ThaiVocabulary.memorySaveWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
+                .ifBlank { t }
+            val key = rest.substringBefore(":").substringBefore(" ").trim().ifBlank { "note" }
+            val value = rest.substringAfter(":", rest.substringAfter(" ", "")).trim().ifBlank { rest }
+            return UserIntent(IntentType.MEMORY_SAVE, text, params("key" to key, "value" to value))
+        }
+        if (containsAny(t, ThaiVocabulary.memoryRecallWords)) {
+            val key = t.replace("ความจำ", "").trim().ifBlank { t }
+            return UserIntent(IntentType.MEMORY_RECALL, text, params("key" to key))
+        }
+        if (containsAny(t, ThaiVocabulary.statusWords)) {
+            return UserIntent(IntentType.SYSTEM_STATUS, text)
+        }
+        if (containsAny(t, ThaiVocabulary.settingsWords)) {
+            return UserIntent(IntentType.OPEN_SETTINGS, text)
+        }
+        if (containsAny(t, ThaiVocabulary.llmConnectWords)) {
+            return UserIntent(IntentType.LLM_CONNECT, text)
+        }
+        // Browser: close beats open beats list ("ปิดแท็บ" contains "แท็บ").
+        // NOTE: startsWith only — "เปิด" literally contains "ปิด" (เ+ปิด), so
+        // contains-matching would send every เปิด command to BROWSER_CLOSE.
+        if (ThaiVocabulary.browserCloseWords.any { t.startsWith(it) }) {
+            val tabId = digitsPattern.find(t)?.value
+            return UserIntent(IntentType.BROWSER_CLOSE, text, params("tabId" to tabId))
+        }
+        if (lower.startsWith("เปิดเว็บ") || lower.startsWith("open url") || lower.startsWith("http")) {
+            val url = if (lower.startsWith("http")) {
+                t.split(Regex("\\s+")).firstOrNull()?.trim()
+            } else {
+                t.substringAfter(" ", "").trim().split(Regex("\\s+")).firstOrNull()?.trim()
+            }
+            return UserIntent(IntentType.OPEN_URL, text, params("url" to url?.ifBlank { null }))
+        }
+        val openPrefix = listOf("เปิดดู", "เปิด").firstOrNull { lower.startsWith(it) }
+        if (openPrefix != null) {
+            val url = t.drop(openPrefix.length).trim().split(Regex("\\s+")).firstOrNull()?.trim()
+            return UserIntent(IntentType.BROWSER_OPEN, text, params("url" to url?.ifBlank { null }))
+        }
+        if (containsAny(t, ThaiVocabulary.browserListWords)) {
+            return UserIntent(IntentType.BROWSER_LIST, text)
+        }
+        if (containsAny(t, ThaiVocabulary.testWords)) {
+            return UserIntent(IntentType.RUN_TESTS, text)
+        }
+        // Legacy + file intents.
         return when {
             lower.startsWith("run test") || lower.startsWith("ทดสอบ") || lower == "test" ||
                 lower.startsWith("test ") ->
                 UserIntent(IntentType.RUN_TESTS, text)
-            lower.startsWith("สร้างไฟล์") || lower.startsWith("create file") -> {
+            ThaiVocabulary.writeWords.any { lower.startsWith(it.lowercase()) } ||
+                lower.startsWith("สร้างไฟล์") || lower.startsWith("create file") -> {
                 val content = t.substringAfter(":", "").trim().ifBlank { "// created by Aicodemax\n" }
                 UserIntent(IntentType.CREATE_FILE, text, params("path" to file, "content" to content))
             }
@@ -89,14 +183,9 @@ object IntentParser {
             lower.startsWith("ลบไฟล์") || lower.startsWith("delete ") ->
                 UserIntent(IntentType.DELETE_PATH, text, params("path" to (file ?: dir)))
             lower.startsWith("รัน") || lower.startsWith("run ") ||
-                lower.startsWith("terminal") ->
+                lower.startsWith("terminal") ||
+                containsAny(lower, ThaiVocabulary.terminalWords.map { it.lowercase() }) ->
                 UserIntent(IntentType.RUN_COMMAND, text, params("command" to t))
-            lower.startsWith("เปิดเว็บ") || lower.startsWith("open url") ||
-                lower.startsWith("http") ->
-                UserIntent(
-                    IntentType.OPEN_URL, text,
-                    params("url" to t.substringAfter(" ").split(Regex("\\s+")).firstOrNull()?.trim()),
-                )
             lower.startsWith("build") || lower.startsWith("บิลด์") ->
                 UserIntent(IntentType.BUILD_PROJECT, text)
             isGitCommand(lower) ->

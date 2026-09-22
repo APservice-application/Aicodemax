@@ -8,6 +8,8 @@
   (ก) ไฟล์โมเดล (CP-06), (ข) อุปกรณ์/NDK จริง (CP-01/32), (ค) เจ้าของเซ็น (CP-55),
   (ง) specialist agents (CP-12)
 - สาขา: `release/foundation-p0-p30` → merge ลง `main` เมื่อ CI เขียว
+- **ส่วนต่อขยาย Creative/Automation (CP-56..CP-70)** ตาม `ฟีเจอร์ตัดต่อ.txt` +
+  คำสั่งเจ้าของ "เอาของเก่ามาทั้งหมดที่เข้ากับสถาปัตยกรรม" — กำลังทำตามลำดับ
 
 ## FOUNDATION
 | CP | ชื่อ | สถานะ | หลักฐาน/เหลือ |
@@ -88,6 +90,25 @@
 | CP-53 | Stress + Low RAM + Restart Test | DONE (`AuditVolumeTest` 2000 รายการ + rotation; kill/restart บน hardware ยังต้อง manual) |
 | CP-54 | Release Candidate Audit | DONE (v0.1.0 foundation GO — ดู `docs/arch/AUDITS.md`) |
 | CP-55 | Final Architecture Sign-Off | TODO (เจ้าของเซ็น) |
+
+## ส่วนต่อขยาย CREATIVE/AUTOMATION (สเปก ฟีเจอร์ตัดต่อ.txt)
+| CP | ชื่อ | สถานะ | หลักฐาน/เหลือ |
+|----|------|--------|----------------|
+| CP-56 | Old-app media audit (§28–29) | DONE | `docs/arch/MEDIA_AUDIT.md` — ตอบ 28 ข้อ + ตาราง EXISTING..UNNECESSARY |
+| CP-57 | SmartIntent Thai-155 + Dynamic Questionnaire | DONE | ThaiVocabulary 155 คำ + 13 intents + Questionnaire + debug/memory engines ต่อ gateway + เทส (195/195) |
+| CP-58 | SkillManager (skill files → context) | TODO | — |
+| CP-59 | LLM Provider Adapter (OpenAI-compat + vision) | TODO | key memory-only, ไม่ผูก provider เดียว |
+| CP-60 | Voice (STT input + TTS output, TH/EN) | TODO | — |
+| CP-61 | Image Engine (edit + info, AI tools) | TODO | — |
+| CP-62 | Audio Engine (edit + analysis, AI tools) | TODO | — |
+| CP-63 | Video Engine (ffmpeg + probe + tools) | TODO | arm64+x86_64, HW-pref, honest status |
+| CP-64 | Media Assets + Timeline + Project State | TODO | §9 + §23 (versions) |
+| CP-65 | Editing Planner + Intent + NL mapping | TODO | ห้าม hard-coded workflow (§27) |
+| CP-66 | Subtitle Engine (STT→SRT→burn-in, TH/EN) | TODO | — |
+| CP-67 | Render Queue + QC + Preview + Export + Approval | TODO | §19–21 |
+| CP-68 | Supabase Devtool (optional, user keys) | TODO | dev-tool เท่านั้น ไม่ใช่ infra (§24) |
+| CP-69 | WebAI localhost bridge + Multi-agent | TODO | 127.0.0.1 + token เท่านั้น |
+| CP-70 | Media integration + docs + release | TODO | — |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)

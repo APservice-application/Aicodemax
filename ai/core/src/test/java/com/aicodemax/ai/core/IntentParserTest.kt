@@ -66,4 +66,37 @@ class IntentParserTest {
         assertEquals(IntentType.CHAT, IntentParser.parse("hello there").type)
         assertEquals(IntentType.CHAT, IntentParser.parse("").type)
     }
+
+    @Test
+    fun cp57AutomationIntents() {
+        assertEquals(IntentType.STOP_TASK, IntentParser.parse("หยุดงาน").type)
+        assertEquals(IntentType.STOP_TASK, IntentParser.parse("ช่วยสั่งหยุดหน่อยครับ").type)
+        assertEquals(IntentType.SEARCH_FILES, IntentParser.parse("ค้นหา TODO").type)
+        assertEquals(IntentType.SYSTEM_STATUS, IntentParser.parse("สถานะระบบ").type)
+        assertEquals(IntentType.OPEN_SETTINGS, IntentParser.parse("ตั้งค่า").type)
+        assertEquals(IntentType.BROWSER_LIST, IntentParser.parse("ดูแท็บหน่อย").type)
+        assertEquals(IntentType.DEBUG_CODE, IntentParser.parse("แก้บั๊ก: boom").type)
+        assertEquals(IntentType.LLM_CONNECT, IntentParser.parse("เชื่อมต่อ ai").type)
+
+        val save = IntentParser.parse("บันทึก wifi: รหัส 1234")
+        assertEquals(IntentType.MEMORY_SAVE, save.type)
+        assertEquals("wifi", save.parameters["key"])
+        assertEquals("รหัส 1234", save.parameters["value"])
+
+        val recall = IntentParser.parse("ความจำ wifi")
+        assertEquals(IntentType.MEMORY_RECALL, recall.type)
+        assertEquals("wifi", recall.parameters["key"])
+
+        val media = IntentParser.parse("ช่วยตัดคลิปติ๊กต็อกหน่อย")
+        assertEquals(IntentType.MEDIA_EDIT, media.type)
+        assertEquals("tiktok", media.parameters["platform"])
+
+        val open = IntentParser.parse("เปิดดู example.com")
+        assertEquals(IntentType.BROWSER_OPEN, open.type)
+        assertEquals("example.com", open.parameters["url"])
+
+        // No false positives on incidental substrings.
+        assertEquals(IntentType.CHAT, IntentParser.parse("ตกลง").type)
+        assertEquals(IntentType.CHAT, IntentParser.parse("อย่าหยุดนะ").type)
+    }
 }

@@ -26,6 +26,7 @@ class ChatViewModel(
     private val conversations: ConversationStore,
     private val tasks: com.aicodemax.ai.tasks.TaskEngine? = null,
     private val workingSet: com.aicodemax.core.state.WorkingSetStore? = null,
+    private val monitor: com.aicodemax.core.resources.ResourceMonitor? = null,
 ) : ViewModel() {
     private var sendJob: kotlinx.coroutines.Job? = null
 
@@ -76,6 +77,19 @@ class ChatViewModel(
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         val id = _state.value.conversationId ?: return
+        // CP-57: chat-handled intents (real, local — no task pipeline needed).
+        when (com.aicodemax.ai.core.IntentParser.parse(trimmed).type) {
+            com.aicodemax.ai.core.IntentType.STOP_TASK -> {
+                stop()
+                postStatus(id, "หยุดงานแล้วครับ")
+                return
+            }
+            com.aicodemax.ai.core.IntentType.SYSTEM_STATUS -> {
+                reportStatus(id)
+                return
+            }
+            else -> Unit
+        }
         _state.value = _state.value.copy(sending = true, error = null)
         sendJob?.cancel()
         sendJob = viewModelScope.launch {
@@ -100,6 +114,48 @@ class ChatViewModel(
             tasks?.cancel(taskId, "stopped from chat")
         }
         _state.value = _state.value.copy(sending = false)
+    }
+
+    private fun postStatus(id: String, text: String) {
+        viewModelScope.launch {
+            conversations.appendMessage(
+                id, com.aicodemax.data.conversations.MessageRole.STATUS, text,
+            )
+            refresh(id)
+        }
+    }
+
+    private fun reportStatus(id: String) {
+        val mon = monitor
+        if (mon == null) {
+            postStatus(id, "ดูสถานะเครื่องได้ที่หน้า Home ครับ")
+            return
+        }
+        _state.value = _state.value.copy(sending = true, error = null)
+        viewModelScope.launch {
+            val text = mon.snapshot().fold(
+                onSuccess = { snap ->
+                    val mode = com.aicodemax.core.resources.ResourceModes.derive(snap)
+                    val label = when {
+                        mode.offline -> "ออฟไลน์"
+                        mode.lowResource -> "ประหยัดทรัพยากร (${mode.reasons.joinToString(", ")})"
+                        else -> "เต็มกำลัง"
+                    }
+                    "📊 สถานะระบบ: $label\n" +
+                        "• RAM ว่าง ${snap.ramAvailableBytes / 1048576}MB / " +
+                        "${snap.ramTotalBytes / 1048576}MB\n" +
+                        "• พื้นที่ว่าง ${snap.storageAvailableBytes / 1073741824}GB\n" +
+                        "• แบต ${snap.batteryPercent}% " +
+                        (if (snap.batteryCharging) "(ชาร์จ)" else "") + "\n" +
+                        "• เน็ต: " + if (snap.networkAvailable) "ต่ออยู่" else "ออฟไลน์"
+                },
+                onFailure = { "อ่านสถานะไม่ได้: ${it.message}" },
+            )
+            conversations.appendMessage(
+                id, com.aicodemax.data.conversations.MessageRole.STATUS, text,
+            )
+            refresh(id, sending = false)
+        }
     }
 
     fun newChat() = openConversation(null)

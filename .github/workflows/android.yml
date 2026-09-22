@@ -61,6 +61,7 @@ jobs:
           :tools:terminal_runtime:testDebugUnitTest :tools:git_runtime:testDebugUnitTest
           :tools:builder:testDebugUnitTest
           :tools:browser_runtime:testDebugUnitTest :tools:browser:testDebugUnitTest
+          :tools:debug_runtime:testDebugUnitTest :tools:memory_runtime:testDebugUnitTest
           :core:resources:testDebugUnitTest
           :data:settings:testDebugUnitTest
           :core:common:test :core:state:test :ai:tasks:test
