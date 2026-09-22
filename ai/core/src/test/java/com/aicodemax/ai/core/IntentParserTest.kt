@@ -146,4 +146,27 @@ class IntentParserTest {
         assertEquals(IntentType.IMAGE_GRAY, gray.type)
         assertEquals("a.png", gray.parameters["path"])
     }
+
+    @Test
+    fun cp62AudioIntents() {
+        val info = IntentParser.parse("ข้อมูลเสียง song.mp3")
+        assertEquals(IntentType.AUDIO_INFO, info.type)
+        assertEquals("song.mp3", info.parameters["path"])
+        val trim = IntentParser.parse("ตัดเสียง a.wav 0,5000")
+        assertEquals(IntentType.AUDIO_TRIM, trim.type)
+        assertEquals("0", trim.parameters["startMs"])
+        assertEquals("5000", trim.parameters["endMs"])
+        val concat = IntentParser.parse("ต่อเสียง a.wav b.wav")
+        assertEquals(IntentType.AUDIO_CONCAT, concat.type)
+        assertEquals("a.wav|b.wav", concat.parameters["srcs"])
+        val gain = IntentParser.parse("เร่งเสียง a.wav 6")
+        assertEquals(IntentType.AUDIO_GAIN, gain.type)
+        assertEquals("6", gain.parameters["db"])
+        val soft = IntentParser.parse("เบาเสียง a.wav 6")
+        assertEquals("-6", soft.parameters["db"])
+        val fade = IntentParser.parse("เฟดเสียง a.wav 1000,2000")
+        assertEquals(IntentType.AUDIO_FADE, fade.type)
+        assertEquals("1000", fade.parameters["inMs"])
+        assertEquals("2000", fade.parameters["outMs"])
+    }
 }

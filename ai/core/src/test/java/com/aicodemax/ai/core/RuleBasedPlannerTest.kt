@@ -126,4 +126,29 @@ class RuleBasedPlannerTest {
         val noRect = planner.plan(UserIntent(IntentType.IMAGE_CROP, "t", mapOf("path" to "a.png")))
         assertEquals("PLAN_NO_CROP", (noRect as Outcome.Failure).error.code)
     }
+
+    @Test
+    fun cp62AudioPlansRealSteps() = runBlocking {
+        val info = UserIntent(IntentType.AUDIO_INFO, "t", mapOf("path" to "a.wav"))
+        val infoPlan = (planner.plan(info) as Outcome.Success<Plan>).value
+        assertEquals("audio", infoPlan.steps[0].toolId)
+        assertEquals("info", infoPlan.steps[0].action)
+
+        val trim = UserIntent(
+            IntentType.AUDIO_TRIM, "t",
+            mapOf("path" to "a.wav", "startMs" to "0", "endMs" to "500"),
+        )
+        val trimPlan = (planner.plan(trim) as Outcome.Success<Plan>).value
+        assertEquals("trim", trimPlan.steps[0].action)
+        assertEquals("500", trimPlan.steps[0].args["endMs"])
+
+        val gain = UserIntent(IntentType.AUDIO_GAIN, "t", mapOf("path" to "a.wav", "db" to "-6"))
+        val gainPlan = (planner.plan(gain) as Outcome.Success<Plan>).value
+        assertEquals("gain", gainPlan.steps[0].action)
+
+        val noPath = planner.plan(UserIntent(IntentType.AUDIO_INFO, "t"))
+        assertEquals("PLAN_NO_AUDIO", (noPath as Outcome.Failure).error.code)
+        val noRange = planner.plan(UserIntent(IntentType.AUDIO_TRIM, "t", mapOf("path" to "a.wav")))
+        assertEquals("PLAN_NO_RANGE", (noRange as Outcome.Failure).error.code)
+    }
 }

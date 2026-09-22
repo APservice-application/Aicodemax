@@ -122,6 +122,17 @@ object StandardCapabilities {
             metadata = meta("image", "หมุนรูป 90/180/270", listOf("src,degrees?"), listOf("dst"), listOf("fs.write"), false, "dims swapped", "retry")),
         CapabilityBinding("image.grayscale", "image", "grayscale", AdapterKind.NATIVE,
             metadata = meta("image", "ทำรูปขาวดำ", listOf("src"), listOf("dst"), listOf("fs.write"), false, "luma only", "retry")),
+        // Audio engine (native, WAV pipeline + MediaCodec decode).
+        CapabilityBinding("audio.info", "audio", "info", AdapterKind.NATIVE,
+            metadata = meta("audio", "ดูฟอร์แมต+ความยาวเสียง", listOf("path"), listOf("info"), emptyList(), false, "header parsed", "re-probe")),
+        CapabilityBinding("audio.trim", "audio", "trim", AdapterKind.NATIVE,
+            metadata = meta("audio", "ตัดเสียงตามช่วงเวลา", listOf("src,startMs,endMs"), listOf("dst"), listOf("fs.write"), false, "duration match", "fix range")),
+        CapabilityBinding("audio.concat", "audio", "concat", AdapterKind.NATIVE,
+            metadata = meta("audio", "ต่อไฟล์เสียง", listOf("srcs"), listOf("dst"), listOf("fs.write"), false, "duration sum", "fix files")),
+        CapabilityBinding("audio.gain", "audio", "gain", AdapterKind.NATIVE,
+            metadata = meta("audio", "เร่ง/เบาเสียง", listOf("src,db"), listOf("dst"), listOf("fs.write"), false, "peak changed", "retry")),
+        CapabilityBinding("audio.fade", "audio", "fade", AdapterKind.NATIVE,
+            metadata = meta("audio", "เฟดหัว/ท้ายเสียง", listOf("src,inMs?,outMs?"), listOf("dst"), listOf("fs.write"), false, "ramps ok", "retry")),
         // Compatibility engine — CLI adapter, LAST resort (§29, CP-32).
         CapabilityBinding("terminal.open", "terminal", "open", AdapterKind.CLI_ADAPTER,
             metadata = meta("terminal", "เปิด terminal session", emptyList(), listOf("sessionId"), listOf("terminal"), false, "session listed", "re-open")),
@@ -145,7 +156,7 @@ object StandardCapabilities {
      */
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
-        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image")) {
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -176,6 +187,7 @@ private fun meta(
         "skill" to ("Skill Engine" to "FileSkillStore"),
         "voice" to ("Voice Engine" to "SpeechRecognizer + TTS"),
         "image" to ("Image Engine" to "header probe + pixel ops"),
+        "audio" to ("Audio Engine" to "WAV pipeline + MediaCodec"),
         "terminal" to ("Compatibility Engine" to "Termux bridge (pending device work)"),
     )
     val (engine, runtime) = engines.getValue(tool)

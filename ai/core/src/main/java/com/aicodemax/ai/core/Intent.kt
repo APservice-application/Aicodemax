@@ -35,6 +35,11 @@ enum class IntentType {
     IMAGE_CROP,
     IMAGE_ROTATE,
     IMAGE_GRAY,
+    AUDIO_INFO,
+    AUDIO_TRIM,
+    AUDIO_CONCAT,
+    AUDIO_GAIN,
+    AUDIO_FADE,
     UNKNOWN,
 }
 
@@ -146,6 +151,33 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.imageGrayWords)) {
             return UserIntent(IntentType.IMAGE_GRAY, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.audioInfoWords)) {
+            return UserIntent(IntentType.AUDIO_INFO, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.audioTrimWords)) {
+            val nums = digitsPattern.findAll(tNoFile).map { it.value }.toList()
+            return UserIntent(
+                IntentType.AUDIO_TRIM, text,
+                params("path" to file, "startMs" to nums.getOrNull(0), "endMs" to nums.getOrNull(1)),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.audioConcatWords)) {
+            val files = fileNamePattern.findAll(t).map { it.value }.toList()
+            return UserIntent(IntentType.AUDIO_CONCAT, text, params("srcs" to files.joinToString("|").ifBlank { null }))
+        }
+        if (containsAny(t, ThaiVocabulary.audioGainWords)) {
+            val digits = digitsPattern.find(tNoFile)?.value
+            val negative = t.contains("เบาเสียง")
+            val db = digits?.let { if (negative) "-$it" else it }
+            return UserIntent(IntentType.AUDIO_GAIN, text, params("path" to file, "db" to db))
+        }
+        if (containsAny(t, ThaiVocabulary.audioFadeWords)) {
+            val nums = digitsPattern.findAll(tNoFile).map { it.value }.toList()
+            return UserIntent(
+                IntentType.AUDIO_FADE, text,
+                params("path" to file, "inMs" to nums.getOrNull(0), "outMs" to nums.getOrNull(1)),
+            )
         }
         if (containsAny(t, ThaiVocabulary.debugWords)) {
             val error = t.substringAfter(":", t).trim()
