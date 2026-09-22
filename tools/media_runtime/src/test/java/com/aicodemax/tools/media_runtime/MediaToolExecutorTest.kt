@@ -233,4 +233,27 @@ class MediaToolExecutorTest {
         val bad = run("timeline.setMask", mapOf("projectId" to projectId, "clipIndex" to "1", "shape" to "star"))
         assertTrue(!bad.ok)
     }
+
+    @Test
+    fun trackStabilizeFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("mo") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val imported = run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4"))
+        assertTrue(imported.ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        val clip = run(
+            "timeline.addClip",
+            mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0"),
+        )
+        assertTrue(clip.ok)
+        val tracked = run("timeline.track", mapOf("projectId" to projectId, "clipIndex" to "1"))
+        assertTrue(tracked.output, tracked.ok)
+        val listed = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed.output, listed.ok && listed.output.contains("{KF posX×3 posY×3}"))
+        val stabbed = run("timeline.stabilize", mapOf("projectId" to projectId, "clipIndex" to "1"))
+        assertTrue(stabbed.output, stabbed.ok && stabbed.output.contains("กันสั่นแล้ว"))
+        val listed2 = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed2.output, listed2.output.contains("108%"))
+        val bad = run("timeline.track", mapOf("projectId" to projectId, "clipIndex" to "1", "w" to "0"))
+        assertTrue(!bad.ok)
+    }
 }

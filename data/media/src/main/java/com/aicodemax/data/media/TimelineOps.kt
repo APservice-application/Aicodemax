@@ -419,6 +419,39 @@ object TimelineOps {
         return timeline.copy(background = next)
     }
 
+    /**
+     * CP-80: applies a tracked motion path as posX/posY keyframes (§15/§43).
+     * Replaces existing pos keys; [zoomBump] raises base scale (stabilize borders).
+     */
+    fun applyPath(
+        timeline: Timeline,
+        clipId: String,
+        posX: List<KeyPoint>,
+        posY: List<KeyPoint>,
+        zoomBump: Int = 0,
+    ): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (track.kind == MediaKind.AUDIO) {
+            throw IllegalArgumentException("คลิปเสียงใช้ motion path ไม่ได้")
+        }
+        if (posX.size > 64 || posY.size > 64) throw IllegalArgumentException("track มีจุดเกิน 64")
+        if (zoomBump !in 0..50) throw IllegalArgumentException("zoom ต้องอยู่ 0..50")
+        val keys = clip.keyframes ?: ClipKeyframes()
+        val done = keys.withPoints("posX", posX.sortedBy { it.atMs }).withPoints("posY", posY.sortedBy { it.atMs })
+        val problems = done.validate()
+        if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        val base = clip.transform ?: ClipTransform()
+        val nextTransform = if (zoomBump > 0) {
+            base.copy(scale = (base.scale + zoomBump).coerceAtMost(400))
+        } else {
+            clip.transform
+        }
+        val next = clip.copy(keyframes = done.takeUnless { it.isEmpty }, transform = nextTransform)
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) next else it })
+    }
+
     private fun checkUnlocked(track: Track) {
         if (track.locked) throw IllegalArgumentException("แทร็ก ${track.id} ล็อกอยู่")
     }

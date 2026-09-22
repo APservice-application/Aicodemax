@@ -338,6 +338,22 @@ class RuleBasedPlanner(
                 }
                 listOf("media.timeline.setFx" to args)
             }
+            IntentType.TRACK -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "แทร็กคลิปที่เท่าไหร่ครับ? เช่น แทร็กคลิปที่ 1"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["target"]?.let { args["target"] = it }
+                listOf("media.timeline.track" to args)
+            }
+            IntentType.STABILIZE -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "กันสั่นคลิปที่เท่าไหร่ครับ? เช่น กันสั่นคลิปที่ 1"),
+                    )
+                listOf("media.timeline.stabilize" to mapOf("clipIndex" to clip))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

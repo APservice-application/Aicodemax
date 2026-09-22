@@ -522,6 +522,59 @@ data class TimelineMarker(
     val color: String = "",
 )
 
+/** CP-80 one tracked offset: output-relative ms + % of frame (resolution-free). */
+@Serializable
+data class TrackPoint(
+    val atMs: Long,
+    val dx: Float,
+    val dy: Float,
+)
+
+/**
+ * CP-80 motion path from template tracking (§15). Times are output-relative
+ * to the analyzed clip; offsets are % of frame (dx: % of width, dy: % of height).
+ */
+@Serializable
+data class TrackPath(
+    val points: List<TrackPoint> = emptyList(),
+) {
+    val isEmpty: Boolean get() = points.isEmpty()
+
+    /** Linear-interpolated offset at [atMs] (clamped to ends). */
+    fun offsetAt(atMs: Long): Pair<Float, Float> {
+        if (points.isEmpty()) return 0f to 0f
+        val pts = points.sortedBy { it.atMs }
+        if (atMs <= pts.first().atMs) return pts.first().dx to pts.first().dy
+        if (atMs >= pts.last().atMs) return pts.last().dx to pts.last().dy
+        for (i in 0 until pts.size - 1) {
+            val a = pts[i]
+            val b = pts[i + 1]
+            if (atMs in a.atMs until b.atMs) {
+                val span = (b.atMs - a.atMs).coerceAtLeast(1)
+                val f = (atMs - a.atMs).toFloat() / span
+                return (a.dx + (b.dx - a.dx) * f) to (a.dy + (b.dy - a.dy) * f)
+            }
+        }
+        return pts.last().dx to pts.last().dy
+    }
+
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (points.size > 64) errors.add("track มีจุดเกิน 64")
+        if (points.any { it.atMs < 0 }) errors.add("track เวลาติดลบไม่ได้")
+        if (points.any { it.dx !in -100f..100f || it.dy !in -100f..100f }) {
+            errors.add("track offset ต้องอยู่ ±100%")
+        }
+        return errors
+    }
+
+    fun summary(): String {
+        if (points.isEmpty()) return "ว่าง"
+        val peak = points.maxOf { kotlin.math.hypot(it.dx, it.dy) }
+        return "${points.size} จุด ขยับสูงสุด %.1f%%".format(peak)
+    }
+}
+
 /** CP-74 styled text overlay on the timeline (§22). Times in ms. */
 @Serializable
 data class OverlayText(
@@ -552,6 +605,8 @@ data class OverlayText(
     val animIn: String = "none",
     /** none/fade. */
     val animOut: String = "none",
+    /** CP-80 follow path (added to x/y % at render). */
+    val follow: TrackPath? = null,
 ) {
     fun validate(): List<String> {
         val errors = mutableListOf<String>()
@@ -565,10 +620,11 @@ data class OverlayText(
         if (opacity !in 0..100) errors.add("ความทึบต้องอยู่ 0..100")
         if (animIn !in setOf("none", "fade", "slide", "pop", "typewriter")) errors.add("animIn ไม่รู้จัก ($animIn)")
         if (animOut !in setOf("none", "fade")) errors.add("animOut ไม่รู้จัก ($animOut)")
+        follow?.validate()?.forEach { errors.add("follow: $it") }
         return errors
     }
 
-    fun summary(): String = "\"$text\" $startMs..$endMs" + if (animIn != "none") " +$animIn" else ""
+    fun summary(): String = "\"$text\" $startMs..$endMs" + if (animIn != "none") " +$animIn" else "" + if (follow != null && !follow.isEmpty) " +follow" else ""
 
     companion object {
         /** Named style presets (§22 quick styles). */

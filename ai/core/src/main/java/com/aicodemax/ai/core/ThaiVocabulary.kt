@@ -163,6 +163,8 @@ object ThaiVocabulary {
     val clipMaskWords: List<String> = listOf("มาสก์คลิป", "maskคลิป")
     val clipChromaWords: List<String> = listOf("กรีนสกรีน", "ลบฉากเขียว", "ฉากเขียว", "chroma")
     val bgWords: List<String> = listOf("พื้นหลังเบลอ", "พื้นหลังสี", "พื้นหลังรูป", "พื้นหลังดำ")
+    val trackWords: List<String> = listOf("แทร็กคลิป", "แทร็กวัตถุ", "ตามวัตถุ")
+    val stabWords: List<String> = listOf("กันสั่น", "ลดสั่น", "stabilize")
     val markerAddWords: List<String> = listOf("เพิ่มมาร์กเกอร์", "มาร์กเกอร์", "จุดมาร์ก")
     val markerRemoveWords: List<String> = listOf("ลบมาร์กเกอร์")
     val trackUnlockWords: List<String> = listOf("ปลดล็อกแทร็ก")

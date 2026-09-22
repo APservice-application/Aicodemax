@@ -235,6 +235,10 @@ object StandardCapabilities {
             metadata = meta("media", "chroma คลิป", listOf("clipIndex,hue?,tolerance?,softness?,despill?,off?"), listOf("ok"), listOf("fs.write"), false, "chroma shown", "0..360", true, "edit.undo")),
         CapabilityBinding("media.timeline.setBackground", "media", "timeline.setBackground", AdapterKind.NATIVE,
             metadata = meta("media", "พื้นหลังไทม์ไลน์", listOf("mode,color?,blur?,assetId?"), listOf("ok"), listOf("fs.write"), false, "bg shown", "fix mode", true, "edit.undo")),
+        CapabilityBinding("media.timeline.track", "media", "timeline.track", AdapterKind.NATIVE,
+            metadata = meta("media", "แทร็กวัตถุในคลิป", listOf("clipIndex,x?,y?,w?,h?,startMs?,endMs?,stepMs?,target?"), listOf("ok"), listOf("fs.write"), false, "path applied", "fix rect", true, "edit.undo")),
+        CapabilityBinding("media.timeline.stabilize", "media", "timeline.stabilize", AdapterKind.NATIVE,
+            metadata = meta("media", "กันสั่นคลิป", listOf("clipIndex,startMs?,endMs?,stepMs?,smoothMs?,zoom?"), listOf("ok"), listOf("fs.write"), false, "stab applied", "fix range", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

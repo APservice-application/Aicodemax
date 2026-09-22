@@ -1093,8 +1093,9 @@ class AndroidRenderPort(
         }
         val lines = visible.split("\n")
         val lineH = paint.textSize * 1.25f
-        val cx = outW * t.xPct / 100f
-        val cy = outH * t.yPct / 100f + dy
+        val follow = t.follow?.takeUnless { it.isEmpty }?.offsetAt(timelineMs) ?: (0f to 0f)
+        val cx = outW * (t.xPct / 100f + follow.first / 100f)
+        val cy = outH * (t.yPct / 100f + follow.second / 100f) + dy
         val top = cy - lineH * (lines.size - 1) / 2 - paint.textSize
         cv.save()
         cv.rotate(t.rotation.toFloat(), cx, cy)

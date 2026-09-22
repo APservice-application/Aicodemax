@@ -240,6 +240,17 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp80TrackStabPlansRealSteps() = runBlocking {
+        val track = (planner.plan(UserIntent(IntentType.TRACK, "t", mapOf("clipIndex" to "1", "target" to "text:2"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.track", track.steps[0].action)
+        assertEquals("text:2", track.steps[0].args["target"])
+        val stab = (planner.plan(UserIntent(IntentType.STABILIZE, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.stabilize", stab.steps[0].action)
+        val missing = planner.plan(UserIntent(IntentType.STABILIZE, "t"))
+        assertEquals("PLAN_NO_CLIP", (missing as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp79MaskChromaBgPlansRealSteps() = runBlocking {
         val mask = (planner.plan(UserIntent(IntentType.CLIP_MASK, "t", mapOf("clipIndex" to "1", "shape" to "ellipse"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.setMask", mask.steps[0].action)

@@ -77,6 +77,8 @@ enum class IntentType {
     CLIP_MASK,
     CLIP_CHROMA,
     BG_SET,
+    TRACK,
+    STABILIZE,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -439,6 +441,16 @@ object IntentParser {
                     "grain" to (value.takeIf { t.contains("เกรน") }),
                 ),
             )
+        }
+        if (containsAny(t, ThaiVocabulary.trackWords)) {
+            val target = Regex("ข้อความ(?:ที่)?\\s*(\\d+)").find(t)?.groupValues?.get(1)?.let { "text:$it" }
+            return UserIntent(
+                IntentType.TRACK, text,
+                params("clipIndex" to parseClipIndex(t), "target" to target),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.stabWords)) {
+            return UserIntent(IntentType.STABILIZE, text, params("clipIndex" to parseClipIndex(t)))
         }
         if (containsAny(t, ThaiVocabulary.clipMaskWords)) {
             val shape = if (t.contains("วงรี") || t.contains("วงกลม")) "ellipse" else "rect"

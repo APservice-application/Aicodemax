@@ -65,6 +65,8 @@ object ProjectEventTypes {
     const val CLIP_MASK = "CLIP_MASK"
     const val CLIP_CHROMA = "CLIP_CHROMA"
     const val TIMELINE_BG = "TIMELINE_BG"
+    const val TRACK_APPLIED = "TRACK_APPLIED"
+    const val STAB_APPLIED = "STAB_APPLIED"
 }
 
 class FileEventLog(root: File) {

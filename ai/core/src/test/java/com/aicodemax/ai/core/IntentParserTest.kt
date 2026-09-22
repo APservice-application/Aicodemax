@@ -257,6 +257,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp80TrackStabIntents() {
+        val track = IntentParser.parse("แทร็กคลิปที่ 1")
+        assertEquals(IntentType.TRACK, track.type)
+        assertEquals("1", track.parameters["clipIndex"])
+        val follow = IntentParser.parse("แทร็กคลิปที่ 1 ตามด้วยข้อความที่ 2")
+        assertEquals("text:2", follow.parameters["target"])
+        val stab = IntentParser.parse("กันสั่นคลิปที่ 2")
+        assertEquals(IntentType.STABILIZE, stab.type)
+        assertEquals("2", stab.parameters["clipIndex"])
+    }
+
+    @Test
     fun cp79MaskChromaBgIntents() {
         val mask = IntentParser.parse("มาสก์คลิปที่ 1 วงรี")
         assertEquals(IntentType.CLIP_MASK, mask.type)

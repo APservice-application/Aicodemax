@@ -696,6 +696,49 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }
                             }, enabled = !busy) { Text("โหมด:${timeline?.background?.mode ?: "black"}") }
                         }
+                        // CP-80 tracking + stabilize (§15/§43).
+                        Text(
+                            "โมชัน: " + if ((clip.keyframes?.points("posX")?.size ?: 0) > 0) "มี path" else "ไม่มี",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val call = com.aicodemax.tools.gateway.ToolCall(
+                                        com.aicodemax.core.common.Ids.newId("ui"), "media", "timeline.stabilize",
+                                        mapOf("projectId" to projectId, "clipId" to clipId), actor = "HUMAN",
+                                    )
+                                    services.gateway.call(call).fold(
+                                        onSuccess = { message = if (it.ok) it.output else it.error },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("กันสั่น") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val call = com.aicodemax.tools.gateway.ToolCall(
+                                        com.aicodemax.core.common.Ids.newId("ui"), "media", "timeline.track",
+                                        mapOf("projectId" to projectId, "clipId" to clipId, "target" to "self"), actor = "HUMAN",
+                                    )
+                                    services.gateway.call(call).fold(
+                                        onSuccess = { message = if (it.ok) it.output else it.error },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("แทร็กกลาง") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.clearKeyframes(projectId, clipId, "posX", "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                    services.media.clearKeyframes(projectId, clipId, "posY", "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ล้างแทร็ก") }
+                        }
                     }
                 }
             }

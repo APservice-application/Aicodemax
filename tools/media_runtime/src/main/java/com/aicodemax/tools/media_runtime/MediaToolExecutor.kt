@@ -16,14 +16,26 @@ import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.SpeedPoint
 import com.aicodemax.core.common.Ids
 import com.aicodemax.data.media.OverlayText
+import com.aicodemax.data.media.KeyPoint
+import com.aicodemax.data.media.MediaKind
+import com.aicodemax.data.media.ProjectEventTypes
+import com.aicodemax.data.media.TrackPath
+import com.aicodemax.data.media.TrackPoint
 import com.aicodemax.tools.media.TextIdeas
 import com.aicodemax.tools.media.InMemoryMediaProject
+import com.aicodemax.tools.media.InMemoryTrackingPort
 import com.aicodemax.tools.media.MediaProjectPort
+import com.aicodemax.tools.media.StabRequest
+import com.aicodemax.tools.media.TrackRequest
+import com.aicodemax.tools.media.TrackingPort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Gateway executor for media projects. */
-class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProject()) : ToolExecutor {
+class MediaToolExecutor(
+    private val media: MediaProjectPort = InMemoryMediaProject(),
+    private val tracking: TrackingPort = InMemoryTrackingPort(),
+) : ToolExecutor {
     override val toolId: String = "media"
 
     override suspend fun execute(call: ToolCall): Outcome<ToolResult> =
@@ -631,6 +643,130 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "timeline.track" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val (track, clip) = timeline.findClip(clipId)
+                        ?: return@withContext done(false, error = "ไม่พบคลิป $clipId")
+                    if (track.kind != MediaKind.VIDEO) {
+                        return@withContext done(false, error = "แทร็กได้เฉพาะคลิปวิดีโอ")
+                    }
+                    val asset = ((media.listAssets(projectId) as? Outcome.Success)?.value?.firstOrNull { it.id == clip.assetId })
+                        ?: return@withContext done(false, error = "ไม่พบ asset ของคลิป")
+                    if (asset.kind != MediaKind.VIDEO) {
+                        return@withContext done(false, error = "cl asset ไม่ใช่วิดีโอ")
+                    }
+                    val path = (media.assetPath(projectId, asset.id) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไฟล์ asset ไม่ได้")
+                    val srcStart = call.args["startMs"]?.toLongOrNull()?.coerceIn(clip.startMs, clip.endMs) ?: clip.startMs
+                    val srcEnd = call.args["endMs"]?.toLongOrNull()?.coerceIn(srcStart, clip.endMs) ?: clip.endMs
+                    if (srcEnd - srcStart < 300) {
+                        return@withContext done(false, error = "ช่วงแทร็กสั้นไป (อย่างน้อย 300ms)")
+                    }
+                    val req = TrackRequest(
+                        assetPath = path,
+                        x = call.args["x"]?.toIntOrNull() ?: 40,
+                        y = call.args["y"]?.toIntOrNull() ?: 40,
+                        w = call.args["w"]?.toIntOrNull() ?: 20,
+                        h = call.args["h"]?.toIntOrNull() ?: 20,
+                        startMs = srcStart,
+                        endMs = srcEnd,
+                        stepMs = call.args["stepMs"]?.toLongOrNull() ?: 250,
+                    )
+                    if (req.x !in 0..100 || req.y !in 0..100 || req.w !in 1..100 || req.h !in 1..100) {
+                        return@withContext done(false, error = "กรอบแทร็กต้อง x/y 0..100, w/h 1..100")
+                    }
+                    val trackOutcome = tracking.analyzeTrack(req)
+                    val analysis = (trackOutcome as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = (trackOutcome as Outcome.Failure).error.message)
+                    val target = call.args["target"] ?: "self"
+                    val shift = (clip.speed?.sourceToOutput(srcStart - clip.startMs, clip.endMs - clip.startMs) ?: (srcStart - clip.startMs))
+                    val result = when {
+                        target == "self" -> {
+                            val (kx, ky, note) = trackToKeys(analysis.path, shift, clip.outputDurationMs())
+                            media.applyTrackPath(projectId, clipId, kx, ky, 0, ProjectEventTypes.TRACK_APPLIED, "แทร็ก", call.actor).fold(
+                                onSuccess = { "ขยับตามวัตถุ (คีย์ ${kx.size} จุด)$note" },
+                                onFailure = { return@withContext done(false, error = it.message) },
+                            )
+                        }
+                        target.startsWith("clip:") -> {
+                            val n = target.removePrefix("clip:").toIntOrNull()
+                                ?: return@withContext done(false, error = "target ต้องเป็น self/clip:N/text:N")
+                            val timeline2 = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                                ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                            val dest = timeline2.orderedClips().getOrNull(n - 1)?.second
+                                ?: return@withContext done(false, error = "ไม่มีคลิปที่ $n")
+                            val (kx, ky, note) = trackToKeys(analysis.path, 0, dest.outputDurationMs())
+                            media.applyTrackPath(projectId, dest.id, kx, ky, 0, ProjectEventTypes.TRACK_APPLIED, "แทร็ก", call.actor).fold(
+                                onSuccess = { "ใช้กับคลิปที่ $n (คีย์ ${kx.size} จุด)$note" },
+                                onFailure = { return@withContext done(false, error = it.message) },
+                            )
+                        }
+                        target.startsWith("text:") -> {
+                            val n = target.removePrefix("text:").toIntOrNull()
+                                ?: return@withContext done(false, error = "target ต้องเป็น self/clip:N/text:N")
+                            val timeline2 = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                                ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                            val text = timeline2.texts.getOrNull(n - 1)
+                                ?: return@withContext done(false, error = "ไม่มีข้อความที่ $n")
+                            val abs = TrackPath(analysis.path.points.map { it.copy(atMs = it.atMs + clip.atMs + shift) })
+                            val problems = abs.validate()
+                            if (problems.isNotEmpty()) return@withContext done(false, error = problems.joinToString("; "))
+                            media.updateText(projectId, text.id, text.copy(follow = abs), call.actor).fold(
+                                onSuccess = { "ข้อความที่ $n ตามวัตถุแล้ว" },
+                                onFailure = { return@withContext done(false, error = it.message) },
+                            )
+                        }
+                        else -> return@withContext done(false, error = "target ต้องเป็น self/clip:N/text:N")
+                    }
+                    done(true, "แทร็กแล้ว: ${analysis.path.summary()} (${analysis.samples} ตัวอย่าง, หลุด ${analysis.lost}) → $result (เลิกทำได้: edit.undo)")
+                }
+                "timeline.stabilize" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val (track, clip) = timeline.findClip(clipId)
+                        ?: return@withContext done(false, error = "ไม่พบคลิป $clipId")
+                    if (track.kind != MediaKind.VIDEO) {
+                        return@withContext done(false, error = "กันสั่นได้เฉพาะคลิปวิดีโอ")
+                    }
+                    val asset = ((media.listAssets(projectId) as? Outcome.Success)?.value?.firstOrNull { it.id == clip.assetId })
+                        ?: return@withContext done(false, error = "ไม่พบ asset ของคลิป")
+                    if (asset.kind != MediaKind.VIDEO) {
+                        return@withContext done(false, error = "asset ไม่ใช่วิดีโอ")
+                    }
+                    val path = (media.assetPath(projectId, asset.id) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไฟล์ asset ไม่ได้")
+                    val srcStart = call.args["startMs"]?.toLongOrNull()?.coerceIn(clip.startMs, clip.endMs) ?: clip.startMs
+                    val srcEnd = call.args["endMs"]?.toLongOrNull()?.coerceIn(srcStart, clip.endMs) ?: clip.endMs
+                    if (srcEnd - srcStart < 500) {
+                        return@withContext done(false, error = "ช่วงกันสั่นสั้นไป (อย่างน้อย 500ms)")
+                    }
+                    val req = StabRequest(
+                        assetPath = path,
+                        startMs = srcStart,
+                        endMs = srcEnd,
+                        stepMs = call.args["stepMs"]?.toLongOrNull() ?: 200,
+                        smoothMs = call.args["smoothMs"]?.toLongOrNull() ?: 600,
+                        zoom = call.args["zoom"]?.toIntOrNull(),
+                    )
+                    val stabOutcome = tracking.analyzeStab(req)
+                    val analysis = (stabOutcome as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = (stabOutcome as Outcome.Failure).error.message)
+                    val shift = (clip.speed?.sourceToOutput(srcStart - clip.startMs, clip.endMs - clip.startMs) ?: (srcStart - clip.startMs))
+                    val (kx, ky, note) = trackToKeys(analysis.path, shift, clip.outputDurationMs())
+                    media.applyTrackPath(projectId, clipId, kx, ky, analysis.zoom, ProjectEventTypes.STAB_APPLIED, "กันสั่น", call.actor).fold(
+                        onSuccess = { done(true, "กันสั่นแล้ว: สั่น %.1f%% ซูม ${analysis.zoom}%% (คีย์ ${kx.size} จุด)$note (เลิกทำได้: edit.undo)".format(analysis.shakePct)) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
                 "timeline.addMarker" -> {
                     val projectId = call.args["projectId"] ?: latestProject()
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
@@ -694,6 +830,33 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
         val index = args["clipIndex"]?.toIntOrNull() ?: return null
         val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value ?: return null
         return timeline.orderedClips().getOrNull(index - 1)?.second?.id
+    }
+
+    /**
+     * CP-80: % path → posX/posY keyframes (720p reference: 1280x720).
+     * Times shifted by [shiftMs], points past [clipLenMs] dropped (noted).
+     */
+    private fun trackToKeys(path: TrackPath, shiftMs: Long, clipLenMs: Long): Triple<List<KeyPoint>, List<KeyPoint>, String> {
+        var dropped = 0
+        var clamped = false
+        val kx = mutableListOf<KeyPoint>()
+        val ky = mutableListOf<KeyPoint>()
+        for (p in path.points.sortedBy { it.atMs }) {
+            val at = p.atMs + shiftMs
+            if (at < 0 || at > clipLenMs) {
+                dropped += 1
+                continue
+            }
+            val x = (p.dx * 1280f / 100f).toInt()
+            val y = (p.dy * 720f / 100f).toInt()
+            if (x !in -4000..4000 || y !in -4000..4000) clamped = true
+            kx += KeyPoint(at, x.coerceIn(-4000, 4000).toFloat())
+            ky += KeyPoint(at, y.coerceIn(-4000, 4000).toFloat())
+        }
+        var note = ""
+        if (dropped > 0) note += " (ตัด $dropped จุดที่เกินคลิป)"
+        if (clamped) note += " (clamp ±4000px)"
+        return Triple(kx, ky, note)
     }
 
     private fun parseFlag(raw: String?): Boolean? = when (raw?.trim()?.lowercase()) {

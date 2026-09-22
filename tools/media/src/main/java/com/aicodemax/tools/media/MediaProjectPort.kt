@@ -27,6 +27,7 @@ import com.aicodemax.data.media.ClipColor
 import com.aicodemax.data.media.ClipMask
 import com.aicodemax.data.media.ClipChroma
 import com.aicodemax.data.media.ClipBackground
+import com.aicodemax.data.media.KeyPoint
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.TimelineOps
 import com.aicodemax.data.media.Track
@@ -45,6 +46,8 @@ interface MediaProjectPort {
     suspend fun openProject(projectId: String): Outcome<Project>
     suspend fun importAsset(projectId: String, path: String, actor: String = "AI"): Outcome<MediaAsset>
     suspend fun listAssets(projectId: String): Outcome<List<MediaAsset>>
+    // CP-80 absolute asset file path (for frame analysis).
+    suspend fun assetPath(projectId: String, assetId: String): Outcome<String>
     suspend fun removeAsset(projectId: String, assetId: String, actor: String = "AI"): Outcome<Unit>
     suspend fun getTimeline(projectId: String): Outcome<Timeline>
     suspend fun setTimeline(projectId: String, timeline: Timeline, actor: String = "AI"): Outcome<Project>
@@ -138,6 +141,17 @@ interface MediaProjectPort {
         projectId: String,
         clipId: String,
         fx: ClipFx,
+        actor: String = "AI",
+    ): Outcome<Project>
+    // CP-80 motion path (§15/§43).
+    suspend fun applyTrackPath(
+        projectId: String,
+        clipId: String,
+        posX: List<KeyPoint>,
+        posY: List<KeyPoint>,
+        zoomBump: Int = 0,
+        event: String = ProjectEventTypes.TRACK_APPLIED,
+        label: String = "แทร็ก",
         actor: String = "AI",
     ): Outcome<Project>
     // CP-79 mask + chroma + background (§17/§18/§19).
@@ -246,6 +260,21 @@ class FileMediaProject(
     override suspend fun listProjects(): Outcome<List<Project>> = projects.list()
     override suspend fun openProject(projectId: String): Outcome<Project> = projects.open(projectId)
     override suspend fun listAssets(projectId: String): Outcome<List<MediaAsset>> = assets.list(projectId)
+
+    override suspend fun assetPath(projectId: String, assetId: String): Outcome<String> =
+        when (val list = assets.list(projectId)) {
+            is Outcome.Failure -> list
+            is Outcome.Success -> {
+                val asset = list.value.firstOrNull { it.id == assetId }
+                    ?: return Outcome.Failure(AppError("MEDIA_NO_ASSET", "ไม่มี asset $assetId"))
+                val file = File(File(rootDir, "$projectId/assets"), asset.fileName)
+                if (!file.isFile) {
+                    Outcome.Failure(AppError("MEDIA_NO_FILE", "ไฟล์ asset หาย (${asset.fileName})"))
+                } else {
+                    Outcome.Success(file.path)
+                }
+            }
+        }
 
     override suspend fun removeAsset(projectId: String, assetId: String, actor: String): Outcome<Unit> =
         mutate(
@@ -593,6 +622,19 @@ class FileMediaProject(
     ): Outcome<Project> = editTimeline(
         projectId, "พื้นหลังไทม์ไลน์", ProjectEventTypes.TIMELINE_BG, actor,
     ) { TimelineOps.background(it, background) }
+
+    override suspend fun applyTrackPath(
+        projectId: String,
+        clipId: String,
+        posX: List<KeyPoint>,
+        posY: List<KeyPoint>,
+        zoomBump: Int,
+        event: String,
+        label: String,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "$label $clipId", event, actor,
+    ) { TimelineOps.applyPath(it, clipId, posX, posY, zoomBump) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(
@@ -947,6 +989,12 @@ class InMemoryMediaProject : MediaProjectPort {
     override suspend fun listAssets(projectId: String): Outcome<List<MediaAsset>> =
         Outcome.Success(assets[projectId]?.toList().orEmpty())
 
+    override suspend fun assetPath(projectId: String, assetId: String): Outcome<String> {
+        val asset = assets[projectId]?.firstOrNull { it.id == assetId }
+            ?: return Outcome.Failure(AppError("MEDIA_NO_ASSET", "ไม่มี asset $assetId"))
+        return Outcome.Success("mem://${asset.fileName}")
+    }
+
     override suspend fun removeAsset(projectId: String, assetId: String, actor: String): Outcome<Unit> =
         mutate(projectId, "ลบ asset $assetId", ProjectEventTypes.ASSET_REMOVED, actor) {
             val removed = assets[projectId]?.removeIf { it.id == assetId } == true
@@ -1243,6 +1291,19 @@ class InMemoryMediaProject : MediaProjectPort {
     ): Outcome<Project> = editTimeline(
         projectId, "พื้นหลังไทม์ไลน์", ProjectEventTypes.TIMELINE_BG, actor,
     ) { TimelineOps.background(it, background) }
+
+    override suspend fun applyTrackPath(
+        projectId: String,
+        clipId: String,
+        posX: List<KeyPoint>,
+        posY: List<KeyPoint>,
+        zoomBump: Int,
+        event: String,
+        label: String,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "$label $clipId", event, actor,
+    ) { TimelineOps.applyPath(it, clipId, posX, posY, zoomBump) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(projectId, "บันทึกเวอร์ชัน", ProjectEventTypes.VERSION_SAVED, actor) {
