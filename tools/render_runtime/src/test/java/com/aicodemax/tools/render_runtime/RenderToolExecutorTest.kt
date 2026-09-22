@@ -72,4 +72,27 @@ class RenderToolExecutorTest {
         )
         assertTrue(!unknown.ok && unknown.error.contains("unknown action"))
     }
+
+    @Test
+    fun batchFlow() = runBlocking {
+        val media = InMemoryMediaProject()
+        val p1 = ((media.createProject("one") as Outcome.Success<com.aicodemax.data.media.Project>).value.id)
+        val p2 = ((media.createProject("two") as Outcome.Success<com.aicodemax.data.media.Project>).value.id)
+        val exec = RenderToolExecutor(InMemoryRender(), media)
+        val batch = exec.execute(call("batch", mapOf("projectIds" to "$p1,$p2"))).fold(
+            onSuccess = { it },
+            onFailure = { throw AssertionError("batch failed") },
+        )
+        assertTrue(batch.output, batch.ok && batch.output.contains(p1) && batch.output.contains(p2))
+        val all = exec.execute(call("batch", mapOf("all" to "true"))).fold(
+            onSuccess = { it },
+            onFailure = { throw AssertionError("batch all failed") },
+        )
+        assertTrue(all.ok)
+        val empty = exec.execute(call("batch")).fold(
+            onSuccess = { it },
+            onFailure = { throw AssertionError("batch empty failed") },
+        )
+        assertTrue(!empty.ok)
+    }
 }

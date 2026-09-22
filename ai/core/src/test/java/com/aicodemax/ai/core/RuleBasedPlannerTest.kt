@@ -240,6 +240,17 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp100BrandPackageBatchPlans() = runBlocking {
+        val save = (planner.plan(UserIntent(IntentType.BRAND_SAVE, "t", mapOf("name" to "x"))) as Outcome.Success<Plan>).value
+        assertEquals("brand.save", save.steps[0].action)
+        val pack = (planner.plan(UserIntent(IntentType.PROJECT_PACKAGE, "t", emptyMap())) as Outcome.Success<Plan>).value
+        assertEquals("package", pack.steps[0].action)
+        val batch = (planner.plan(UserIntent(IntentType.RENDER_BATCH, "t", mapOf("all" to "true"))) as Outcome.Success<Plan>).value
+        assertEquals("batch", batch.steps[0].action)
+        assertEquals("render", batch.steps[0].toolId)
+    }
+
+    @Test
     fun cp99DefersHonestly() = runBlocking {
         val lip = planner.plan(UserIntent(IntentType.LIPSYNC, "t", emptyMap()))
         assertTrue(lip is Outcome.Failure)

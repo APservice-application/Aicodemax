@@ -118,6 +118,10 @@ enum class IntentType {
     SCRIPT_VIDEO,
     LIPSYNC,
     PRESENTER,
+    BRAND_SAVE,
+    BRAND_APPLY,
+    PROJECT_PACKAGE,
+    RENDER_BATCH,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -725,6 +729,25 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.presenterWords)) {
             return UserIntent(IntentType.PRESENTER, text, params("clipIndex" to parseClipIndex(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.brandSaveWords)) {
+            var rest = t
+            for (w in ThaiVocabulary.brandSaveWords) rest = rest.replace(w, "")
+            val color = Regex("#[0-9A-Fa-f]{6}").find(rest)?.value
+            if (color != null) rest = rest.replace(color, "")
+            rest = rest.trim().removePrefix(":").trim()
+            return UserIntent(IntentType.BRAND_SAVE, text, params("name" to rest.ifBlank { null }, "color" to color))
+        }
+        if (containsAny(t, ThaiVocabulary.brandApplyWords)) {
+            val brand = Regex("brand-[\\w-]+").find(t)?.value ?: file
+            return UserIntent(IntentType.BRAND_APPLY, text, params("brand" to brand))
+        }
+        if (containsAny(t, ThaiVocabulary.packageWords)) {
+            return UserIntent(IntentType.PROJECT_PACKAGE, text, params("dst" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.batchWords)) {
+            val all = t.contains("ทั้งหมด") || t.contains("ทุกโปรเจกต์")
+            return UserIntent(IntentType.RENDER_BATCH, text, params("all" to if (all) "true" else null))
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value

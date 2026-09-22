@@ -70,7 +70,33 @@ class RenderToolExecutor(
                     call.args["jobId"] ?: latestId({ it.approved && it.exportedUri.isEmpty() }),
                     empty = "ไม่มีงานที่อนุมัติแล้วรอเอ็กซ์พอร์ต",
                 ) { port.export(it) }
-                else -> done(false, error = "unknown action '${call.action}' (have: enqueue/runNow/run/status/list/retry/approve/export)")
+                "batch" -> {
+                    val ids = if (call.args["all"] == "true") {
+                        media.listProjects().fold(
+                            onSuccess = { ps -> ps.map { it.id } },
+                            onFailure = { return@withContext done(false, error = it.message) },
+                        )
+                    } else {
+                        (call.args["projectIds"] ?: call.args["projectId"] ?: "")
+                            .split(",", " ", ";").map { it.trim() }.filter { it.isNotEmpty() }
+                    }
+                    if (ids.isEmpty()) {
+                        return@withContext done(false, error = "missing arg: projectIds (คั่นด้วยจุลภาค) หรือ all=true")
+                    }
+                    if (ids.size > 20) {
+                        return@withContext done(false, error = "มากสุด 20 โปรเจกต์ต่อรอบ (ได้ ${ids.size})")
+                    }
+                    val preset = call.args["preset"]
+                    val lines = mutableListOf<String>()
+                    for (id in ids) {
+                        port.runNow(id, preset).fold(
+                            onSuccess = { lines.add("$id: ${describeShort(it)}") },
+                            onFailure = { lines.add("$id: ล้มเหลว ${it.message}") },
+                        )
+                    }
+                    done(true, "เรนเดอร์ทีละโปรเจกต์ ${ids.size} งาน:\n" + lines.joinToString("\n"))
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: enqueue/runNow/run/status/list/retry/approve/export/batch)")
             }
         }
 

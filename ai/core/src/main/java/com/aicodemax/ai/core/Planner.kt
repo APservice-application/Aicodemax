@@ -648,6 +648,38 @@ class RuleBasedPlanner(
                     ),
                 )
             }
+            IntentType.BRAND_SAVE -> {
+                val name = intent.parameters["name"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_NAME", "แบรนด์ชื่ออะไรครับ? เช่น สร้างแบรนด์ กาแฟดริป #8B4513"),
+                    )
+                val args = mutableMapOf("name" to name)
+                intent.parameters["color"]?.let { args["color"] = it }
+                intent.parameters["tagline"]?.let { args["tagline"] = it }
+                intent.parameters["logo"]?.let { args["logo"] = it }
+                listOf("media.brand.save" to args)
+            }
+            IntentType.BRAND_APPLY -> {
+                val brand = intent.parameters["brand"] ?: intent.parameters["brandId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_BRAND", "ใช้แบรนด์ไหนครับ? (ดู id จาก รายชื่อแบรนด์)"),
+                    )
+                val args = mutableMapOf("brandId" to brand)
+                intent.parameters["projectId"]?.let { args["projectId"] = it }
+                listOf("media.brand.apply" to args)
+            }
+            IntentType.PROJECT_PACKAGE -> {
+                val args = mutableMapOf<String, String>()
+                intent.parameters["projectId"]?.let { args["projectId"] = it }
+                intent.parameters["dst"]?.let { args["dst"] = it }
+                listOf("media.package" to args)
+            }
+            IntentType.RENDER_BATCH -> {
+                val args = mutableMapOf<String, String>()
+                intent.parameters["all"]?.let { args["all"] = it }
+                intent.parameters["projectIds"]?.let { args["projectIds"] = it }
+                listOf("render.batch" to args)
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

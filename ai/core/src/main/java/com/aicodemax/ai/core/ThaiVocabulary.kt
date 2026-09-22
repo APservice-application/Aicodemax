@@ -192,6 +192,10 @@ object ThaiVocabulary {
     val scriptVideoWords: List<String> = listOf("สคริปต์เป็นวิดีโอ", "บทเป็นวิดีโอ", "บทเป็นคลิป", "script to video", "scriptvideo")
     val lipsyncWords: List<String> = listOf("ลิปซิงค์", "ลิปซิงก์", "ขยับปากตามเสียง", "lipsync", "lip sync")
     val presenterWords: List<String> = listOf("ผู้ประกาศ", "พิธีกร", "presenter", "avatar พูด", "อวตารพูด")
+    val brandSaveWords: List<String> = listOf("บันทึกแบรนด์", "สร้างแบรนด์", "brand kit", "ชุดแบรนด์")
+    val brandApplyWords: List<String> = listOf("ใช้แบรนด์", "ใส่แบรนด์", "apply brand")
+    val packageWords: List<String> = listOf("แพ็กโปรเจกต์", "แพคโปรเจกต์", "zip โปรเจกต์", "สำรองโปรเจกต์", "package")
+    val batchWords: List<String> = listOf("เรนเดอร์หลาย", "เอ็กซ์พอร์ตหลาย", "เรนเดอร์ทั้งหมด", "batch")
     val aiModeWords: Map<String, String> = mapOf(
         "โฆษณา" to "commercial", "commercial" to "commercial",
         "เล่าเรื่อง" to "story", "สตอรี่" to "story",

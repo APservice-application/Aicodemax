@@ -157,6 +157,23 @@ fun RenderScreen(services: ServiceLocator) {
                                 },
                                 enabled = !busy,
                             ) { Text("เข้าคิว") }
+                            OutlinedButton(
+                                onClick = {
+                                    runCall {
+                                        val call = com.aicodemax.tools.gateway.ToolCall(
+                                            com.aicodemax.core.common.Ids.newId("ui"), "render", "batch",
+                                            mapOf("all" to "true", "preset" to RenderPreset.PRESETS[presetIndex].name),
+                                            actor = "HUMAN",
+                                        )
+                                        services.gateway.call(call).fold(
+                                            onSuccess = { message = if (it.ok) it.output else it.error },
+                                            onFailure = { message = it.message },
+                                        )
+                                    }
+                                },
+                                enabled = !busy,
+                            ) { Text("เรนเดอร์ทั้งหมด") }
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                             OutlinedButton(
                                 onClick = {
@@ -183,7 +200,6 @@ fun RenderScreen(services: ServiceLocator) {
                         }
                         if (historyLine.isNotEmpty()) {
                             Text(historyLine, style = MaterialTheme.typography.bodySmall)
-                        }
                         }
                     }
                     message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }

@@ -453,6 +453,23 @@ class MediaToolExecutorTest {
     }
 
     @Test
+    fun brandPackageFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("bp") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val save = run("brand.save", mapOf("name" to "กาแฟดริป", "color" to "#8B4513", "tagline" to "หอม"))
+        assertTrue(save.output.ifBlank { save.error }, save.ok)
+        val brandId = save.output.substringAfter("id=").substringBefore(")").trim()
+        val list = run("brand.list", emptyMap())
+        assertTrue(list.output, list.ok && list.output.contains("กาแฟดริป"))
+        val apply = run("brand.apply", mapOf("projectId" to projectId, "brandId" to brandId))
+        assertTrue(apply.output.ifBlank { apply.error }, apply.ok)
+        val timeline = (media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value
+        assertEquals(2, timeline.texts.size)
+        assertTrue(timeline.texts.any { it.text == "กาแฟดริป" && it.bold })
+        val pack = run("package", mapOf("projectId" to projectId, "dst" to "/tmp/bp.zip"))
+        assertTrue(!pack.ok && pack.error.contains("ไม่มีไฟล์จริง"))
+    }
+
+    @Test
     fun scriptVideoFlow(): Unit = runBlocking {
         val projectId = (media.createProject("sv") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
         val r = run("script.video", mapOf("projectId" to projectId, "script" to "สวัสดีครับ\n\nวันนี้รีวิวกาแฟ"))

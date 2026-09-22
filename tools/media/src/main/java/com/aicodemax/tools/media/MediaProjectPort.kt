@@ -227,6 +227,11 @@ interface MediaProjectPort {
     suspend fun addMarkers(projectId: String, markers: List<TimelineMarker>, actor: String = "AI"): Outcome<Project>
     // CP-87 autocut (§32).
     suspend fun autocutClip(projectId: String, clipId: String, keep: List<Pair<Long, Long>>, actor: String = "AI"): Outcome<Project>
+    // CP-100 brand + packaging.
+    suspend fun saveBrand(name: String, colorHex: String, logoPath: String, tagline: String): Outcome<BrandKit>
+    suspend fun listBrands(): Outcome<List<BrandKit>>
+    suspend fun applyBrand(projectId: String, brandId: String, actor: String = "AI"): Outcome<Project>
+    suspend fun packageProject(projectId: String, dst: String): Outcome<PackageInfo>
     // CP-78 color correction (§42).
     suspend fun setClipColor(
         projectId: String,
@@ -273,6 +278,15 @@ interface MediaProjectPort {
 }
 
 /** Undo stack labels + recent events for UI/chat history views. */
+/** CP-100: result of packaging a project directory into a zip. */
+data class PackageInfo(
+    val path: String,
+    val files: Int,
+    val sizeBytes: Long,
+) {
+    val summary: String get() = "$files files ${sizeBytes}B"
+}
+
 data class ProjectHistory(
     val undoLabels: List<String>,
     val redoCount: Int,
@@ -323,6 +337,7 @@ class FileMediaProject(
     private val undoStore = FileUndoStore(root)
     private val checkpoints = FileCheckpointStore(root)
     private val templates = FileTemplateStore(root, clock)
+    private val brands = FileBrandStore(rootDir, clock)
     private val library = FileLibraryStore(root, clock)
     private val txDepth = mutableMapOf<String, Int>()
 
@@ -778,6 +793,47 @@ class FileMediaProject(
         editTimeline(projectId, "ตัดเงียบ $clipId", ProjectEventTypes.CLIP_AUTOCUT, actor) {
             TimelineOps.autocut(it, clipId, keep, keep.map { Ids.newId("clip") })
         }
+    override suspend fun saveBrand(name: String, colorHex: String, logoPath: String, tagline: String): Outcome<BrandKit> =
+        brands.save(name, colorHex, logoPath, tagline)
+
+    override suspend fun listBrands(): Outcome<List<BrandKit>> = brands.list()
+
+    override suspend fun applyBrand(projectId: String, brandId: String, actor: String): Outcome<Project> {
+        val kit = when (val got = brands.get(brandId)) {
+            is Outcome.Failure -> return got
+            is Outcome.Success -> got.value
+        }
+        return editTimeline(projectId, "ใช้แบรนด์ ${kit.name}", ProjectEventTypes.BRAND_APPLIED, actor) { timeline ->
+            val dur = timeline.durationMs
+            val intro = com.aicodemax.data.media.OverlayText(Ids.newId("txt"), kit.name, 0, 3000, color = kit.argb(), bold = true)
+            val outroText = kit.tagline.ifBlank { kit.name }
+            val outroStart = (dur - 3000).coerceAtLeast(3000)
+            val outro = com.aicodemax.data.media.OverlayText(Ids.newId("txt"), outroText, outroStart, outroStart + 3000, color = kit.argb())
+            TimelineOps.addText(TimelineOps.addText(timeline, intro), outro)
+        }
+    }
+
+    override suspend fun packageProject(projectId: String, dst: String): Outcome<PackageInfo> {
+        val dir = java.io.File(rootDir, projectId)
+        if (!dir.isDirectory) return Outcome.Failure(AppError("PACKAGE_MISSING", "ไม่มีโฟลเดอร์โปรเจกต์ $projectId"))
+        return try {
+            java.io.File(dst).parentFile?.mkdirs()
+            var count = 0
+            java.util.zip.ZipOutputStream(java.io.File(dst).outputStream()).use { zip ->
+                dir.walkTopDown().filter { it.isFile }.forEach { file ->
+                    val rel = dir.toPath().relativize(file.toPath()).toString().replace(java.io.File.separatorChar, '/')
+                    zip.putNextEntry(java.util.zip.ZipEntry(rel))
+                    file.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                    count++
+                }
+            }
+            Outcome.Success(PackageInfo(dst, count, java.io.File(dst).length()))
+        } catch (e: Exception) {
+            Outcome.Failure(AppError("PACKAGE_WRITE", "แพ็กโปรเจกต์ไม่ได้: ${e.message}"))
+        }
+    }
+
     override suspend fun setCanvas(projectId: String, canvas: String, actor: String): Outcome<Project> =
         editTimeline(projectId, "ตั้งแคนวาส $canvas", ProjectEventTypes.TIMELINE_CANVAS, actor) {
             TimelineOps.setCanvas(it, canvas)
@@ -1579,6 +1635,37 @@ class InMemoryMediaProject : MediaProjectPort {
         editTimeline(projectId, "ตัดเงียบ $clipId", ProjectEventTypes.CLIP_AUTOCUT, actor) {
             TimelineOps.autocut(it, clipId, keep, keep.map { Ids.newId("clip") })
         }
+    private val memBrands = mutableMapOf<String, BrandKit>()
+
+    override suspend fun saveBrand(name: String, colorHex: String, logoPath: String, tagline: String): Outcome<BrandKit> {
+        val kit = BrandKit(Ids.newId("brand"), name.trim(), colorHex.trim().ifBlank { "#FFFFFF" }, logoPath.trim(), tagline.trim(), nowMs())
+        val problems = kit.validate()
+        if (problems.isNotEmpty()) return Outcome.Failure(AppError("BRAND_BAD", problems.joinToString("; ")))
+        memBrands[kit.id] = kit
+        return Outcome.Success(kit)
+    }
+
+    override suspend fun listBrands(): Outcome<List<BrandKit>> =
+        Outcome.Success(memBrands.values.sortedByDescending { it.createdAt })
+
+    override suspend fun applyBrand(projectId: String, brandId: String, actor: String): Outcome<Project> {
+        val kit = memBrands[brandId]
+            ?: return Outcome.Failure(AppError("BRAND_MISSING", "ไม่มีแบรนด์ $brandId"))
+        return editTimeline(projectId, "ใช้แบรนด์ ${kit.name}", ProjectEventTypes.BRAND_APPLIED, actor) { timeline ->
+            val dur = timeline.durationMs
+            val intro = com.aicodemax.data.media.OverlayText(Ids.newId("txt"), kit.name, 0, 3000, color = kit.argb(), bold = true)
+            val outroText = kit.tagline.ifBlank { kit.name }
+            val outroStart = (dur - 3000).coerceAtLeast(3000)
+            val outro = com.aicodemax.data.media.OverlayText(Ids.newId("txt"), outroText, outroStart, outroStart + 3000, color = kit.argb())
+            TimelineOps.addText(TimelineOps.addText(timeline, intro), outro)
+        }
+    }
+
+    override suspend fun packageProject(projectId: String, dst: String): Outcome<PackageInfo> {
+        if (projectId !in projects) return Outcome.Failure(AppError("PACKAGE_MISSING", "ไม่มีโปรเจกต์ $projectId"))
+        return Outcome.Failure(AppError("PACKAGE_MEM", "โปรเจกต์ทดสอบไม่มีไฟล์จริงให้แพ็ก (ใช้แอปจริง)"))
+    }
+
     override suspend fun setCanvas(projectId: String, canvas: String, actor: String): Outcome<Project> =
         editTimeline(projectId, "ตั้งแคนวาส $canvas", ProjectEventTypes.TIMELINE_CANVAS, actor) {
             TimelineOps.setCanvas(it, canvas)

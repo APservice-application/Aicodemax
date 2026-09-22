@@ -257,6 +257,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp100BrandPackageBatchIntents() {
+        val save = IntentParser.parse("สร้างแบรนด์ กาแฟดริป #8B4513")
+        assertEquals(IntentType.BRAND_SAVE, save.type)
+        assertEquals("#8B4513", save.parameters["color"])
+        val pack = IntentParser.parse("แพ็กโปรเจกต์")
+        assertEquals(IntentType.PROJECT_PACKAGE, pack.type)
+        val batch = IntentParser.parse("เรนเดอร์ทั้งหมด")
+        assertEquals(IntentType.RENDER_BATCH, batch.type)
+        assertEquals("true", batch.parameters["all"])
+    }
+
+    @Test
     fun cp99LipsyncPresenterIntents() {
         assertEquals(IntentType.LIPSYNC, IntentParser.parse("ทำลิปซิงค์คลิปที่ 1").type)
         assertEquals(IntentType.PRESENTER, IntentParser.parse("สร้างผู้ประกาศ AI").type)

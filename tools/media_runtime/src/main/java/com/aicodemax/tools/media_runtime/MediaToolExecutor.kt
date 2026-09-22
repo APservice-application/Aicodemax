@@ -745,6 +745,46 @@ class MediaToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "brand.save" -> {
+                    val name = call.args["name"]
+                        ?: return@withContext done(false, error = "missing arg: name")
+                    media.saveBrand(
+                        name,
+                        call.args["color"] ?: call.args["colorHex"] ?: "#FFFFFF",
+                        call.args["logo"] ?: call.args["logoPath"] ?: "",
+                        call.args["tagline"] ?: "",
+                    ).fold(
+                        onSuccess = { done(true, "บันทึกแบรนด์แล้ว: ${it.summary()} (id=${it.id})") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "brand.list" -> {
+                    media.listBrands().fold(
+                        onSuccess = { kits ->
+                            done(true, if (kits.isEmpty()) "ยังไม่มีแบรนด์" else kits.take(20).joinToString("\n") { "${it.id}: ${it.summary()}" })
+                        },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "brand.apply" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val brandId = call.args["brandId"] ?: call.args["brand"]
+                        ?: return@withContext done(false, error = "missing arg: brandId (ดูจาก brand.list)")
+                    media.applyBrand(projectId, brandId, call.actor).fold(
+                        onSuccess = { done(true, "ใช้แบรนด์แล้ว (ไตเติลเปิด+ปิดท้าย) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "package" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val dst = call.args["dst"] ?: "$projectId.zip"
+                    media.packageProject(projectId, dst).fold(
+                        onSuccess = { done(true, "แพ็กโปรเจกต์แล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
                 "template.save" -> {
                     val projectId = call.args["projectId"] ?: latestProject()
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
