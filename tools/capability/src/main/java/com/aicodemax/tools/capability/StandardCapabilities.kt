@@ -330,6 +330,8 @@ CapabilityBinding("media.timeline.enhance", "media", "timeline.enhance", Adapter
             metadata = meta("subtitle", "เลื่อนเวลาซับ", listOf("src,offsetMs"), listOf("dst"), listOf("fs.write"), false, "times moved", "retry")),
         CapabilityBinding("subtitle.burn", "subtitle", "burn", AdapterKind.NATIVE,
             metadata = meta("subtitle", "ฝังซับลงวิดีโอ", listOf("src,srt"), listOf("dst"), listOf("fs.write"), false, "mp4 out", "retry")),
+        CapabilityBinding("subtitle.translate", "subtitle", "translate", AdapterKind.NATIVE,
+            metadata = meta("subtitle", "แปลซับไทย↔อังกฤษ", listOf("src,direction?"), listOf("dst"), listOf("fs.write"), false, "translated", "fix file")),
         CapabilityBinding("render.enqueue", "render", "enqueue", AdapterKind.NATIVE,
             metadata = meta("render", "เข้าคิวเรนเดอร์", listOf("projectId?,preset?"), listOf("job"), emptyList(), false, "job queued", "retry")),
         CapabilityBinding("render.runNow", "render", "runNow", AdapterKind.NATIVE,

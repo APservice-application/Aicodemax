@@ -192,6 +192,14 @@ class RuleBasedPlanner(
                     )
                 listOf("subtitle.shift" to mapOf("src" to path, "offsetMs" to offset))
             }
+            IntentType.SUBTITLE_TRANSLATE -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_SUB", "แปลซับไฟล์ไหนครับ? เช่น แปลซับ a.srt เป็นอังกฤษ"),
+                    )
+                val direction = intent.parameters["direction"] ?: "th-en"
+                listOf("subtitle.translate" to mapOf("src" to path, "direction" to direction))
+            }
             IntentType.SUBTITLE_BURN -> {
                 val src = intent.parameters["src"]
                 val srt = intent.parameters["srt"]

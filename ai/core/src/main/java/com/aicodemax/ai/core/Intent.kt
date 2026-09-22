@@ -122,6 +122,7 @@ enum class IntentType {
     SUBTITLE_MAKE,
     SUBTITLE_SHIFT,
     SUBTITLE_BURN,
+    SUBTITLE_TRANSLATE,
     RENDER_START,
     RENDER_STATUS,
     RENDER_APPROVE,
@@ -857,6 +858,10 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.projectListWords)) {
             return UserIntent(IntentType.PROJECT_LIST, text)
+        }
+        if (containsAny(t, ThaiVocabulary.subtitleTranslateWords)) {
+            val direction = if (t.contains("อังกฤษ") || t.contains("english")) "th-en" else if (t.contains("ไทย")) "en-th" else "th-en"
+            return UserIntent(IntentType.SUBTITLE_TRANSLATE, text, params("path" to file, "direction" to direction))
         }
         if (containsAny(t, ThaiVocabulary.subtitleMakeWords)) {
             val after = t.substringAfter(":", "").trim()

@@ -257,6 +257,14 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp98SubtitleTranslateIntent() {
+        val tr = IntentParser.parse("แปลซับ a.srt เป็นอังกฤษ")
+        assertEquals(IntentType.SUBTITLE_TRANSLATE, tr.type)
+        assertEquals("a.srt", tr.parameters["path"])
+        assertEquals("th-en", tr.parameters["direction"])
+    }
+
+    @Test
     fun cp97ScriptVideoIntent() {
         val sv = IntentParser.parse("บทเป็นวิดีโอ: สวัสดีครับ")
         assertEquals(IntentType.SCRIPT_VIDEO, sv.type)

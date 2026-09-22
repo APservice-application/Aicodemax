@@ -240,6 +240,13 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp98SubtitleTranslatePlans() = runBlocking {
+        val tr = (planner.plan(UserIntent(IntentType.SUBTITLE_TRANSLATE, "t", mapOf("path" to "a.srt"))) as Outcome.Success<Plan>).value
+        assertEquals("translate", tr.steps[0].action)
+        assertEquals("subtitle", tr.steps[0].toolId)
+    }
+
+    @Test
     fun cp97ScriptVideoPlans() = runBlocking {
         val sv = (planner.plan(UserIntent(IntentType.SCRIPT_VIDEO, "t", mapOf("script" to "hi"))) as Outcome.Success<Plan>).value
         assertEquals("script.video", sv.steps[0].action)

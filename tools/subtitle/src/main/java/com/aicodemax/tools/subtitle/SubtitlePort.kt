@@ -24,6 +24,8 @@ interface SubtitlePort {
     suspend fun parse(path: String): Outcome<SubtitleInfo>
     suspend fun shift(src: String, dst: String, offsetMs: Long): Outcome<SubtitleInfo>
     suspend fun burn(srcVideo: String, srtPath: String, dst: String): Outcome<VideoInfo>
+    /** CP-98: offline dictionary translation (th-en/en-th). */
+    suspend fun translate(src: String, dst: String, direction: String): Outcome<SubtitleInfo>
 }
 
 /** File-backed make/parse/shift (pure JVM — ships on Android too). Burn stays abstract. */
@@ -54,6 +56,41 @@ abstract class FileSubtitlePort(
             File(dst).parentFile?.mkdirs()
             File(dst).writeText(Srt.format(cues), Charsets.UTF_8)
             Outcome.Success(SubtitleInfo(dst, cues.size, duration))
+        } catch (e: Exception) {
+            Outcome.Failure(AppError("SUB_WRITE", "เขียนไฟล์ซับไม่ได้: ${e.message}"))
+        }
+    }
+
+    override suspend fun translate(src: String, dst: String, direction: String): Outcome<SubtitleInfo> {
+        val text = try {
+            File(src).readText(Charsets.UTF_8)
+        } catch (e: Exception) {
+            return Outcome.Failure(AppError("SUB_READ", "อ่านไฟล์ซับไม่ได้: ${e.message}"))
+        }
+        val cues = when (val parsed = Srt.parse(text)) {
+            is Outcome.Failure -> return parsed
+            is Outcome.Success -> parsed.value
+        }
+        if (cues.isEmpty()) return Outcome.Failure(AppError("SUB_EMPTY", "ไฟล์ซับไม่มีคิว"))
+        val dir = direction.lowercase()
+        if (dir != "th-en" && dir != "en-th") {
+            return Outcome.Failure(AppError("SUB_LANG", "รองรับแค่ th-en หรือ en-th (พจนานุกรมในตัว)"))
+        }
+        var hits = 0
+        var total = 0
+        val out = cues.map { cue ->
+            cue.copy(lines = cue.lines.map { line ->
+                val tr = Translator.translate(line, dir)
+                hits += tr.hits
+                total += tr.total
+                tr.text
+            })
+        }
+        return try {
+            File(dst).parentFile?.mkdirs()
+            File(dst).writeText(Srt.format(out), Charsets.UTF_8)
+            val last = out.maxOf { it.endMs }
+            Outcome.Success(SubtitleInfo(dst, out.size, last))
         } catch (e: Exception) {
             Outcome.Failure(AppError("SUB_WRITE", "เขียนไฟล์ซับไม่ได้: ${e.message}"))
         }
@@ -151,4 +188,18 @@ class InMemorySubtitlePort : SubtitlePort {
         }
         return Outcome.Success(VideoInfo(dst, "MP4", 10_000, 640, 480, hasAudio = true))
     }
+
+    override suspend fun translate(src: String, dst: String, direction: String): Outcome<SubtitleInfo> {
+        val cues = store[src]
+            ?: return Outcome.Failure(AppError("SUB_NO_FILE", "ไม่พบไฟล์ $src (fake นี้ต้อง put() ก่อน)"))
+        val dir = direction.lowercase()
+        if (dir != "th-en" && dir != "en-th") {
+            return Outcome.Failure(AppError("SUB_LANG", "รองรับแค่ th-en หรือ en-th (พจนานุกรมในตัว)"))
+        }
+        val out = cues.map { cue -> cue.copy(lines = cue.lines.map { Translator.translate(it, dir).text }) }
+        store[dst] = out
+        return Outcome.Success(SubtitleInfo(dst, out.size, out.maxOfOrNull { it.endMs } ?: 0))
+    }
+
+    fun get(path: String): List<Cue>? = store[path]
 }

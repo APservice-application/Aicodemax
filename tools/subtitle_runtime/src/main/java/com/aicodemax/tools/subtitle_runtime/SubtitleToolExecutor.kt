@@ -58,7 +58,19 @@ class SubtitleToolExecutor(private val subs: SubtitlePort = InMemorySubtitlePort
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: make/parse/shift/burn)")
+                "translate" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    val dst = call.args["dst"] ?: defaultDst(src, "srt")
+                    val direction = call.args["direction"] ?: call.args["to"]?.let {
+                        if (it.lowercase().startsWith("en")) "th-en" else "en-th"
+                    } ?: "th-en"
+                    subs.translate(src, dst, direction).fold(
+                        onSuccess = { done(true, "แปลซับแล้ว ${it.path}: ${it.summary} (พจนานุกรมในตัว ไทย↔อังกฤษ)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: make/parse/shift/burn/translate)")
             }
         }
 

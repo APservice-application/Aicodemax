@@ -6,6 +6,7 @@ import com.aicodemax.tools.gateway.ToolResult
 import com.aicodemax.tools.subtitle.Cue
 import com.aicodemax.tools.subtitle.InMemorySubtitlePort
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,12 +39,24 @@ class SubtitleToolExecutorTest {
     }
 
     @Test
+    fun translateFlow() {
+        val port = InMemorySubtitlePort()
+        port.put("a.srt", listOf(Cue(0, 2000, listOf("สวัสดีครับ", "ขอบคุณที่รับชม"))))
+        val tr = run(port, "translate", mapOf("src" to "a.srt", "dst" to "b.srt"))
+        assertTrue(tr.output.ifBlank { tr.error }, tr.ok && tr.output.contains("แปลซับแล้ว"))
+        assertEquals(listOf("Hello", "Thanks for watching"), port.get("b.srt")!![0].lines)
+        val bad = run(port, "translate", mapOf("src" to "missing.srt"))
+        assertTrue(!bad.ok)
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         val port = InMemorySubtitlePort()
         assertTrue(!run(port, "make", emptyMap()).ok)
         assertTrue(!run(port, "shift", mapOf("src" to "a.srt")).ok)
         assertTrue(!run(port, "burn", mapOf("src" to "a.mp4")).ok)
-        val r = run(port, "translate", mapOf("src" to "a.srt"))
+        assertTrue(!run(port, "translate", emptyMap()).ok)
+        val r = run(port, "dub", mapOf("src" to "a.srt"))
         assertTrue(!r.ok)
         assertTrue(r.error.contains("unknown action"))
     }
