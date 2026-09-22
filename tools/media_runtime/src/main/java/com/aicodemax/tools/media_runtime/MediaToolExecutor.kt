@@ -12,6 +12,7 @@ import com.aicodemax.data.media.ClipColor
 import com.aicodemax.data.media.ClipMask
 import com.aicodemax.data.media.ClipChroma
 import com.aicodemax.data.media.ClipBackground
+import com.aicodemax.data.media.ClipLut
 import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.SpeedPoint
 import com.aicodemax.core.common.Ids
@@ -22,6 +23,9 @@ import com.aicodemax.data.media.ProjectEventTypes
 import com.aicodemax.data.media.TrackPath
 import com.aicodemax.data.media.TrackPoint
 import com.aicodemax.tools.media.TextIdeas
+import com.aicodemax.tools.media.ColorPort
+import com.aicodemax.tools.media.ColorRequest
+import com.aicodemax.tools.media.InMemoryColorPort
 import com.aicodemax.tools.media.InMemoryMediaProject
 import com.aicodemax.tools.media.InMemoryTrackingPort
 import com.aicodemax.tools.media.MediaProjectPort
@@ -35,6 +39,7 @@ import kotlinx.coroutines.withContext
 class MediaToolExecutor(
     private val media: MediaProjectPort = InMemoryMediaProject(),
     private val tracking: TrackingPort = InMemoryTrackingPort(),
+    private val color: ColorPort = InMemoryColorPort(),
 ) : ToolExecutor {
     override val toolId: String = "media"
 
@@ -91,6 +96,7 @@ class MediaToolExecutor(
                                     (clip.transitionOut?.let { " {OUT:${it.summary()}}" } ?: "") +
                                     (clip.fx?.takeUnless { it.isIdentity }?.let { " {FX:${it.summary()}}" } ?: "") +
                                     (clip.color?.takeUnless { it.isIdentity }?.let { " {C:${it.summary()}}" } ?: "") +
+                                    (clip.lut?.let { " {L:${it.summary()}}" } ?: "") +
                                     (clip.mask?.takeUnless { it.isIdentity }?.let { " {M:${it.summary()}}" } ?: "") +
                                     (clip.chroma?.let { " {CH:${it.summary()}}" } ?: "")
                             }
@@ -561,9 +567,79 @@ class MediaToolExecutor(
                         shadows = call.args["shadows"]?.toIntOrNull() ?: base.shadows,
                         hueShift = call.args["hueShift"]?.toIntOrNull() ?: base.hueShift,
                         lightness = call.args["lightness"]?.toIntOrNull() ?: base.lightness,
+                        exposure = call.args["exposure"]?.toIntOrNull() ?: base.exposure,
+                        whites = call.args["whites"]?.toIntOrNull() ?: base.whites,
+                        blacks = call.args["blacks"]?.toIntOrNull() ?: base.blacks,
                     )
                     media.setClipColor(projectId, clipId, next, call.actor).fold(
                         onSuccess = { done(true, "แก้สีแล้ว (${next.summary().ifBlank { "ปกติ" }}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.lut" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val path = call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: path (ไฟล์ .cube)")
+                    if (!path.endsWith(".cube", ignoreCase = true)) {
+                        return@withContext done(false, error = "รองรับเฉพาะไฟล์ .cube (3D LUT)")
+                    }
+                    val strength = call.args["strength"]?.toIntOrNull() ?: 100
+                    media.setClipLut(projectId, clipId, ClipLut(path, strength), call.actor).fold(
+                        onSuccess = {
+                            done(true, "ใส่ LUT แล้ว (${path.substringAfterLast('/')}@$strength%) (เลิกทำได้: edit.undo)")
+                        },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.lutClear" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    media.setClipLut(projectId, clipId, null, call.actor).fold(
+                        onSuccess = { done(true, "ล้าง LUT แล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.colorAuto" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val found = timeline.findClip(clipId)
+                        ?: return@withContext done(false, error = "ไม่มีคลิป $clipId")
+                    val clip = found.second
+                    val assetPath = (media.assetPath(projectId, clip.assetId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "หาไฟล์ต้นฉบับของคลิปไม่เจอ")
+                    val mid = clip.startMs + clip.durationMs / 2
+                    val outcome = color.analyze(ColorRequest(assetPath, mid))
+                    if (outcome is Outcome.Failure) {
+                        return@withContext done(false, error = outcome.error.message)
+                    }
+                    val analysis = (outcome as Outcome.Success).value
+                    val base = clip.color ?: ClipColor()
+                    val sg = analysis.suggest
+                    val next = base.copy(
+                        brightness = sg.brightness.takeUnless { it == 0 } ?: base.brightness,
+                        contrast = sg.contrast.takeUnless { it == 0 } ?: base.contrast,
+                        saturation = sg.saturation.takeUnless { it == 0 } ?: base.saturation,
+                        temperature = sg.temperature.takeUnless { it == 0 } ?: base.temperature,
+                        tint = sg.tint.takeUnless { it == 0 } ?: base.tint,
+                        highlights = sg.highlights.takeUnless { it == 0 } ?: base.highlights,
+                        shadows = sg.shadows.takeUnless { it == 0 } ?: base.shadows,
+                        exposure = sg.exposure.takeUnless { it == 0 } ?: base.exposure,
+                        whites = sg.whites.takeUnless { it == 0 } ?: base.whites,
+                        blacks = sg.blacks.takeUnless { it == 0 } ?: base.blacks,
+                    )
+                    media.setClipColor(projectId, clipId, next, call.actor).fold(
+                        onSuccess = {
+                            done(true, "ออโต้สีแล้ว (${sg.summary().ifBlank { "ภาพดีอยู่แล้ว" }}): ${analysis.notes} (เลิกทำได้: edit.undo)")
+                        },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

@@ -25,6 +25,7 @@ import com.aicodemax.data.media.ClipSpeed
 import com.aicodemax.data.media.ClipFx
 import com.aicodemax.data.media.ClipColor
 import com.aicodemax.data.media.ClipMask
+import com.aicodemax.data.media.ClipLut
 import com.aicodemax.data.media.ClipChroma
 import com.aicodemax.data.media.ClipBackground
 import com.aicodemax.data.media.KeyPoint
@@ -170,6 +171,13 @@ interface MediaProjectPort {
     suspend fun setBackground(
         projectId: String,
         background: ClipBackground?,
+        actor: String = "AI",
+    ): Outcome<Project>
+    // CP-81 LUT (§42 Pro).
+    suspend fun setClipLut(
+        projectId: String,
+        clipId: String,
+        lut: ClipLut?,
         actor: String = "AI",
     ): Outcome<Project>
     // CP-78 color correction (§42).
@@ -587,6 +595,15 @@ class FileMediaProject(
     ): Outcome<Project> = editTimeline(
         projectId, "เอฟเฟกต์คลิป $clipId", ProjectEventTypes.CLIP_FX, actor,
     ) { TimelineOps.fx(it, clipId, fx) }
+
+    override suspend fun setClipLut(
+        projectId: String,
+        clipId: String,
+        lut: ClipLut?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "LUT คลิป $clipId", ProjectEventTypes.CLIP_LUT, actor,
+    ) { TimelineOps.lut(it, clipId, lut) }
 
     override suspend fun setClipColor(
         projectId: String,
@@ -1257,6 +1274,14 @@ class InMemoryMediaProject : MediaProjectPort {
         projectId, "เอฟเฟกต์คลิป $clipId", ProjectEventTypes.CLIP_FX, actor,
     ) { TimelineOps.fx(it, clipId, fx) }
 
+    override suspend fun setClipLut(
+        projectId: String,
+        clipId: String,
+        lut: ClipLut?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "LUT คลิป $clipId", ProjectEventTypes.CLIP_LUT, actor,
+    ) { TimelineOps.lut(it, clipId, lut) }
     override suspend fun setClipColor(
         projectId: String,
         clipId: String,

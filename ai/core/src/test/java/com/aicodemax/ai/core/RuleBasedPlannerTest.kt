@@ -240,6 +240,18 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp81ColorLutPlansRealSteps() = runBlocking {
+        val auto = (planner.plan(UserIntent(IntentType.COLOR_AUTO, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.colorAuto", auto.steps[0].action)
+        val lut = (planner.plan(UserIntent(IntentType.LUT_SET, "t", mapOf("clipIndex" to "1", "path" to "w.cube"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.lut", lut.steps[0].action)
+        val clear = (planner.plan(UserIntent(IntentType.LUT_CLEAR, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.lutClear", clear.steps[0].action)
+        val nofile = planner.plan(UserIntent(IntentType.LUT_SET, "t", mapOf("clipIndex" to "1")))
+        assertEquals("PLAN_NO_FILE", (nofile as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp80TrackStabPlansRealSteps() = runBlocking {
         val track = (planner.plan(UserIntent(IntentType.TRACK, "t", mapOf("clipIndex" to "1", "target" to "text:2"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.track", track.steps[0].action)

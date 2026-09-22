@@ -256,4 +256,31 @@ class MediaToolExecutorTest {
         val bad = run("timeline.track", mapOf("projectId" to projectId, "clipIndex" to "1", "w" to "0"))
         assertTrue(!bad.ok)
     }
+
+    @Test
+    fun colorLutAutoFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("co") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val imported = run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4"))
+        assertTrue(imported.ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        val clip = run(
+            "timeline.addClip",
+            mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0"),
+        )
+        assertTrue(clip.ok)
+        val graded = run("timeline.setColor", mapOf("projectId" to projectId, "clipIndex" to "1", "exposure" to "10", "whites" to "5", "blacks" to "-5"))
+        assertTrue(graded.output, graded.ok)
+        val lutted = run("timeline.lut", mapOf("projectId" to projectId, "clipIndex" to "1", "path" to "/tmp/warm.cube", "strength" to "80"))
+        assertTrue(lutted.output, lutted.ok)
+        val badLut = run("timeline.lut", mapOf("projectId" to projectId, "clipIndex" to "1", "path" to "warm.png"))
+        assertTrue(!badLut.ok)
+        val listed = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed.output, listed.output.contains("{L:LUT:warm.cube@80%}"))
+        val cleared = run("timeline.lutClear", mapOf("projectId" to projectId, "clipIndex" to "1"))
+        assertTrue(cleared.ok)
+        val auto = run("timeline.colorAuto", mapOf("projectId" to projectId, "clipIndex" to "1"))
+        assertTrue(auto.output, auto.ok && auto.output.contains("ออโต้สีแล้ว"))
+        val listed2 = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed2.output, listed2.output.contains("tp5"))
+    }
 }

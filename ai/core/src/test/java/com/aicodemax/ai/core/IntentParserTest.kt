@@ -257,6 +257,21 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp81ColorLutIntents() {
+        val auto = IntentParser.parse("ออโต้สีคลิปที่ 1")
+        assertEquals(IntentType.COLOR_AUTO, auto.type)
+        assertEquals("1", auto.parameters["clipIndex"])
+        val lut = IntentParser.parse("ใส่ LUT คลิปที่ 1 ไฟล์ warm.cube")
+        assertEquals(IntentType.LUT_SET, lut.type)
+        assertEquals("warm.cube", lut.parameters["path"])
+        val clear = IntentParser.parse("ล้าง LUT คลิปที่ 2")
+        assertEquals(IntentType.LUT_CLEAR, clear.type)
+        val expo = IntentParser.parse("เพิ่มเอ็กซ์โพเชอร์คลิปที่ 1 20")
+        assertEquals(IntentType.CLIP_COLOR, expo.type)
+        assertEquals("20", expo.parameters["exposure"])
+    }
+
+    @Test
     fun cp80TrackStabIntents() {
         val track = IntentParser.parse("แทร็กคลิปที่ 1")
         assertEquals(IntentType.TRACK, track.type)

@@ -392,7 +392,7 @@ data class ClipFx(
     }.joinToString("/")
 }
 
-/** CP-78 per-clip color correction (§42 basic + HSL shifts). All zero = identity. */
+/** CP-78/81 per-clip color correction (§42 Basic complete + HSL shifts). All zero = identity. */
 @Serializable
 data class ClipColor(
     val brightness: Int = 0,
@@ -404,6 +404,12 @@ data class ClipColor(
     val shadows: Int = 0,
     val hueShift: Int = 0,
     val lightness: Int = 0,
+    /** CP-81 §42: exposure ±100 → gain 2^(v/100) (0.5x..2x). */
+    val exposure: Int = 0,
+    /** CP-81 §42: white point push on near-white zone. */
+    val whites: Int = 0,
+    /** CP-81 §42: black point lift/crush on near-black zone. */
+    val blacks: Int = 0,
 ) {
     val isIdentity: Boolean get() = this == ClipColor()
 
@@ -421,6 +427,9 @@ data class ClipColor(
         range("shadows", shadows, -100, 100)
         range("hueShift", hueShift, -180, 180)
         range("lightness", lightness, -100, 100)
+        range("exposure", exposure, -100, 100)
+        range("whites", whites, -100, 100)
+        range("blacks", blacks, -100, 100)
         return errors
     }
 
@@ -434,19 +443,41 @@ data class ClipColor(
         if (shadows != 0) add("sh$shadows")
         if (hueShift != 0) add("hu$hueShift")
         if (lightness != 0) add("li$lightness")
+        if (exposure != 0) add("ex$exposure")
+        if (whites != 0) add("wh$whites")
+        if (blacks != 0) add("bl$blacks")
     }.joinToString(" ")
 
     companion object {
         val PRESETS = listOf("none", "cinema", "warm", "cool", "vivid", "bw")
 
         fun preset(name: String): ClipColor = when (name) {
-            "cinema" -> ClipColor(contrast = 15, saturation = 10, shadows = 8, temperature = 5)
+            "cinema" -> ClipColor(contrast = 15, saturation = 10, shadows = 8, temperature = 5, blacks = -6)
             "warm" -> ClipColor(temperature = 30, tint = 5)
             "cool" -> ClipColor(temperature = -30)
             "vivid" -> ClipColor(saturation = 30, contrast = 10)
             "bw" -> ClipColor(saturation = -100)
             else -> ClipColor()
         }
+    }
+}
+
+/** CP-81 §42 LUT: .cube file applied after [ClipColor]. strength 0..100 mixes graded↔lut. */
+@Serializable
+data class ClipLut(
+    val path: String,
+    val strength: Int = 100,
+) {
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (path.isBlank()) errors.add("lut path ว่างไม่ได้")
+        if (strength !in 0..100) errors.add("lut strength ต้องอยู่ 0..100 (ได้ $strength)")
+        return errors
+    }
+
+    fun summary(): String {
+        val name = path.substringAfterLast('/').substringAfterLast('\\')
+        return "LUT:$name@$strength%"
     }
 }
 
@@ -480,6 +511,8 @@ data class Clip(
     val mask: ClipMask? = null,
     /** CP-79 chroma key (null = off). */
     val chroma: ClipChroma? = null,
+    /** CP-81 .cube LUT (null = off). Applied after [color]. */
+    val lut: ClipLut? = null,
 ) {
     val durationMs: Long get() = endMs - startMs
 
@@ -773,6 +806,7 @@ data class Timeline(
                 clip.transitionOut?.validate("out")?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.fx?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.color?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.lut?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.mask?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.chroma?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 for (tr in listOfNotNull(clip.transitionIn, clip.transitionOut)) {

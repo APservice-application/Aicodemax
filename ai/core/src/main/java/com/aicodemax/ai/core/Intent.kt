@@ -79,6 +79,9 @@ enum class IntentType {
     BG_SET,
     TRACK,
     STABILIZE,
+    COLOR_AUTO,
+    LUT_SET,
+    LUT_CLEAR,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -489,6 +492,18 @@ object IntentParser {
         if (containsAny(t, ThaiVocabulary.imageScopesWords)) {
             return UserIntent(IntentType.IMAGE_SCOPES, text, params("path" to file))
         }
+        if (containsAny(lower, ThaiVocabulary.lutWords)) {
+            if (t.contains("ล้าง") || t.contains("ลบ") || t.contains("ถอด")) {
+                return UserIntent(IntentType.LUT_CLEAR, text, params("clipIndex" to parseClipIndex(t)))
+            }
+            return UserIntent(
+                IntentType.LUT_SET, text,
+                params("clipIndex" to parseClipIndex(t), "path" to file),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.colorAutoWords)) {
+            return UserIntent(IntentType.COLOR_AUTO, text, params("clipIndex" to parseClipIndex(t)))
+        }
         if (containsAny(t, ThaiVocabulary.clipColorWords)) {
             val preset = when {
                 t.contains("ขาวดำ") -> "bw"
@@ -511,6 +526,12 @@ object IntentParser {
                     "contrast" to (signed.takeIf { t.contains("คอนทราสต์") }),
                     "saturation" to (signed.takeIf { t.contains("อิ่มสี") || t.contains("สด") }),
                     "temperature" to (signed.takeIf { t.contains("อุณหภูมิ") }),
+                    "tint" to (signed.takeIf { t.contains("ทินต์") }),
+                    "highlights" to (signed.takeIf { t.contains("ไฮไลต์") }),
+                    "shadows" to (signed.takeIf { t.contains("แชโดว์") || t.contains("เงา") }),
+                    "exposure" to (signed.takeIf { t.contains("เอ็กซ์โพเชอร์") || t.contains("รับแสง") }),
+                    "whites" to (signed.takeIf { t.contains("จุดขาว") || t.contains("ไวท์") }),
+                    "blacks" to (signed.takeIf { t.contains("จุดดำ") || t.contains("แบล็ก") }),
                 ),
             )
         }

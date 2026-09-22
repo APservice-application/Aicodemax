@@ -44,6 +44,7 @@ fun TimelineScreen(services: ServiceLocator) {
     var undoCount by remember { mutableStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var lutPath by remember { mutableStateOf("") }
     var newText by remember { mutableStateOf("") }
     var presetIndex by remember { mutableStateOf(2) }
     var ideaTopic by remember { mutableStateOf("") }
@@ -606,6 +607,70 @@ fun TimelineScreen(services: ServiceLocator) {
                                     )
                                 }
                             }, enabled = !busy) { Text("สด+") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipColor(projectId, clipId, cc.copy(exposure = (cc.exposure - 10).coerceAtLeast(-100)), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("รับแสง-") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipColor(projectId, clipId, cc.copy(exposure = (cc.exposure + 10).coerceAtMost(100)), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("รับแสง+") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val call = com.aicodemax.tools.gateway.ToolCall(
+                                        com.aicodemax.core.common.Ids.newId("ui"), "media", "timeline.colorAuto",
+                                        mapOf("projectId" to projectId, "clipId" to clipId), actor = "HUMAN",
+                                    )
+                                    services.gateway.call(call).fold(
+                                        onSuccess = { message = if (it.ok) it.output else it.error },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ออโต้สี") }
+                        }
+                        // CP-81 LUT (§42 Pro).
+                        Text(
+                            "LUT: ${(clip.lut?.summary() ?: "ไม่มี")}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            TextField(
+                                value = lutPath,
+                                onValueChange = { lutPath = it },
+                                label = { Text("ไฟล์ .cube") },
+                                singleLine = true,
+                                modifier = androidx.compose.foundation.layout.fillMaxWidth(0.55f),
+                            )
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val call = com.aicodemax.tools.gateway.ToolCall(
+                                        com.aicodemax.core.common.Ids.newId("ui"), "media", "timeline.lut",
+                                        mapOf("projectId" to projectId, "clipId" to clipId, "path" to lutPath.trim()), actor = "HUMAN",
+                                    )
+                                    services.gateway.call(call).fold(
+                                        onSuccess = { message = if (it.ok) it.output else it.error },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy && lutPath.isNotBlank()) { Text("ใส่ LUT") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipLut(projectId, clipId, null, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ล้าง") }
                         }
                         // CP-79 mask + chroma (§17/§18).
                         val mk = clip.mask ?: com.aicodemax.data.media.ClipMask()

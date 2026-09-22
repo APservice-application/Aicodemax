@@ -403,6 +403,21 @@ object TimelineOps {
         return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(chroma = chroma) else it })
     }
 
+    /** CP-81: replaces the clip's .cube LUT (§42 Pro). Null clears. */
+    fun lut(timeline: Timeline, clipId: String, lut: ClipLut?): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (track.kind == MediaKind.AUDIO) {
+            throw IllegalArgumentException("คลิปเสียงใช้ LUT ไม่ได้")
+        }
+        if (lut != null) {
+            val problems = lut.validate()
+            if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        }
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(lut = lut) else it })
+    }
+
     /** CP-79: replaces the timeline background (§19). Null/identity clears. */
     fun background(timeline: Timeline, background: ClipBackground?): Timeline {
         if (background != null) {

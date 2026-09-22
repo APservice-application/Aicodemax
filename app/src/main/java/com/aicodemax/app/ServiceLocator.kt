@@ -219,7 +219,7 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(AudioToolExecutor(audio))
         gateway.registerExecutor(VideoToolExecutor(video))
         gateway.registerExecutor(SubtitleToolExecutor(subtitles))
-        gateway.registerExecutor(MediaToolExecutor(media, AndroidTrackingPort()))
+        gateway.registerExecutor(MediaToolExecutor(media, AndroidTrackingPort(), AndroidColorPort()))
         gateway.registerExecutor(RenderToolExecutor(render, media))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry)

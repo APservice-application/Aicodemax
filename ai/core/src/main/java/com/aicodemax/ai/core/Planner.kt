@@ -354,6 +354,31 @@ class RuleBasedPlanner(
                     )
                 listOf("media.timeline.stabilize" to mapOf("clipIndex" to clip))
             }
+            IntentType.COLOR_AUTO -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ออโต้สีคลิปที่เท่าไหร่ครับ? เช่น ออโต้สีคลิปที่ 1"),
+                    )
+                listOf("media.timeline.colorAuto" to mapOf("clipIndex" to clip))
+            }
+            IntentType.LUT_SET -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ใส่ LUT ให้คลิปที่เท่าไหร่ครับ? เช่น ใส่ LUT คลิปที่ 1 ไฟล์ warm.cube"),
+                    )
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "ใช้ไฟล์ .cube ไหนครับ? เช่น ใส่ LUT คลิปที่ 1 ไฟล์ warm.cube"),
+                    )
+                listOf("media.timeline.lut" to mapOf("clipIndex" to clip, "path" to path))
+            }
+            IntentType.LUT_CLEAR -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ล้าง LUT คลิปที่เท่าไหร่ครับ?"),
+                    )
+                listOf("media.timeline.lutClear" to mapOf("clipIndex" to clip))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

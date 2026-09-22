@@ -3,6 +3,7 @@ package com.aicodemax.app
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import kotlin.math.pow
 import android.graphics.BitmapFactory
 import android.media.ImageReader
 import android.media.MediaCodec
@@ -579,6 +580,7 @@ class AndroidRenderPort(
         val trOut = seg.clip.transitionOut
         val fx = seg.clip.fx?.takeUnless { it.isIdentity }
         val cc = seg.clip.color?.takeUnless { it.isIdentity }
+        val lut = seg.clip.lut
         val mask = seg.clip.mask?.takeUnless { it.isIdentity }
         val chroma = seg.clip.chroma
         val plainOk = active == null && keys == null && trIn == null && trOut == null && fx == null && cc == null && mask == null && chroma == null
@@ -598,7 +600,7 @@ class AndroidRenderPort(
                     scaleArgb(argb, image.width, image.height, outW, outH)
                 }
                 frame = applyFx(frame, outW, outH, fx, timelineMs)
-                frame = applyColor(frame, cc)
+                frame = applyLut(applyColor(frame, cc), lut)
                 if (mask != null || chroma != null) {
                     frame = applyMask(frame, outW, outH, mask)
                     frame = applyChroma(frame, chroma)
@@ -822,6 +824,7 @@ class AndroidRenderPort(
             var lastArgb: IntArray? = null
             val fx = seg.clip.fx?.takeUnless { it.isIdentity }
             val cc = seg.clip.color?.takeUnless { it.isIdentity }
+        val lut = seg.clip.lut
             val mask = seg.clip.mask?.takeUnless { it.isIdentity }
             val chroma = seg.clip.chroma
             for (j in 0 until totalOut) {
@@ -849,7 +852,7 @@ class AndroidRenderPort(
                 val offMs = j * 1000L / 30
                 val timelineMs = seg.clip.atMs + offMs
                 var done = applyFx(frame, outW, outH, fx, timelineMs)
-                done = applyColor(done, cc)
+                done = applyLut(applyColor(done, cc), lut)
                 if (mask != null || chroma != null) {
                     done = applyMask(done, outW, outH, mask)
                     done = applyChroma(done, chroma)
@@ -891,7 +894,7 @@ class AndroidRenderPort(
         val live = texts.filter { it.startMs < stillEnd && it.endMs > seg.clip.atMs }
         val fxStill = seg.clip.fx?.takeUnless { it.isIdentity }
         val ccStill = seg.clip.color?.takeUnless { it.isIdentity }
-        val cutStill = seg.clip.mask?.takeUnless { it.isIdentity } != null || seg.clip.chroma != null
+        val cutStill = seg.clip.mask?.takeUnless { it.isIdentity } != null || seg.clip.chroma != null || seg.clip.lut != null
         if (active != null || live.isNotEmpty() || keys != null || wantTail ||
             seg.clip.transitionIn != null || seg.clip.transitionOut != null || fxStill != null || ccStill != null || cutStill
         ) {
@@ -944,6 +947,7 @@ class AndroidRenderPort(
         val trOut = seg.clip.transitionOut
         val fx = seg.clip.fx?.takeUnless { it.isIdentity }
         val cc = seg.clip.color?.takeUnless { it.isIdentity }
+        val lut = seg.clip.lut
         val mask = seg.clip.mask?.takeUnless { it.isIdentity }
         val chroma = seg.clip.chroma
         var lastArgb: IntArray? = null
@@ -953,7 +957,7 @@ class AndroidRenderPort(
                 val timelineMs = seg.clip.atMs + offMs
                 var frame = composeLook(pixels, raw.width, raw.height, frameLook(t, keys, offMs), outW, outH)
                 frame = applyFx(frame, outW, outH, fx, timelineMs)
-                frame = applyColor(frame, cc)
+                frame = applyLut(applyColor(frame, cc), lut)
                 if (mask != null || chroma != null) {
                     frame = applyMask(frame, outW, outH, mask)
                     frame = applyChroma(frame, chroma)
@@ -974,7 +978,7 @@ class AndroidRenderPort(
             scaleArgb(centerCropPixels(pixels, raw.width, raw.height, outW, outH), outW, outH, outW, outH)
         }
         base = applyFx(base, outW, outH, fx, seg.clip.atMs)
-        base = applyColor(base, cc)
+        base = applyLut(applyColor(base, cc), lut)
         if (mask != null || chroma != null) {
             base = applyMask(base, outW, outH, mask)
             base = applyChroma(base, chroma)
@@ -1416,6 +1420,9 @@ class AndroidRenderPort(
         val satF = (100 + cc.saturation) / 100f
         val hiK = cc.highlights * 255f / 100f
         val shK = cc.shadows * 255f / 100f
+        val expF = 2f.pow(cc.exposure / 100f)
+        val whK = cc.whites * 255f / 100f * 0.75f
+        val blK = cc.blacks * 255f / 100f * 0.75f
         val hue = cc.hueShift.toFloat()
         val lightK = cc.lightness / 100f
         val doHsl = cc.hueShift != 0 || cc.lightness != 0
@@ -1433,12 +1440,17 @@ class AndroidRenderPort(
             r = 128f + (r - 128f) * contF
             g = 128f + (g - 128f) * contF
             b = 128f + (b - 128f) * contF
+            r *= expF
+            g *= expF
+            b *= expF
             val lum = 0.299f * r + 0.587f * g + 0.114f * b
             val wHi = ((lum - 128f) / 127f).coerceIn(0f, 1f)
             val wSh = ((128f - lum) / 128f).coerceIn(0f, 1f)
-            r += hiK * wHi + shK * wSh
-            g += hiK * wHi + shK * wSh
-            b += hiK * wHi + shK * wSh
+            val wWh = ((lum - 192f) / 63f).coerceIn(0f, 1f).let { it * it }
+            val wBl = ((64f - lum) / 64f).coerceIn(0f, 1f).let { it * it }
+            r += hiK * wHi + shK * wSh + whK * wWh + blK * wBl
+            g += hiK * wHi + shK * wSh + whK * wWh + blK * wBl
+            b += hiK * wHi + shK * wSh + whK * wWh + blK * wBl
             val lum2 = (0.299f * r + 0.587f * g + 0.114f * b).coerceIn(0f, 255f)
             r = lum2 + (r - lum2) * satF
             g = lum2 + (g - lum2) * satF
@@ -1459,6 +1471,26 @@ class AndroidRenderPort(
                 b.toInt().coerceIn(0, 255)
         }
         return px
+    }
+
+    private val lutCache = LinkedHashMap<String, com.aicodemax.tools.media.ColorLut?>()
+
+    /** CP-81 §42: .cube LUT stage (after grade). Unreadable files are skipped. */
+    private fun applyLut(px: IntArray, lut: com.aicodemax.data.media.ClipLut?): IntArray {
+        if (lut == null || lut.strength <= 0) return px
+        val cached = lutCache.getOrElse(lut.path) {
+            val parsed = try {
+                val f = java.io.File(lut.path)
+                if (!f.isFile || f.length() > 8 * 1024 * 1024) null
+                else com.aicodemax.tools.media.CubeLut.parse(f.readText()).getOrNull()
+            } catch (_: Exception) {
+                null
+            }
+            if (lutCache.size > 8) lutCache.remove(lutCache.keys.first())
+            lutCache[lut.path] = parsed
+            parsed
+        } ?: return px
+        return cached.applyTo(px, lut.strength)
     }
 
     private fun rgbToHsl(r: Float, g: Float, b: Float): FloatArray {

@@ -31,4 +31,19 @@ class MediaMotionTest {
         val bad = media.applyTrackPath(proj.id, "ghost", px, py)
         assertTrue(bad is Outcome.Failure)
     }
+
+    @Test
+    fun setClipLutLifecycleWithUndo(): Unit = runBlocking {
+        val media = InMemoryMediaProject()
+        val proj = (media.createProject("lut") as Outcome.Success<Project>).value
+        val asset = (media.importAsset(proj.id, "v.mp4") as Outcome.Success<com.aicodemax.data.media.MediaAsset>).value
+        media.addClip(proj.id, asset.id, 0, 4000, 0)
+        val clipId = ((media.getTimeline(proj.id) as Outcome.Success<Timeline>).value.tracks[0].clips[0].id)
+        media.setClipLut(proj.id, clipId, com.aicodemax.data.media.ClipLut("/tmp/w.cube", 70))
+        val done = (media.getTimeline(proj.id) as Outcome.Success<Timeline>).value
+        assertEquals(70, done.tracks[0].clips[0].lut!!.strength)
+        media.undo(proj.id)
+        val back = (media.getTimeline(proj.id) as Outcome.Success<Timeline>).value
+        assertEquals(null, back.tracks[0].clips[0].lut)
+    }
 }
