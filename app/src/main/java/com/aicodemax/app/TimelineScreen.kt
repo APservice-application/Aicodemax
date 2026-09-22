@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -649,7 +650,7 @@ fun TimelineScreen(services: ServiceLocator) {
                                 onValueChange = { lutPath = it },
                                 label = { Text("ไฟล์ .cube") },
                                 singleLine = true,
-                                modifier = androidx.compose.foundation.layout.fillMaxWidth(0.55f),
+                                modifier = Modifier.fillMaxWidth(0.55f),
                             )
                             OutlinedButton(onClick = {
                                 keyCall { projectId, clipId ->
