@@ -49,6 +49,12 @@ enum class IntentType {
     ASSET_IMPORT,
     PROJECT_VERSION,
     PROJECT_RESTORE,
+    PROJECT_RENAME,
+    PROJECT_DELETE,
+    PROJECT_DUPLICATE,
+    PROJECT_CHECKPOINT,
+    EDIT_UNDO,
+    EDIT_REDO,
     SUBTITLE_MAKE,
     SUBTITLE_SHIFT,
     SUBTITLE_BURN,
@@ -201,6 +207,25 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.assetImportWords)) {
             return UserIntent(IntentType.ASSET_IMPORT, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.projectRenameWords)) {
+            val name = ThaiVocabulary.projectRenameWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
+            return UserIntent(IntentType.PROJECT_RENAME, text, params("name" to name.ifBlank { null }))
+        }
+        if (containsAny(t, ThaiVocabulary.projectDeleteWords)) {
+            return UserIntent(IntentType.PROJECT_DELETE, text)
+        }
+        if (containsAny(t, ThaiVocabulary.projectDuplicateWords)) {
+            return UserIntent(IntentType.PROJECT_DUPLICATE, text)
+        }
+        if (containsAny(t, ThaiVocabulary.checkpointWords)) {
+            return UserIntent(IntentType.PROJECT_CHECKPOINT, text)
+        }
+        if (containsAny(t, ThaiVocabulary.undoWords)) {
+            return UserIntent(IntentType.EDIT_UNDO, text)
+        }
+        if (containsAny(t, ThaiVocabulary.redoWords)) {
+            return UserIntent(IntentType.EDIT_REDO, text)
         }
         if (containsAny(t, ThaiVocabulary.projectListWords)) {
             return UserIntent(IntentType.PROJECT_LIST, text)

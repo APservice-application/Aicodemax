@@ -135,6 +135,12 @@ object ThaiVocabulary {
     /** Media project verbs (CP-64). */
     val projectNewWords: List<String> = listOf("โปรเจกต์ใหม่", "สร้างโปรเจกต์")
     val projectListWords: List<String> = listOf("โปรเจกต์")
+    val projectRenameWords: List<String> = listOf("เปลี่ยนชื่อโปรเจกต์", "ตั้งชื่อโปรเจกต์ใหม่")
+    val projectDeleteWords: List<String> = listOf("ลบโปรเจกต์")
+    val projectDuplicateWords: List<String> = listOf("สำเนาโปรเจกต์", "ทำสำเนาโปรเจกต์", "ก๊อปปี้โปรเจกต์")
+    val checkpointWords: List<String> = listOf("เช็คพอยต์", "จุดบันทึก")
+    val undoWords: List<String> = listOf("ย้อนกลับ", "undo")
+    val redoWords: List<String> = listOf("ทำซ้ำ", "redo")
     val assetImportWords: List<String> = listOf("เพิ่มไฟล์", "import")
     val versionSaveWords: List<String> = listOf("บันทึกเวอร์ชัน", "เซฟเวอร์ชัน")
     val versionRestoreWords: List<String> = listOf("ย้อนเวอร์ชัน", "กลับเวอร์ชัน")

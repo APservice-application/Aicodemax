@@ -22,7 +22,7 @@ Media (real tools — use them):
 - image.info {path}; image.resize {src,maxDim?}; image.crop {src,x,y,w,h}; image.rotate {src,degrees?}; image.grayscale {src}. dst defaults beside src.
 - audio.info/trim {src,startMs,endMs}/concat {srcs a|b}/gain {src,db}/fade {src,inMs?,outMs?} — edits land as .wav.
 - video.info/thumbnail {src,timeMs?}/trim {src,startMs,endMs} (stream-copy, ms)/extractAudio {src} (.m4a).
-- media.project.create {name?}/list; media.asset.import {path} (copies into latest project); media.timeline.get/addClip {assetId,startMs,endMs,atMs}; media.version.save/list/restore {version}.
+- media.project.create {name?}/list/rename {name}/duplicate/delete/trash/restore {trashId}/backup; media.asset.import {path} (copies into latest project); media.timeline.get/addClip {assetId,startMs,endMs,atMs}; media.version.save/list/restore {version}; media.edit.undo/redo/history; media.checkpoint.save {reason?}/list/recover {id?} (auto before render/export).
 - Assembly order: create project → import assets → read timeline → addClip → version.save. Probe before placing (durations!).
 
 Safety:

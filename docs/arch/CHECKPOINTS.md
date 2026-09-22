@@ -1,7 +1,7 @@
 # CHECKPOINT PROGRESS (MASTER_ARCHITECTURE §57–§59)
 
 > สถานะซื่อสัตย์ ณ 2026-09-21 — DONE = ผ่าน Definition of Done ทั้ง 13 ข้อเท่านั้น,
-> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **320/320** (`kc-build.sh` + JUnit)
+> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **330/330** (`kc-build.sh` + JUnit)
 
 ## ปัจจุบัน
 - **งาน code เสร็จทุก CP ที่ทำได้บนเครื่องนี้** — เหลือ TODO/PARTIAL ที่ต้องการ
@@ -109,6 +109,27 @@
 | CP-68 | Supabase Devtool (optional, user keys) | TODO | dev-tool เท่านั้น ไม่ใช่ infra (§24) |
 | CP-69 | WebAI localhost bridge + Multi-agent | TODO | 127.0.0.1 + token เท่านั้น |
 | CP-70 | Media integration + docs + release | TODO | — |
+| CP-71 | Transaction + Undo/Redo + Events + Project mgmt | DONE | transaction+rollback + undo/redo + events + checkpoints + trash/backup + UI + เทส (330/330) |
+| CP-72 | Timeline pro ops + markers + track flags | TODO | §11 split/trim/move/delete/duplicate + lock/mute/hide + markers |
+| CP-73 | Basic video ops + render transform | TODO | §12 crop/resize/rotate/flip/position/scale/opacity/freeze |
+| CP-74 | Text engine + AI text | TODO | §22 text + overlay render + §23 title/caption/hook/CTA |
+| CP-75 | Speed engine | TODO | §13 speed/reverse/freeze + curves + render |
+| CP-76 | Keyframe engine | TODO | §14 keyframe + graph data + render interpolation |
+| CP-77 | Transitions + basic effects | TODO | §21 + §20 blur/vignette/grain + render chain |
+| CP-78 | Color engine + scopes | TODO | §42 basic/HSL + histogram §101 + render |
+| CP-79 | Mask + chroma + background | TODO | §17/§18/§19 + render |
+| CP-80 | Tracking-lite + stabilize | TODO | §15 template-matching + §43 stabilize (ซื่อสัตย์ไม่มี ML) |
+| CP-81 | Audio pro + voice + beat | TODO | §28 pro + §29 voice changer + §31 beat/BPM |
+| CP-82 | STT + auto captions + transcript | TODO | §24–27 SpeechRecognizer + word timing + แปล + filler |
+| CP-83 | Templates + brand + safe zone + export presets | TODO | §51–52/§64–65/§69–71 batch + social presets |
+| CP-84 | AI Director + QC loop + autonomy | TODO | §83–85 + §125–129 context/memory/planner/executor |
+| CP-85 | Studio UI + Simple/Pro modes + AI panel | TODO | §94 + §3 + §96 + §4 home |
+| CP-86 | Proxy + cache + background jobs | TODO | §74–76 |
+| CP-87 | AI modes (autocut/shorts/reframe/commercial/…) | TODO | §32/§40–41/§50/§57–63/§66–68 |
+| CP-88 | Media library + smart search | TODO | §8–10 tags/fav/search + signals + provider vision |
+| CP-89 | Generative media (provider-wired) | TODO | §45–46 เท่าที่ provider มีจริง + interface §47–49 |
+| CP-90 | Recording + mixer UI + multicam-lite | TODO | §54–56 + §102 + §103–104 |
+| CP-91 | Polish + privacy + release | TODO | §99–100/§115–119 + §122/§134 audit |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)
