@@ -98,6 +98,8 @@ enum class IntentType {
     SYNTH_SFX,
     AUTOCUT,
     HIGHLIGHTS,
+    REFRAME,
+    SET_CANVAS,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -603,6 +605,20 @@ object IntentParser {
             val hasValue = Regex("\\d+").containsMatchIn(noClip) && !t.contains("ช็อต") && !t.contains("ช่วง")
             if (!hasValue) {
                 return UserIntent(IntentType.HIGHLIGHTS, text, params("clipIndex" to parseClipIndex(t)))
+            }
+        }
+        if (containsAny(t, ThaiVocabulary.reframeWords)) {
+            val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value
+                ?: if (t.contains("แนวตั้ง")) "9:16" else if (t.contains("แนวนอน")) "16:9" else if (t.contains("จตุรัส")) "1:1" else null
+            val clip = parseClipIndex(t)
+            if (clip != null || t.contains("รีเฟรม") || t.contains("reframe")) {
+                val p = mutableMapOf<String, String>()
+                if (clip != null) p["clipIndex"] = clip
+                if (aspect != null) p["aspect"] = aspect
+                return UserIntent(IntentType.REFRAME, text, p)
+            }
+            if (aspect != null) {
+                return UserIntent(IntentType.SET_CANVAS, text, mapOf("aspect" to aspect))
             }
         }
         if (containsAny(lower, ThaiVocabulary.templateWords)) {

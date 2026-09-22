@@ -287,6 +287,10 @@ object StandardCapabilities {
             metadata = meta("media", "ตัดช่วงเงียบอัตโนมัติ", listOf("clipIndex,thresholdDb?,minSpeechMs?,minSilenceMs?"), listOf("ok"), listOf("fs.write"), false, "ranges kept", "fix audio", true, "edit.undo")),
         CapabilityBinding("media.timeline.highlights", "media", "timeline.highlights", AdapterKind.NATIVE,
             metadata = meta("media", "หาช็อตเด่นเป็นมาร์กเกอร์", listOf("clipIndex,count?,windowSec?"), listOf("ok"), listOf("fs.write"), false, "markers added", "fix audio", true, "edit.undo")),
+        CapabilityBinding("media.timeline.reframe", "media", "timeline.reframe", AdapterKind.NATIVE,
+            metadata = meta("media", "รีเฟรมคลิปตามสัดส่วน", listOf("clipIndex,aspect,subjectX?,subjectY?,punch?"), listOf("ok"), listOf("fs.write"), false, "reframed", "fix args", true, "edit.undo")),
+        CapabilityBinding("media.timeline.setCanvas", "media", "timeline.setCanvas", AdapterKind.NATIVE,
+            metadata = meta("media", "ตั้งสัดส่วนแคนวาส", listOf("aspect?"), listOf("ok"), listOf("fs.write"), false, "canvas set", "fix args", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

@@ -257,6 +257,15 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp88ReframeCanvasIntents() {
+        val re = IntentParser.parse("รีเฟรมคลิปที่ 1 เป็นแนวตั้ง")
+        assertEquals(IntentType.REFRAME, re.type)
+        assertEquals("9:16", re.parameters["aspect"])
+        val canvas = IntentParser.parse("ตั้งแคนวาส 16:9")
+        assertEquals(IntentType.SET_CANVAS, canvas.type)
+    }
+
+    @Test
     fun cp87CutHighlightIntents() {
         val cut = IntentParser.parse("ตัดเงียบคลิปที่ 1")
         assertEquals(IntentType.AUTOCUT, cut.type)

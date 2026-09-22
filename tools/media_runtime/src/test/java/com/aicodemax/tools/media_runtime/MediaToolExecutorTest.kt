@@ -5,6 +5,7 @@ import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.gateway.ToolResult
 import com.aicodemax.tools.media.InMemoryMediaProject
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -400,5 +401,23 @@ class MediaToolExecutorTest {
         assertTrue(cut.output.ifBlank { cut.error }, cut.ok && cut.output.contains("ตัดเงียบแล้ว"))
         val timeline = (media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value
         assertTrue(timeline.tracks[0].clips.size == 5)
+    }
+
+    @Test
+    fun reframeCanvasFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("rf") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4")).ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        assertTrue(run("timeline.addClip", mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "5000", "atMs" to "0")).ok)
+        val re = run("timeline.reframe", mapOf("projectId" to projectId, "clipIndex" to "1", "aspect" to "9:16", "srcW" to "1920", "srcH" to "1080"))
+        assertTrue(re.output.ifBlank { re.error }, re.ok && re.output.contains("รีเฟรม"))
+        val cv = run("timeline.setCanvas", mapOf("projectId" to projectId, "aspect" to "9:16"))
+        assertTrue(cv.ok)
+        val timeline = (media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value
+        assertEquals("9:16", timeline.canvas)
+        val tr = timeline.tracks[0].clips[0].transform!!
+        assertTrue(tr.cropW in 28..34)
+        val bad = run("timeline.reframe", mapOf("projectId" to projectId, "clipIndex" to "1"))
+        assertTrue(!bad.ok && bad.error.contains("ไม่รู้ขนาด"))
     }
 }

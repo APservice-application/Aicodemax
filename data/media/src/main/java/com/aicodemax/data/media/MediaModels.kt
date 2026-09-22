@@ -795,6 +795,8 @@ data class Timeline(
     val texts: List<OverlayText> = emptyList(),
     /** CP-79 timeline background (§19). */
     val background: ClipBackground? = null,
+    /** CP-88 canvas aspect override (§33): "" = auto, else 16:9/9:16/1:1/4:5. */
+    val canvas: String = "",
 ) {
     val durationMs: Long get() = tracks.flatMap { it.clips }.maxOfOrNull { it.atMs + it.outputDurationMs() } ?: 0
 
@@ -848,6 +850,9 @@ data class Timeline(
         }
         for (overlay in texts) {
             overlay.validate().forEach { errors.add("ข้อความ ${overlay.id}: $it") }
+        }
+        if (canvas.isNotEmpty() && canvas !in setOf("16:9", "9:16", "1:1", "4:5")) {
+            errors.add("สัดส่วนแคนวาสไม่รองรับ ($canvas)")
         }
         background?.let { bg ->
             bg.validate().forEach { errors.add("พื้นหลัง: $it") }

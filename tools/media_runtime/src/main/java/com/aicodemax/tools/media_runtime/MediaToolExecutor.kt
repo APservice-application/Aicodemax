@@ -969,6 +969,50 @@ class MediaToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "timeline.reframe" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val clip = timeline.findClip(clipId)?.second
+                        ?: return@withContext done(false, error = "ไม่มีคลิป $clipId")
+                    val assets = (media.listAssets(projectId) as? Outcome.Success)?.value.orEmpty()
+                    val asset = assets.firstOrNull { it.id == clip.assetId }
+                    val srcW = call.args["srcW"]?.toIntOrNull()
+                        ?: asset?.facts?.get("width")?.toIntOrNull()
+                    val srcH = call.args["srcH"]?.toIntOrNull()
+                        ?: asset?.facts?.get("height")?.toIntOrNull()
+                    if (srcW == null || srcH == null) {
+                        return@withContext done(false, error = "ไม่รู้ขนาดภาพต้นฉบับ (asset ไม่มีข้อมูล width/height) — ระบุ srcW/srcH เองได้ครับ")
+                    }
+                    val aspect = call.args["aspect"] ?: "9:16"
+                    val next = try {
+                        com.aicodemax.tools.media.Reframe.plan(
+                            srcW, srcH, aspect,
+                            call.args["subjectX"]?.toDoubleOrNull() ?: 0.5,
+                            call.args["subjectY"]?.toDoubleOrNull() ?: 0.5,
+                            call.args["punch"]?.toDoubleOrNull() ?: 1.0,
+                        )
+                    } catch (e: IllegalArgumentException) {
+                        return@withContext done(false, error = e.message ?: "คำนวณรีเฟรมไม่ได้")
+                    }
+                    val base = clip.transform ?: com.aicodemax.data.media.ClipTransform()
+                    media.transformClip(projectId, clipId, base.copy(cropX = next.cropX, cropY = next.cropY, cropW = next.cropW, cropH = next.cropH), call.actor).fold(
+                        onSuccess = { done(true, "รีเฟรมคลิปเป็น $aspect แล้ว (ครอป ${next.cropX},${next.cropY} ${next.cropW}x${next.cropH}%) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.setCanvas" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val canvas = call.args["aspect"] ?: call.args["canvas"] ?: ""
+                    media.setCanvas(projectId, canvas, call.actor).fold(
+                        onSuccess = { done(true, if (canvas.isEmpty()) "แคนวาสกลับเป็นอัตโนมัติแล้ว" else "ตั้งแคนวาสเป็น $canvas แล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
                 "timeline.setMask" -> {
                     val projectId = call.args["projectId"] ?: latestProject()
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")

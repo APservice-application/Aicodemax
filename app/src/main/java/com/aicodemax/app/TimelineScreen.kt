@@ -785,6 +785,29 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }
                             }, enabled = !busy) { Text("ช็อตเด่น") }
                         }
+                        // CP-88 reframe + canvas (§33).
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("9:16", "16:9", "1:1").forEach { aspect ->
+                                OutlinedButton(onClick = {
+                                    runCall { projectId ->
+                                        val mkCall = { action: String, args: Map<String, String> ->
+                                            com.aicodemax.tools.gateway.ToolCall(
+                                                com.aicodemax.core.common.Ids.newId("ui"), "media", action,
+                                                args, actor = "HUMAN",
+                                            )
+                                        }
+                                        val canvasRes = services.gateway.call(mkCall("timeline.setCanvas", mapOf("projectId" to projectId, "aspect" to aspect)))
+                                        val clipId = selectedClip()?.second?.id
+                                        val reframeRes = if (clipId == null) null else services.gateway.call(
+                                            mkCall("timeline.reframe", mapOf("projectId" to projectId, "clipId" to clipId, "aspect" to aspect)),
+                                        )
+                                        val cMsg = canvasRes.fold({ if (it.ok) it.output else it.error }, { it.message })
+                                        val rMsg = reframeRes?.fold({ if (it.ok) "รีเฟรมแล้ว" else it.error }, { it.message })
+                                        message = if (rMsg == null) cMsg else cMsg + " / " + rMsg
+                                    }
+                                }, enabled = !busy) { Text(aspect) }
+                            }
+                        }
                         // CP-79 mask + chroma (§17/§18).
                         val mk = clip.mask ?: com.aicodemax.data.media.ClipMask()
                         Text(

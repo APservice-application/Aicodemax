@@ -497,6 +497,25 @@ class RuleBasedPlanner(
                     )
                 listOf("media.timeline.highlights" to mapOf("clipIndex" to clip))
             }
+            IntentType.REFRAME -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "รีเฟรมคลิปที่เท่าไหร่ครับ? เช่น รีเฟรมคลิปที่ 1 เป็นแนวตั้ง"),
+                    )
+                val step = mutableMapOf("clipIndex" to clip)
+                intent.parameters["aspect"]?.let { step["aspect"] = it }
+                intent.parameters["subjectX"]?.let { step["subjectX"] = it }
+                intent.parameters["subjectY"]?.let { step["subjectY"] = it }
+                intent.parameters["punch"]?.let { step["punch"] = it }
+                listOf("media.timeline.reframe" to step)
+            }
+            IntentType.SET_CANVAS -> {
+                val aspect = intent.parameters["aspect"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_VALUE", "ตั้งแคนวาสเป็นสัดส่วนไหนครับ? (16:9/9:16/1:1/4:5)"),
+                    )
+                listOf("media.timeline.setCanvas" to mapOf("aspect" to aspect))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

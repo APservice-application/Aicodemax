@@ -399,7 +399,18 @@ class AndroidRenderPort(
             val firstVideo = plan.segments.firstOrNull { it.kind == MediaKind.VIDEO && it.height > 0 }
             val outW: Int
             val outH: Int
-            if (firstVideo != null) {
+            // CP-88 §33: explicit canvas aspect wins over source-derived size.
+            val canvasParts = plan.timeline.canvas.split(":").mapNotNull { it.toIntOrNull() }
+            if (canvasParts.size == 2 && canvasParts[0] > 0 && canvasParts[1] > 0) {
+                val longSide = preset.maxHeight and 1.inv()
+                if (canvasParts[0] >= canvasParts[1]) {
+                    outW = longSide * canvasParts[0] / canvasParts[1] and 1.inv()
+                    outH = longSide
+                } else {
+                    outH = longSide * canvasParts[1] / canvasParts[0] and 1.inv()
+                    outW = longSide
+                }
+            } else if (firstVideo != null) {
                 val scale = preset.maxHeight.toDouble() / firstVideo.height
                 outH = (if (scale >= 1.0) firstVideo.height else preset.maxHeight) and 1.inv()
                 outW = ((firstVideo.width * (outH.toDouble() / firstVideo.height)).toInt() + 1) and 1.inv()

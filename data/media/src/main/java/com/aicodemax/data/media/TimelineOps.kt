@@ -540,6 +540,14 @@ object TimelineOps {
         return timeline.replaceClips(track.id, clips)
     }
 
+    /** CP-88 §33: sets the canvas aspect override ("" clears to auto). */
+    fun setCanvas(timeline: Timeline, canvas: String): Timeline {
+        if (canvas.isNotEmpty() && canvas !in setOf("16:9", "9:16", "1:1", "4:5")) {
+            throw IllegalArgumentException("สัดส่วนไม่รองรับ $canvas (มี 16:9/9:16/1:1/4:5)")
+        }
+        return timeline.copy(canvas = canvas)
+    }
+
     /** CP-79: replaces the timeline background (§19). Null/identity clears. */
     fun background(timeline: Timeline, background: ClipBackground?): Timeline {
         if (background != null) {

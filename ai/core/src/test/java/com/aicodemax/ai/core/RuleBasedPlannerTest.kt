@@ -240,6 +240,15 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp88ReframeCanvasPlansRealSteps() = runBlocking {
+        val re = (planner.plan(UserIntent(IntentType.REFRAME, "t", mapOf("clipIndex" to "1", "aspect" to "9:16"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.reframe", re.steps[0].action)
+        assertEquals("9:16", re.steps[0].args["aspect"])
+        val cv = (planner.plan(UserIntent(IntentType.SET_CANVAS, "t", mapOf("aspect" to "1:1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setCanvas", cv.steps[0].action)
+    }
+
+    @Test
     fun cp87CutHighlightPlansRealSteps() = runBlocking {
         val cut = (planner.plan(UserIntent(IntentType.AUTOCUT, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.autocut", cut.steps[0].action)
