@@ -259,6 +259,8 @@ object StandardCapabilities {
             metadata = meta("media", "ใส่ LUT (.cube) ให้คลิป", listOf("clipIndex,path,strength?"), listOf("ok"), listOf("fs.write"), false, "lut shown", "fix .cube", true, "edit.undo")),
         CapabilityBinding("media.timeline.lutClear", "media", "timeline.lutClear", AdapterKind.NATIVE,
             metadata = meta("media", "ล้าง LUT คลิป", listOf("clipIndex"), listOf("ok"), listOf("fs.write"), false, "lut cleared", "fix clip", true, "edit.undo")),
+        CapabilityBinding("media.timeline.setColor", "media", "timeline.setColor", AdapterKind.NATIVE,
+            metadata = meta("media", "แก้สีคลิป (ทุกช่อง+วงล้อ)", listOf("clipIndex"), listOf("ok"), listOf("fs.write"), false, "color set", "fix args", true, "edit.undo")),
         CapabilityBinding("media.timeline.colorAuto", "media", "timeline.colorAuto", AdapterKind.NATIVE,
             metadata = meta("media", "ปรับสีอัตโนมัติ (วัดจากเฟรมจริง)", listOf("clipIndex"), listOf("ok"), listOf("fs.write"), false, "auto applied", "fix clip", true, "edit.undo")),
         CapabilityBinding("media.template.save", "media", "template.save", AdapterKind.NATIVE,
@@ -297,6 +299,8 @@ object StandardCapabilities {
             metadata = meta("media", "รีเฟรมคลิปตามสัดส่วน", listOf("clipIndex,aspect,subjectX?,subjectY?,punch?"), listOf("ok"), listOf("fs.write"), false, "reframed", "fix args", true, "edit.undo")),
         CapabilityBinding("media.timeline.setCanvas", "media", "timeline.setCanvas", AdapterKind.NATIVE,
             metadata = meta("media", "ตั้งสัดส่วนแคนวาส", listOf("aspect?"), listOf("ok"), listOf("fs.write"), false, "canvas set", "fix args", true, "edit.undo")),
+        CapabilityBinding("media.timeline.colorMatch", "media", "timeline.colorMatch", AdapterKind.NATIVE,
+            metadata = meta("media", "จับคู่สีตามคลิปอ้างอิง", listOf("clipIndex,refIndex"), listOf("ok"), listOf("fs.write"), false, "matched", "fix file", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

@@ -580,6 +580,9 @@ class MediaToolExecutor(
                         exposure = call.args["exposure"]?.toIntOrNull() ?: base.exposure,
                         whites = call.args["whites"]?.toIntOrNull() ?: base.whites,
                         blacks = call.args["blacks"]?.toIntOrNull() ?: base.blacks,
+                        lift = call.args["lift"]?.toIntOrNull() ?: base.lift,
+                        gamma = call.args["gamma"]?.toIntOrNull() ?: base.gamma,
+                        gain = call.args["gain"]?.toIntOrNull() ?: base.gain,
                     )
                     media.setClipColor(projectId, clipId, next, call.actor).fold(
                         onSuccess = { done(true, "แก้สีแล้ว (${next.summary().ifBlank { "ปกติ" }}) (เลิกทำได้: edit.undo)") },
@@ -650,6 +653,48 @@ class MediaToolExecutor(
                         onSuccess = {
                             done(true, "ออโต้สีแล้ว (${sg.summary().ifBlank { "ภาพดีอยู่แล้ว" }}): ${analysis.notes} (เลิกทำได้: edit.undo)")
                         },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.colorMatch" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val refRaw = call.args["refIndex"] ?: call.args["refClipId"]
+                        ?: return@withContext done(false, error = "missing arg: refIndex (คลิปต้นแบบสี เช่น refIndex=1)")
+                    val refId = resolveClip(projectId, mapOf("clipIndex" to refRaw))
+                        ?: resolveClip(projectId, mapOf("clipId" to refRaw))
+                        ?: return@withContext done(false, error = "ไม่มีคลิปอ้างอิง $refRaw")
+                    if (refId == clipId) {
+                        return@withContext done(false, error = "คลิปเป้าหมายกับคลิปอ้างอิงเป็นคลิปเดียวกัน")
+                    }
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val clip = timeline.findClip(clipId)?.second
+                        ?: return@withContext done(false, error = "ไม่มีคลิป $clipId")
+                    val ref = timeline.findClip(refId)?.second
+                        ?: return@withContext done(false, error = "ไม่มีคลิป $refId")
+                    suspend fun frameStats(c: com.aicodemax.data.media.Clip): com.aicodemax.tools.media.ChannelStats? {
+                        val path = (media.assetPath(projectId, c.assetId) as? Outcome.Success)?.value ?: return null
+                        return (color.stats(com.aicodemax.tools.media.ColorRequest(path, c.startMs + c.durationMs / 2)) as? Outcome.Success)?.value
+                    }
+                    val target = frameStats(clip)
+                    val reference = frameStats(ref)
+                    if (target == null || reference == null) {
+                        return@withContext done(false, error = "อ่านเฟรมตัวอย่างไม่ได้ (ไฟล์ต้นฉบับหาย?)")
+                    }
+                    val grade = com.aicodemax.tools.media.ColorMatch.match(target, reference)
+                    val base = clip.color ?: ClipColor()
+                    val next = base.copy(
+                        temperature = grade.temperature.takeUnless { it == 0 } ?: base.temperature,
+                        tint = grade.tint.takeUnless { it == 0 } ?: base.tint,
+                        exposure = grade.exposure.takeUnless { it == 0 } ?: base.exposure,
+                        whites = grade.whites.takeUnless { it == 0 } ?: base.whites,
+                        blacks = grade.blacks.takeUnless { it == 0 } ?: base.blacks,
+                    )
+                    media.setClipColor(projectId, clipId, next, call.actor).fold(
+                        onSuccess = { done(true, "จับคู่สีตามคลิปแล้ว (${grade.summary().ifBlank { "สีใกล้กันอยู่แล้ว" }}) (เลิกทำได้: edit.undo)") },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

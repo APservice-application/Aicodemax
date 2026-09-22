@@ -1467,6 +1467,23 @@ class AndroidRenderPort(
             r = lum2 + (r - lum2) * satF
             g = lum2 + (g - lum2) * satF
             b = lum2 + (b - lum2) * satF
+            // CP-90 §34: 3-way wheels — lift/gain are zonal, gamma bends mids.
+            if (cc.lift != 0 || cc.gamma != 0 || cc.gain != 0) {
+                val lum3 = (0.299f * r + 0.587f * g + 0.114f * b).coerceIn(0f, 255f)
+                val wLift = ((128f - lum3) / 128f).coerceIn(0f, 1f)
+                val wGain = ((lum3 - 128f) / 127f).coerceIn(0f, 1f)
+                val liftK = cc.lift * 255f / 100f * 0.5f
+                val gainF = 1f + cc.gain / 100f * 0.5f * wGain
+                r = (r + liftK * wLift) * gainF
+                g = (g + liftK * wLift) * gainF
+                b = (b + liftK * wLift) * gainF
+                if (cc.gamma != 0) {
+                    val gm = 1f / (1f + cc.gamma / 100f)
+                    r = 255f * (r.coerceIn(0f, 255f) / 255f).toDouble().pow(gm.toDouble()).toFloat()
+                    g = 255f * (g.coerceIn(0f, 255f) / 255f).toDouble().pow(gm.toDouble()).toFloat()
+                    b = 255f * (b.coerceIn(0f, 255f) / 255f).toDouble().pow(gm.toDouble()).toFloat()
+                }
+            }
             if (doHsl) {
                 val hsl = rgbToHsl(r / 255f, g / 255f, b / 255f)
                 var h2 = hsl[0] + hue / 360f

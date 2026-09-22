@@ -103,6 +103,8 @@ enum class IntentType {
     HIGHLIGHTS,
     REFRAME,
     SET_CANVAS,
+    COLOR_MATCH,
+    COLOR_WB,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -640,6 +642,20 @@ object IntentParser {
             if (!hasValue) {
                 return UserIntent(IntentType.HIGHLIGHTS, text, params("clipIndex" to parseClipIndex(t)))
             }
+        }
+        if (containsAny(t, ThaiVocabulary.colorMatchWords)) {
+            val clips = Regex("คลิป(?:ที่)?\\s*(\\d+)").findAll(t).map { it.groupValues[1] }.toList()
+            val p = mutableMapOf<String, String>()
+            if (clips.isNotEmpty()) p["clipIndex"] = clips[0]
+            if (clips.size > 1) p["refIndex"] = clips[1]
+            return UserIntent(IntentType.COLOR_MATCH, text, p)
+        }
+        if (containsAny(t, ThaiVocabulary.colorWbWords)) {
+            val preset = if (t.contains("อุ่น")) "warm" else if (t.contains("เย็น") || t.contains("ฟ้า")) "cool" else if (t.contains("อัตโนมัติ") || t.contains("ออโต้")) "auto" else null
+            val p = mutableMapOf<String, String>()
+            parseClipIndex(t)?.let { p["clipIndex"] = it }
+            if (preset != null) p["preset"] = preset
+            return UserIntent(IntentType.COLOR_WB, text, p)
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value

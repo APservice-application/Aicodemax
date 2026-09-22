@@ -240,6 +240,16 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp90ColorProPlansRealSteps() = runBlocking {
+        val match = (planner.plan(UserIntent(IntentType.COLOR_MATCH, "t", mapOf("clipIndex" to "2", "refIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.colorMatch", match.steps[0].action)
+        val wb = (planner.plan(UserIntent(IntentType.COLOR_WB, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.colorAuto", wb.steps[0].action)
+        val warm = (planner.plan(UserIntent(IntentType.COLOR_WB, "t", mapOf("clipIndex" to "1", "preset" to "warm"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setColor", warm.steps[0].action)
+    }
+
+    @Test
     fun cp89PhotoPlansRealSteps() = runBlocking {
         val adj = (planner.plan(UserIntent(IntentType.IMAGE_ADJUST, "t", mapOf("path" to "a.png", "brightness" to "20"))) as Outcome.Success<Plan>).value
         assertEquals("adjust", adj.steps[0].action)

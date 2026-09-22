@@ -516,6 +516,28 @@ class RuleBasedPlanner(
                     )
                 listOf("media.timeline.setCanvas" to mapOf("aspect" to aspect))
             }
+            IntentType.COLOR_MATCH -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "จับคู่สีคลิปที่เท่าไหร่ครับ? เช่น จับคู่สีคลิปที่ 2 ตามคลิปที่ 1"),
+                    )
+                val ref = intent.parameters["refIndex"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_REF", "ให้ตามสีคลิปที่เท่าไหร่ครับ? เช่น จับคู่สีคลิปที่ 2 ตามคลิปที่ 1"),
+                    )
+                listOf("media.timeline.colorMatch" to mapOf("clipIndex" to clip, "refIndex" to ref))
+            }
+            IntentType.COLOR_WB -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ปรับไวต์บาลานซ์คลิปที่เท่าไหร่ครับ? เช่น ไวต์บาลานซ์คลิปที่ 1 อัตโนมัติ"),
+                    )
+                when (intent.parameters["preset"]) {
+                    "warm" -> listOf("media.timeline.setColor" to mapOf("clipIndex" to clip, "temperature" to "30", "tint" to "5"))
+                    "cool" -> listOf("media.timeline.setColor" to mapOf("clipIndex" to clip, "temperature" to "-30"))
+                    else -> listOf("media.timeline.colorAuto" to mapOf("clipIndex" to clip))
+                }
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

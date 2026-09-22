@@ -640,6 +640,32 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }
                             }, enabled = !busy) { Text("ออโต้สี") }
                         }
+                        // CP-90 wheels (§34 Pro).
+                        listOf(
+                            Triple("ลิฟต์", cc.lift, { v: Int -> cc.copy(lift = v) }),
+                            Triple("แกมมา", cc.gamma, { v: Int -> cc.copy(gamma = v) }),
+                            Triple("เกน", cc.gain, { v: Int -> cc.copy(gain = v) }),
+                        ).forEach { (label, value, apply) ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                                OutlinedButton(onClick = {
+                                    keyCall { projectId, clipId ->
+                                        services.media.setClipColor(projectId, clipId, apply((value - 10).coerceAtLeast(-100)), "HUMAN").fold(
+                                            onSuccess = {},
+                                            onFailure = { message = it.message },
+                                        )
+                                    }
+                                }, enabled = !busy) { Text("-") }
+                                Text("$label $value", style = MaterialTheme.typography.bodySmall)
+                                OutlinedButton(onClick = {
+                                    keyCall { projectId, clipId ->
+                                        services.media.setClipColor(projectId, clipId, apply((value + 10).coerceAtMost(100)), "HUMAN").fold(
+                                            onSuccess = {},
+                                            onFailure = { message = it.message },
+                                        )
+                                    }
+                                }, enabled = !busy) { Text("+") }
+                            }
+                        }
                         // CP-81 LUT (§42 Pro).
                         Text(
                             "LUT: ${(clip.lut?.summary() ?: "ไม่มี")}",

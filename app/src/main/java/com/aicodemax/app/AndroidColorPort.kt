@@ -5,6 +5,8 @@ import android.media.MediaMetadataRetriever
 import com.aicodemax.core.common.Outcome
 import com.aicodemax.data.media.ClipColor
 import com.aicodemax.tools.media.ColorAnalysis
+import com.aicodemax.tools.media.ChannelStats
+import com.aicodemax.tools.media.ColorMatch
 import com.aicodemax.tools.media.ColorPort
 import com.aicodemax.tools.media.ColorRequest
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +24,15 @@ class AndroidColorPort : ColorPort {
                     com.aicodemax.core.common.AppError("COLOR_NO_FRAME", "อ่านเฟรมตัวอย่างไม่ได้ (${request.assetPath})"),
                 )
             Outcome.Success(suggest(px))
+        }
+
+    override suspend fun stats(request: ColorRequest): Outcome<ChannelStats> =
+        withContext(Dispatchers.IO) {
+            val px = grabPixels(request.assetPath, request.atMs)
+                ?: return@withContext Outcome.Failure(
+                    com.aicodemax.core.common.AppError("COLOR_NO_FRAME", "อ่านเฟรมตัวอย่างไม่ได้ (${request.assetPath})"),
+                )
+            Outcome.Success(ColorMatch.stats(px))
         }
 
     private fun grabPixels(path: String, atMs: Long): IntArray? {

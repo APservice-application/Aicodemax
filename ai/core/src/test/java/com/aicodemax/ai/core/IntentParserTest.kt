@@ -257,6 +257,17 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp90ColorProIntents() {
+        val match = IntentParser.parse("จับคู่สีคลิปที่ 2 ตามคลิปที่ 1")
+        assertEquals(IntentType.COLOR_MATCH, match.type)
+        assertEquals("2", match.parameters["clipIndex"])
+        assertEquals("1", match.parameters["refIndex"])
+        val wb = IntentParser.parse("ไวต์บาลานซ์คลิปที่ 1 อัตโนมัติ")
+        assertEquals(IntentType.COLOR_WB, wb.type)
+        assertEquals("auto", wb.parameters["preset"])
+    }
+
+    @Test
     fun cp89PhotoIntents() {
         val adj = IntentParser.parse("แต่งภาพ /tmp/a.png สว่าง 20")
         assertEquals(IntentType.IMAGE_ADJUST, adj.type)

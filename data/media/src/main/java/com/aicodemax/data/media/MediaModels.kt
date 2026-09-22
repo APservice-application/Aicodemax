@@ -410,6 +410,10 @@ data class ClipColor(
     val whites: Int = 0,
     /** CP-81 §42: black point lift/crush on near-black zone. */
     val blacks: Int = 0,
+    /** CP-90 §34: 3-way wheels — lift (shadows), gamma (mids), gain (highs). */
+    val lift: Int = 0,
+    val gamma: Int = 0,
+    val gain: Int = 0,
 ) {
     val isIdentity: Boolean get() = this == ClipColor()
 
@@ -430,6 +434,9 @@ data class ClipColor(
         range("exposure", exposure, -100, 100)
         range("whites", whites, -100, 100)
         range("blacks", blacks, -100, 100)
+        range("lift", lift, -100, 100)
+        range("gamma", gamma, -100, 100)
+        range("gain", gain, -100, 100)
         return errors
     }
 
@@ -446,6 +453,9 @@ data class ClipColor(
         if (exposure != 0) add("ex$exposure")
         if (whites != 0) add("wh$whites")
         if (blacks != 0) add("bl$blacks")
+        if (lift != 0) add("lf$lift")
+        if (gamma != 0) add("gm$gamma")
+        if (gain != 0) add("gn$gain")
     }.joinToString(" ")
 
     companion object {

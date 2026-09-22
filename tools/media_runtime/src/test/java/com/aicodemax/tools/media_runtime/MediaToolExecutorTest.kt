@@ -420,4 +420,35 @@ class MediaToolExecutorTest {
         val bad = run("timeline.reframe", mapOf("projectId" to projectId, "clipIndex" to "1"))
         assertTrue(!bad.ok && bad.error.contains("ไม่รู้ขนาด"))
     }
+
+    @Test
+    fun colorMatchWheelsFlow(): Unit = runBlocking {
+        val colorPort = com.aicodemax.tools.media.InMemoryColorPort()
+        val exec2 = MediaToolExecutor(media, color = colorPort)
+        fun run2(action: String, args: Map<String, String>): com.aicodemax.tools.gateway.ToolResult =
+            runBlocking {
+                (exec2.execute(ToolCall(id = "c1", toolId = "media", action = action, args = args)) as Outcome.Success<com.aicodemax.tools.gateway.ToolResult>).value
+            }
+        val projectId = (media.createProject("cm") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "a.mp4")).ok)
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "b.mp4")).ok)
+        val assets = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value)
+        val pathA = ((media.assetPath(projectId, assets[0].id) as Outcome.Success<String>).value)
+        val pathB = ((media.assetPath(projectId, assets[1].id) as Outcome.Success<String>).value)
+        colorPort.put(pathA, com.aicodemax.tools.media.ChannelStats(128.0, 128.0, 128.0, 10, 128, 245))
+        colorPort.put(pathB, com.aicodemax.tools.media.ChannelStats(100.0, 128.0, 170.0, 10, 128, 245))
+        assertTrue(run("timeline.addClip", mapOf("projectId" to projectId, "assetId" to assets[0].id, "startMs" to "0", "endMs" to "5000", "atMs" to "0")).ok)
+        assertTrue(run("timeline.addClip", mapOf("projectId" to projectId, "assetId" to assets[1].id, "startMs" to "0", "endMs" to "5000", "atMs" to "5000")).ok)
+        val m = run2("timeline.colorMatch", mapOf("projectId" to projectId, "clipIndex" to "2", "refIndex" to "1"))
+        assertTrue(m.output.ifBlank { m.error }, m.ok && m.output.contains("จับคู่สี"))
+        val timeline = (media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value
+        val graded = timeline.tracks[0].clips[1].color!!
+        assertTrue("temp=${graded.temperature}", graded.temperature > 0)
+        val w = run2("timeline.setColor", mapOf("projectId" to projectId, "clipIndex" to "1", "lift" to "10", "gamma" to "-5", "gain" to "20"))
+        assertTrue(w.ok)
+        val wheels = ((media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value.tracks[0].clips[0].color)!!
+        assertEquals(10, wheels.lift)
+        assertEquals(-5, wheels.gamma)
+        assertEquals(20, wheels.gain)
+    }
 }

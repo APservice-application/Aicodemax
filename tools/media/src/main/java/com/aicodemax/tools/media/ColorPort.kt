@@ -22,10 +22,22 @@ data class ColorAnalysis(
 
 interface ColorPort {
     suspend fun analyze(request: ColorRequest): Outcome<ColorAnalysis>
+    /** CP-90 §34: raw frame stats for color matching. */
+    suspend fun stats(request: ColorRequest): Outcome<ChannelStats>
 }
 
 /** JVM/test double: always suggests neutral with a sample note. */
 class InMemoryColorPort : ColorPort {
+    private val fixtures = mutableMapOf<String, ChannelStats>()
+
+    /** Test hook: pin stats for an asset path. */
+    fun put(path: String, stats: ChannelStats) {
+        fixtures[path] = stats
+    }
+
+    override suspend fun stats(request: ColorRequest): Outcome<ChannelStats> =
+        Outcome.Success(fixtures[request.assetPath] ?: ChannelStats(128.0, 128.0, 128.0, 10, 128, 245))
+
     override suspend fun analyze(request: ColorRequest): Outcome<ColorAnalysis> =
         Outcome.Success(
             ColorAnalysis(
