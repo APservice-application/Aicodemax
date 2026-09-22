@@ -256,6 +256,7 @@ class AndroidRenderPort(
             }
         }
         val single = probed.singleOrNull()
+        val singleKeys = single?.clip?.keyframes
         val fast = single != null && single.kind == MediaKind.VIDEO &&
             audioSegs.isEmpty() && single.clip.volume == 100 &&
             single.clip.atMs == 0L &&
@@ -263,7 +264,7 @@ class AndroidRenderPort(
             single.height in 1..job.preset.maxHeight &&
             timeline.texts.isEmpty() &&
             (single.speed == null) &&
-            (single.clip.keyframes == null || single.clip.keyframes.isEmpty)
+            (singleKeys == null || singleKeys.isEmpty)
         return RenderPlan(
             timeline = timeline,
             segments = probed.sortedBy { it.clip.atMs },
