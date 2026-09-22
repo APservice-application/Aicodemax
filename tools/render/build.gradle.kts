@@ -1,13 +1,18 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm")
-    id("kotlinx-serialization")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
+    `java-library`
 }
 
 dependencies {
-    implementation(project(":core"))
-    implementation(project(":tools:capability"))
-    implementation(project(":tools:video"))
-    implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.kotlinx.serialization.json)
-    testImplementation(libs.junit)
+    api(project(":core:common"))
+    api(project(":tools:registry"))
+    api(project(":tools:video"))
+    implementation(libs.serialization.json)
+    testImplementation(libs.junit4)
+    testImplementation(libs.coroutines.core)
+}
+
+tasks.withType<Test> {
+    useJUnit()
 }
