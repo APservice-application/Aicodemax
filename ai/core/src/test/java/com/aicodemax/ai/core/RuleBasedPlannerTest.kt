@@ -240,6 +240,16 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp86VoiceSynthPlansRealSteps() = runBlocking {
+        val fx = (planner.plan(UserIntent(IntentType.VOICE_FX, "t", mapOf("path" to "a.wav", "semitones" to "5"))) as Outcome.Success<Plan>).value
+        assertEquals("voicefx", fx.steps[0].action)
+        val music = (planner.plan(UserIntent(IntentType.SYNTH_MUSIC, "t", mapOf("style" to "calm"))) as Outcome.Success<Plan>).value
+        assertEquals("synthmusic", music.steps[0].action)
+        val sfx = (planner.plan(UserIntent(IntentType.SYNTH_SFX, "t", mapOf("kind" to "riser"))) as Outcome.Success<Plan>).value
+        assertEquals("synthsfx", sfx.steps[0].action)
+    }
+
+    @Test
     fun cp85BeatVolumePlansRealSteps() = runBlocking {
         val clip = (planner.plan(UserIntent(IntentType.BEATS, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.beatsToMarkers", clip.steps[0].action)

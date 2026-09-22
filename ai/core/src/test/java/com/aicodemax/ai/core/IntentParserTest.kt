@@ -257,6 +257,19 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp86VoiceSynthIntents() {
+        val fx = IntentParser.parse("เปลี่ยนเสียงพูด a.wav เสียงแหลม")
+        assertEquals(IntentType.VOICE_FX, fx.type)
+        assertEquals("7", fx.parameters["semitones"])
+        val music = IntentParser.parse("ทำเพลงดนตรีประกอบสนุก 15 วิ")
+        assertEquals(IntentType.SYNTH_MUSIC, music.type)
+        assertEquals("bright", music.parameters["style"])
+        val sfx = IntentParser.parse("ทำเสียงเอฟเฟกต์กระแทก")
+        assertEquals(IntentType.SYNTH_SFX, sfx.type)
+        assertEquals("impact", sfx.parameters["kind"])
+    }
+
+    @Test
     fun cp85BeatVolumeIntents() {
         val clip = IntentParser.parse("จับจังหวะคลิปที่ 1")
         assertEquals(IntentType.BEATS, clip.type)

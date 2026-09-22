@@ -137,6 +137,12 @@ object StandardCapabilities {
             metadata = meta("audio", "เฟดหัว/ท้ายเสียง", listOf("src,inMs?,outMs?"), listOf("dst"), listOf("fs.write"), false, "ramps ok", "retry")),
         CapabilityBinding("audio.beats", "audio", "beats", AdapterKind.NATIVE,
             metadata = meta("audio", "จับจังหวะเพลง (BPM)", listOf("src"), listOf("bpm"), emptyList(), false, "bpm shown", "retry")),
+        CapabilityBinding("audio.voicefx", "audio", "voicefx", AdapterKind.NATIVE,
+            metadata = meta("audio", "เปลี่ยนเสียงพูด", listOf("src,semitones?,robot?,echoMs?,echoDecay?"), listOf("dst"), listOf("fs.write"), false, "fx ok", "retry")),
+        CapabilityBinding("audio.synthmusic", "audio", "synthmusic", AdapterKind.NATIVE,
+            metadata = meta("audio", "ทำดนตรีประกอบ", listOf("style?,seconds?,dst?"), listOf("dst"), listOf("fs.write"), false, "music ok", "retry")),
+        CapabilityBinding("audio.synthsfx", "audio", "synthsfx", AdapterKind.NATIVE,
+            metadata = meta("audio", "ทำเสียงเอฟเฟกต์", listOf("kind,dst?"), listOf("dst"), listOf("fs.write"), false, "sfx ok", "retry")),
         // Video engine (native, MP4 probe + stream-copy ops).
         CapabilityBinding("video.info", "video", "info", AdapterKind.NATIVE,
             metadata = meta("video", "ดูฟอร์แมต+ขนาด+ความยาววิดีโอ", listOf("path"), listOf("info"), emptyList(), false, "header parsed", "re-probe")),

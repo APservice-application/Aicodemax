@@ -169,6 +169,8 @@ object ThaiVocabulary {
     val slideshowWords: List<String> = listOf("สไลด์โชว์", "สไลด์โช", "slideshow")
     val beatWords: List<String> = listOf("จังหวะ", "บีต", "bpm")
     val clipVolumeWords: List<String> = listOf("วอลลุ่ม", "ระดับเสียง", "ดังขึ้น", "เบาลง", "เสียงคลิป")
+    val voiceFxWords: List<String> = listOf("เปลี่ยนเสียง", "เสียงหุ่นยนต์", "เสียงแหลม", "เสียงทุ้ม")
+    val synthWords: List<String> = listOf("ทำเพลง", "ดนตรีประกอบ", "เสียงเอฟเฟกต์", "ทำซาวด์", "เอฟเฟกต์เสียง")
     val imageScopesWords: List<String> = listOf("สโคป", "ฮิสโตแกรม", "เช็คแสง", "วัดแสง")
     val clipMaskWords: List<String> = listOf("มาสก์คลิป", "maskคลิป")
     val clipChromaWords: List<String> = listOf("กรีนสกรีน", "ลบฉากเขียว", "ฉากเขียว", "chroma")

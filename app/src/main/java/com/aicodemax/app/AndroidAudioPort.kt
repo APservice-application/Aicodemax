@@ -67,6 +67,29 @@ class AndroidAudioPort : AudioPort {
     override suspend fun fade(src: String, dst: String, fadeInMs: Long, fadeOutMs: Long): Outcome<AudioInfo> =
         editOne(src, dst, "AUDIO_FADE") { clip -> AudioOps.fade(clip, fadeInMs, fadeOutMs) }
 
+    override suspend fun voiceFx(src: String, dst: String, semitones: Int, robot: Boolean, echoMs: Long, echoDecay: Int): Outcome<AudioInfo> =
+        editOne(src, dst, "AUDIO_VOICEFX") { clip ->
+            com.aicodemax.tools.audio.VoiceFx.apply(clip, semitones, robot, echoMs, echoDecay)
+        }
+
+    override suspend fun synthMusic(style: String, seconds: Int, dst: String): Outcome<AudioInfo> =
+        withContext(Dispatchers.IO) {
+            try {
+                writeOut(dst, com.aicodemax.tools.audio.Synth.musicBed(style, seconds), "AUDIO_SYNTH")
+            } catch (e: IllegalArgumentException) {
+                Outcome.Failure(AppError("AUDIO_SYNTH", e.message ?: "bad args"))
+            }
+        }
+
+    override suspend fun synthSfx(kind: String, dst: String): Outcome<AudioInfo> =
+        withContext(Dispatchers.IO) {
+            try {
+                writeOut(dst, com.aicodemax.tools.audio.Synth.sfx(kind), "AUDIO_SYNTH")
+            } catch (e: IllegalArgumentException) {
+                Outcome.Failure(AppError("AUDIO_SYNTH", e.message ?: "bad args"))
+            }
+        }
+
     override suspend fun beats(path: String): Outcome<com.aicodemax.tools.audio.BeatAnalysis> =
         withContext(Dispatchers.IO) {
             when (val decoded = decode(path)) {

@@ -41,6 +41,13 @@ fun GenScreen(services: ServiceLocator) {
     var providers by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var fxPath by remember { mutableStateOf("") }
+    var fxSemi by remember { mutableStateOf("5") }
+    var fxRobot by remember { mutableStateOf(false) }
+    var synthStyle by remember { mutableStateOf("calm") }
+    var synthSecs by remember { mutableStateOf("10") }
+    var sfxKind by remember { mutableStateOf("impact") }
+    var lastDst by remember { mutableStateOf<String?>(null) }
 
     val project = projects.getOrNull(projectIndex)
 
@@ -122,6 +129,78 @@ fun GenScreen(services: ServiceLocator) {
                             busy = false
                         }
                     }, enabled = !busy && project != null) { Text(if (busy) "กำลังสร้าง…" else "สร้าง") }
+                }
+            }
+            item {
+                Text("เสียง: เปลี่ยนเสียง / ดนตรี / SFX", style = MaterialTheme.typography.titleSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    TextField(value = fxPath, onValueChange = { fxPath = it }, label = { Text("ไฟล์เสียงต้นฉบับ (เปลี่ยนเสียง)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        TextField(value = fxSemi, onValueChange = { fxSemi = it }, label = { Text("semi -12..12") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.4f))
+                        OutlinedButton(onClick = { fxRobot = !fxRobot }) { Text(if (fxRobot) "●หุ่นยนต์" else "หุ่นยนต์") }
+                        OutlinedButton(onClick = {
+                            busy = true
+                            scope.launch {
+                                val dst = services.workspaceDir.path + "/gen-audio/voicefx-${System.currentTimeMillis()}.wav"
+                                val args = mutableMapOf("src" to fxPath.trim(), "dst" to dst, "semitones" to fxSemi.trim())
+                                if (fxRobot) args["robot"] = "true"
+                                services.gateway.call(ToolCall(Ids.newId("ui"), "audio", "voicefx", args, actor = "HUMAN")).fold(
+                                    onSuccess = {
+                                        message = if (it.ok) it.output else it.error
+                                        if (it.ok) lastDst = dst
+                                    },
+                                    onFailure = { message = it.message },
+                                )
+                                busy = false
+                            }
+                        }, enabled = !busy && fxPath.isNotBlank()) { Text("เปลี่ยนเสียง") }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        TextField(value = synthStyle, onValueChange = { synthStyle = it }, label = { Text("สไตล์เพลง") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.35f))
+                        TextField(value = synthSecs, onValueChange = { synthSecs = it }, label = { Text("วินาที") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.25f))
+                        OutlinedButton(onClick = {
+                            busy = true
+                            scope.launch {
+                                val dst = services.workspaceDir.path + "/gen-audio/bed-${System.currentTimeMillis()}.wav"
+                                services.gateway.call(ToolCall(Ids.newId("ui"), "audio", "synthmusic", mapOf("style" to synthStyle.trim(), "seconds" to synthSecs.trim(), "dst" to dst), actor = "HUMAN")).fold(
+                                    onSuccess = {
+                                        message = if (it.ok) it.output else it.error
+                                        if (it.ok) lastDst = dst
+                                    },
+                                    onFailure = { message = it.message },
+                                )
+                                busy = false
+                            }
+                        }, enabled = !busy) { Text("ทำเพลง") }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        TextField(value = sfxKind, onValueChange = { sfxKind = it }, label = { Text("kind impact/riser/whoosh/click/success") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.55f))
+                        OutlinedButton(onClick = {
+                            busy = true
+                            scope.launch {
+                                val dst = services.workspaceDir.path + "/gen-audio/sfx-${System.currentTimeMillis()}.wav"
+                                services.gateway.call(ToolCall(Ids.newId("ui"), "audio", "synthsfx", mapOf("kind" to sfxKind.trim(), "dst" to dst), actor = "HUMAN")).fold(
+                                    onSuccess = {
+                                        message = if (it.ok) it.output else it.error
+                                        if (it.ok) lastDst = dst
+                                    },
+                                    onFailure = { message = it.message },
+                                )
+                                busy = false
+                            }
+                        }, enabled = !busy) { Text("ทำ SFX") }
+                    }
+                    lastDst?.let { dst ->
+                        OutlinedButton(onClick = {
+                            val pid = project?.id ?: return@OutlinedButton
+                            scope.launch {
+                                services.media.importAsset(pid, dst, "HUMAN").fold(
+                                    onSuccess = { message = "นำเข้าแล้ว: ${it.id} (${it.originalName})" },
+                                    onFailure = { message = it.message },
+                                )
+                            }
+                        }, enabled = !busy) { Text("นำเข้าโปรเจกต์") }
+                    }
                 }
             }
         }

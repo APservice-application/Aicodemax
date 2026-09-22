@@ -83,7 +83,39 @@ class AudioToolExecutor(private val audio: AudioPort = InMemoryAudioPort()) : To
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade/beats)")
+                "voicefx" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    val dst = call.args["dst"] ?: defaultDst(src, "fx")
+                    audio.voiceFx(
+                        src, dst,
+                        call.args["semitones"]?.toIntOrNull() ?: 0,
+                        call.args["robot"] == "true",
+                        call.args["echoMs"]?.toLongOrNull() ?: 0L,
+                        call.args["echoDecay"]?.toIntOrNull() ?: 0,
+                    ).fold(
+                        onSuccess = { done(true, "เปลี่ยนเสียงแล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "synthmusic" -> {
+                    val style = call.args["style"] ?: "calm"
+                    val seconds = call.args["seconds"]?.toIntOrNull() ?: 10
+                    val dst = call.args["dst"] ?: defaultDst("bed.wav", style)
+                    audio.synthMusic(style, seconds, dst).fold(
+                        onSuccess = { done(true, "ทำเพลงแล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "synthsfx" -> {
+                    val kind = call.args["kind"] ?: "impact"
+                    val dst = call.args["dst"] ?: defaultDst("sfx.wav", kind)
+                    audio.synthSfx(kind, dst).fold(
+                        onSuccess = { done(true, "ทำ SFX แล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade/beats/voicefx/synthmusic/synthsfx)")
             }
         }
 

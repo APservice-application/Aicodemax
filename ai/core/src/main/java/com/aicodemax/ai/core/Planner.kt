@@ -464,6 +464,25 @@ class RuleBasedPlanner(
                     )
                 listOf("media.timeline.volume" to mapOf("clipIndex" to clip, "volume" to volume))
             }
+            IntentType.VOICE_FX -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "เปลี่ยนเสียงไฟล์ไหนครับ? เช่น เปลี่ยนเสียงพูด a.wav เสียงแหลม"),
+                    )
+                val args = mutableMapOf("src" to path)
+                intent.parameters["semitones"]?.let { args["semitones"] = it }
+                intent.parameters["robot"]?.let { args["robot"] = it }
+                listOf("audio.voicefx" to args)
+            }
+            IntentType.SYNTH_MUSIC -> {
+                val args = mutableMapOf<String, String>()
+                intent.parameters["style"]?.let { args["style"] = it }
+                intent.parameters["seconds"]?.let { args["seconds"] = it }
+                listOf("audio.synthmusic" to args)
+            }
+            IntentType.SYNTH_SFX -> {
+                listOf("audio.synthsfx" to mapOf("kind" to (intent.parameters["kind"] ?: "impact")))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

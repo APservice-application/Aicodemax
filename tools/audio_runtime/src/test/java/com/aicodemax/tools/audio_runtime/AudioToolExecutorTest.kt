@@ -43,6 +43,18 @@ class AudioToolExecutorTest {
     }
 
     @Test
+    fun voicefxSynthBeatsFlow() {
+        val p = port()
+        assertTrue(run(p, "voicefx", mapOf("src" to "/tmp/a.wav", "semitones" to "7")).ok)
+        assertTrue(p.get("/tmp/a-fx.wav") != null)
+        assertTrue(run(p, "synthmusic", mapOf("style" to "calm", "seconds" to "2", "dst" to "/tmp/bed.wav")).ok)
+        assertEquals(22050 * 2, p.get("/tmp/bed.wav")!!.samples.size)
+        assertTrue(run(p, "synthsfx", mapOf("kind" to "click", "dst" to "/tmp/click.wav")).ok)
+        assertTrue(p.get("/tmp/click.wav") != null)
+        assertTrue(!run(p, "synthsfx", mapOf("kind" to "nope", "dst" to "/tmp/x.wav")).ok)
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         val p = port()
         assertTrue(!run(p, "info", emptyMap()).ok)

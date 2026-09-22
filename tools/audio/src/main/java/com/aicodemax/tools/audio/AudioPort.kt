@@ -31,6 +31,15 @@ interface AudioPort {
 
     /** CP-85 §31: detect tempo + beat grid (offline, no ML). */
     suspend fun beats(path: String): Outcome<BeatAnalysis>
+
+    /** CP-86 §29: voice changer (pitch/robot/echo). Edits land as WAV. */
+    suspend fun voiceFx(src: String, dst: String, semitones: Int, robot: Boolean, echoMs: Long, echoDecay: Int): Outcome<AudioInfo>
+
+    /** CP-86 §30: procedural music bed → WAV. */
+    suspend fun synthMusic(style: String, seconds: Int, dst: String): Outcome<AudioInfo>
+
+    /** CP-86 §30: procedural one-shot SFX → WAV. */
+    suspend fun synthSfx(kind: String, dst: String): Outcome<AudioInfo>
 }
 
 /**
@@ -99,5 +108,24 @@ class InMemoryAudioPort : AudioPort {
         val clip = store[path]
             ?: return Outcome.Failure(com.aicodemax.core.common.AppError("AUDIO_MISSING", "ไม่มีเสียง $path (put ก่อน)"))
         return Outcome.Success(Beats.analyze(clip))
+    }
+
+    override suspend fun voiceFx(src: String, dst: String, semitones: Int, robot: Boolean, echoMs: Long, echoDecay: Int): Outcome<AudioInfo> =
+        edit(listOf(src), dst, "AUDIO_VOICEFX") { VoiceFx.apply(it.first(), semitones, robot, echoMs, echoDecay) }
+
+    override suspend fun synthMusic(style: String, seconds: Int, dst: String): Outcome<AudioInfo> =
+        synthTo(dst, "AUDIO_SYNTH") { Synth.musicBed(style, seconds) }
+
+    override suspend fun synthSfx(kind: String, dst: String): Outcome<AudioInfo> =
+        synthTo(dst, "AUDIO_SYNTH") { Synth.sfx(kind) }
+
+    private inline fun synthTo(dst: String, code: String, op: () -> PcmAudio): Outcome<AudioInfo> {
+        return try {
+            val out = op()
+            store[dst] = out
+            Outcome.Success(AudioInfo(dst, "MEM", out.durationMs, out.sampleRate, out.channels))
+        } catch (e: IllegalArgumentException) {
+            Outcome.Failure(AppError(code, e.message ?: "bad args"))
+        }
     }
 }

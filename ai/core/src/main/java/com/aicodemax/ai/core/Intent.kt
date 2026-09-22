@@ -93,6 +93,9 @@ enum class IntentType {
     SLIDESHOW,
     BEATS,
     CLIP_VOLUME,
+    VOICE_FX,
+    SYNTH_MUSIC,
+    SYNTH_SFX,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -265,6 +268,40 @@ object IntentParser {
                 IntentType.BEATS, text,
                 params("clipIndex" to parseClipIndex(t), "path" to file),
             )
+        }
+        if (containsAny(t, ThaiVocabulary.voiceFxWords)) {
+            val semi = when {
+                t.contains("แหลม") -> "7"
+                t.contains("ทุ้ม") -> "-7"
+                else -> Regex("(-?\\d+)").find(tNoFile)?.value
+            }
+            return UserIntent(
+                IntentType.VOICE_FX, text,
+                params("path" to file, "semitones" to semi, "robot" to (if (t.contains("หุ่นยนต์")) "true" else null)),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.synthWords)) {
+            val isSfx = t.contains("เอฟเฟกต์") || t.contains("ซาวด์")
+            val style = when {
+                t.contains("สดใส") || t.contains("สนุก") -> "bright"
+                t.contains("ตึงเครียด") || t.contains("ลุ้น") -> "tense"
+                t.contains("มืด") || t.contains("หลอน") -> "dark"
+                else -> "calm"
+            }
+            val kind = when {
+                t.contains("กระแทก") || t.contains("บูม") -> "impact"
+                t.contains("ไต่") || t.contains("เร่ง") -> "riser"
+                t.contains("วูช") || t.contains("ผ่าน") -> "whoosh"
+                t.contains("คลิก") -> "click"
+                t.contains("สำเร็จ") || t.contains("ชนะ") -> "success"
+                else -> "impact"
+            }
+            val secs = Regex("(\\d+)\\s*(?:วิ|วินาที)?").find(tNoFile)?.groupValues?.get(1)
+            return if (isSfx) {
+                UserIntent(IntentType.SYNTH_SFX, text, params("kind" to kind))
+            } else {
+                UserIntent(IntentType.SYNTH_MUSIC, text, params("style" to style, "seconds" to secs))
+            }
         }
         if (containsAny(t, ThaiVocabulary.projectNewWords)) {
             val name = ThaiVocabulary.projectNewWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
