@@ -47,6 +47,7 @@ class AndroidGenPort(
                     GenKinds.BACKGROUND -> background(request)
                     GenKinds.STYLIZE -> stylize(request)
                     GenKinds.TTS -> tts(request)
+                    GenKinds.THUMBNAIL -> thumbnail(request)
                     else -> Outcome.Failure(AppError("GEN_KIND", "kind ไม่รู้จัก (${request.kind})"))
                 }
             } catch (e: Exception) {
@@ -99,6 +100,73 @@ class AndroidGenPort(
         val f = savePng(bmp)
         bmp.recycle()
         return Outcome.Success(GenResult(f.path, MediaKind.IMAGE, "โปสเตอร์ ${w}x$h (${lines.size} บรรทัด)"))
+    }
+
+    /** CP-101: video frame + grade + title bar → cover PNG. */
+    private fun thumbnail(request: GenRequest): Outcome<GenResult> {
+        if (request.inputPath.isBlank()) {
+            return Outcome.Failure(AppError("GEN_INPUT", "ปกคลิปต้องมี path วิดีโอต้นฉบับ"))
+        }
+        val retriever = android.media.MediaMetadataRetriever()
+        val frame: Bitmap
+        try {
+            retriever.setDataSource(request.inputPath)
+            val durMs = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            val at = if (request.atMs >= 0) request.atMs else durMs / 2
+            frame = retriever.getFrameAtTime(at * 1000, android.media.MediaMetadataRetriever.OPTION_CLOSEST)
+                ?: return Outcome.Failure(AppError("GEN_INPUT", "อ่านเฟรมวิดีโอไม่ได้"))
+        } catch (e: Exception) {
+            return Outcome.Failure(AppError("GEN_INPUT", "อ่านวิดีโอไม่ได้: ${e.message}"))
+        } finally {
+            try {
+                retriever.release()
+            } catch (_: Exception) {
+            }
+        }
+        val w = request.width.coerceIn(64, 1920)
+        val h = request.height.coerceIn(64, 1920)
+        val cover = Bitmap.createScaledBitmap(frame, w, h, true)
+        frame.recycle()
+        val graded = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        Canvas(graded).drawBitmap(
+            cover, 0f, 0f,
+            Paint().apply { colorFilter = ColorMatrixColorFilter(styleMatrix(request.style.ifBlank { "vivid" })) },
+        )
+        cover.recycle()
+        val cv = Canvas(graded)
+        // Dim the lower third for legibility.
+        cv.drawRect(
+            0f, h * 0.55f, w.toFloat(), h.toFloat(),
+            Paint().apply {
+                shader = LinearGradient(
+                    0f, h * 0.55f, 0f, h.toFloat(),
+                    0x00000000, 0xCC000000.toInt(), Shader.TileMode.CLAMP,
+                )
+            },
+        )
+        val title = request.prompt.trim().take(80)
+        if (title.isNotEmpty()) {
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.WHITE
+                textAlign = Paint.Align.CENTER
+                isFakeBoldText = true
+                setShadowLayer(h / 90f, 0f, h / 180f, 0xAA000000.toInt())
+            }
+            val lines = wrap(title, paint, w * 0.9f, h * 0.13f).take(2)
+            paint.textSize = h * 0.13f
+            while (paint.textSize > h * 0.04f && lines.any { paint.measureText(it) > w * 0.9f }) {
+                paint.textSize *= 0.92f
+            }
+            val lineH = paint.textSize * 1.3f
+            var y = h * 0.78f - lineH * (lines.size - 1) / 2f
+            for (line in lines) {
+                cv.drawText(line, w / 2f, y, paint)
+                y += lineH
+            }
+        }
+        val f = savePng(graded)
+        graded.recycle()
+        return Outcome.Success(GenResult(f.path, MediaKind.IMAGE, "ปกคลิป ${w}x$h"))
     }
 
     /** Char-level wrap (works for Thai, which has no spaces). */

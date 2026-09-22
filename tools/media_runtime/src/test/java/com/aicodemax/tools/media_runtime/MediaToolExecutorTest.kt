@@ -453,6 +453,15 @@ class MediaToolExecutorTest {
     }
 
     @Test
+    fun thumbnailFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("th") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val made = run("gen.make", mapOf("projectId" to projectId, "kind" to "thumbnail", "path" to "v.mp4", "prompt" to "เปิดร้าน"))
+        assertTrue(made.output.ifBlank { made.error }, made.ok)
+        val noPath = run("gen.make", mapOf("projectId" to projectId, "kind" to "thumbnail", "prompt" to "x"))
+        assertTrue(!noPath.ok)
+    }
+
+    @Test
     fun brandPackageFlow(): Unit = runBlocking {
         val projectId = (media.createProject("bp") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
         val save = run("brand.save", mapOf("name" to "กาแฟดริป", "color" to "#8B4513", "tagline" to "หอม"))

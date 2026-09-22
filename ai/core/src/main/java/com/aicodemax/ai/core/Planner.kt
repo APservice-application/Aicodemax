@@ -429,6 +429,11 @@ class RuleBasedPlanner(
                         AppError("PLAN_NO_FILE", "แต่งรูปไหนครับ? (ระบุชื่อไฟล์รูป)"),
                     )
                 }
+                if (args["path"] == null && kind == "thumbnail") {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "ทำปกจากวิดีโอไหนครับ? เช่น ทำปกคลิป v.mp4 เปิดร้าน"),
+                    )
+                }
                 listOf("media.gen.make" to args)
             }
             IntentType.GEN_LIST -> listOf("media.gen.list" to emptyMap())

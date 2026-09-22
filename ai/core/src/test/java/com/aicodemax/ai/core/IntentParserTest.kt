@@ -257,6 +257,14 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp101ThumbnailIntent() {
+        val th = IntentParser.parse("ทำปกคลิป v.mp4 เปิดร้าน")
+        assertEquals(IntentType.GEN_MAKE, th.type)
+        assertEquals("thumbnail", th.parameters["kind"])
+        assertEquals("v.mp4", th.parameters["path"])
+    }
+
+    @Test
     fun cp100BrandPackageBatchIntents() {
         val save = IntentParser.parse("สร้างแบรนด์ กาแฟดริป #8B4513")
         assertEquals(IntentType.BRAND_SAVE, save.type)

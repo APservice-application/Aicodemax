@@ -901,6 +901,7 @@ class MediaToolExecutor(
                         height = call.args["h"]?.toIntOrNull() ?: 720,
                         style = call.args["style"] ?: "",
                         lang = call.args["lang"] ?: "th-TH",
+                        atMs = call.args["atMs"]?.toLongOrNull() ?: -1,
                     )
                     val outcome = gen.generate(req)
                     if (outcome is Outcome.Failure) {

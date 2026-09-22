@@ -609,6 +609,7 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.genWords)) {
             val kind = when {
+                t.contains("ปก") || t.contains("ธัมบ์") || t.contains("thumbnail") -> "thumbnail"
                 t.contains("โปสเตอร์") -> "poster"
                 t.contains("พื้นหลัง") -> "background"
                 t.contains("แต่งรูป") -> "stylize"
@@ -616,7 +617,7 @@ object IntentParser {
                 else -> "poster"
             }
             val prompt = Regex("[\"']([^\"']+)[\"']").find(text)?.groupValues?.get(1)
-                ?: text.replace(Regex("(?i)สร้างภาพ|สร้างโปสเตอร์|ทำโปสเตอร์|สร้างพื้นหลัง|ทำเสียงพูด|เสียงบรรยาย|พากย์เสียง|แต่งรูป"), "").trim().ifBlank { null }
+                ?: text.replace(Regex("(?i)สร้างภาพ|สร้างโปสเตอร์|ทำโปสเตอร์|สร้างพื้นหลัง|ทำเสียงพูด|เสียงบรรยาย|พากย์เสียง|แต่งรูป|ทำปก|ปกคลิป|ธัมบ์เนล|thumbnail"), "").trim().ifBlank { null }
             return UserIntent(
                 IntentType.GEN_MAKE, text,
                 params("kind" to kind, "prompt" to prompt, "path" to file),

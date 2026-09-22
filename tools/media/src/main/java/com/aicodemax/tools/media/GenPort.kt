@@ -13,10 +13,11 @@ object GenKinds {
     const val BACKGROUND = "background" // Text → Image (gradient/solid PNG, offline)
     const val STYLIZE = "stylize" // Image → Image (preset grade PNG, offline)
     const val TTS = "tts" // Text → Voice (WAV via local TTS, offline)
+    const val THUMBNAIL = "thumbnail" // Video frame + title → cover PNG (offline)
     const val TEXT2VIDEO = "text2video" // slot: needs cloud provider (§29)
     const val TEXT2MUSIC = "text2music" // slot: needs cloud provider (§29)
     const val TEXT2SFX = "text2sfx" // slot: needs cloud provider (§29)
-    val ALL = listOf(POSTER, BACKGROUND, STYLIZE, TTS, TEXT2VIDEO, TEXT2MUSIC, TEXT2SFX)
+    val ALL = listOf(POSTER, BACKGROUND, STYLIZE, TTS, THUMBNAIL, TEXT2VIDEO, TEXT2MUSIC, TEXT2SFX)
 }
 
 data class GenCapability(
@@ -35,6 +36,8 @@ data class GenRequest(
     val height: Int = 720,
     val style: String = "",
     val lang: String = "th-TH",
+    /** CP-101: frame position for thumbnail (-1 = middle). */
+    val atMs: Long = -1,
 )
 
 data class GenResult(
@@ -55,6 +58,7 @@ class InMemoryGenPort : GenPort {
         GenCapability(GenKinds.BACKGROUND, "พื้นหลังไล่สี", true),
         GenCapability(GenKinds.STYLIZE, "แต่งรูปพรีเซ็ต", true),
         GenCapability(GenKinds.TTS, "เสียงพูด", true),
+        GenCapability(GenKinds.THUMBNAIL, "ปกคลิป", true),
         GenCapability(GenKinds.TEXT2VIDEO, "ข้อความ→วิดีโอ", false, "ต้องมี cloud provider (§29)"),
         GenCapability(GenKinds.TEXT2MUSIC, "ข้อความ→ดนตรี", false, "ต้องมี cloud provider (§29)"),
         GenCapability(GenKinds.TEXT2SFX, "ข้อความ→เอฟเฟกต์เสียง", false, "ต้องมี cloud provider (§29)"),
@@ -68,6 +72,9 @@ class InMemoryGenPort : GenPort {
         }
         if (request.kind == GenKinds.STYLIZE && request.inputPath.isBlank()) {
             return Outcome.Failure(com.aicodemax.core.common.AppError("GEN_INPUT", "stylize ต้องมี path รูปต้นฉบับ"))
+        }
+        if (request.kind == GenKinds.THUMBNAIL && request.inputPath.isBlank()) {
+            return Outcome.Failure(com.aicodemax.core.common.AppError("GEN_INPUT", "ปกคลิปต้องมี path วิดีโอต้นฉบับ"))
         }
         if ((request.kind == GenKinds.POSTER || request.kind == GenKinds.TTS) && request.prompt.isBlank()) {
             return Outcome.Failure(com.aicodemax.core.common.AppError("GEN_PROMPT", "${cap.title} ต้องมี prompt/ข้อความ"))

@@ -95,7 +95,7 @@ fun GenScreen(services: ServiceLocator) {
                 Text("สร้างมีเดียใหม่", style = MaterialTheme.typography.titleSmall)
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        listOf("poster", "background", "stylize", "tts").forEach { k ->
+                        listOf("poster", "background", "stylize", "tts", "thumbnail").forEach { k ->
                             OutlinedButton(onClick = { kind = k }, enabled = !busy) {
                                 Text(if (k == kind) "●$k" else k)
                             }
@@ -103,6 +103,10 @@ fun GenScreen(services: ServiceLocator) {
                     }
                     if (kind == "stylize") {
                         TextField(value = path, onValueChange = { path = it }, label = { Text("พาธรูปต้นฉบับ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        TextField(value = style, onValueChange = { style = it }, label = { Text("สไตล์ vivid/warm/cool/cinema/bw") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    } else if (kind == "thumbnail") {
+                        TextField(value = path, onValueChange = { path = it }, label = { Text("พาธวิดีโอต้นฉบับ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        TextField(value = prompt, onValueChange = { prompt = it }, label = { Text("ชื่อปก") }, modifier = Modifier.fillMaxWidth())
                         TextField(value = style, onValueChange = { style = it }, label = { Text("สไตล์ vivid/warm/cool/cinema/bw") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     } else if (kind == "background") {
                         TextField(value = style, onValueChange = { style = it }, label = { Text("สไตล์ dusk/sea/rose/forest/bw/solid:RRGGBB") }, singleLine = true, modifier = Modifier.fillMaxWidth())
