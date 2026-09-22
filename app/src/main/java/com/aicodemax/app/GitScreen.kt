@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -23,10 +25,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.aicodemax.core.common.fold
 import com.aicodemax.tools.git.GitBranch
 import com.aicodemax.tools.git.GitCommit
 import com.aicodemax.tools.git.GitStatus
+import com.aicodemax.tools.github.GitHubClient
+import com.aicodemax.tools.github.GitHubIssue
+import com.aicodemax.tools.github.GitHubRepo
+import com.aicodemax.tools.github.JavaNetHttpTransport
 import com.aicodemax.ui.designsystem.LocalSpacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
