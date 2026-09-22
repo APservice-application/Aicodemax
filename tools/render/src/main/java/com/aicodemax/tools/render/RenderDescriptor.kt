@@ -28,7 +28,7 @@ fun renderDescriptorToday(): ToolDescriptor = ToolDescriptor(
         ),
         LayerCapability(
             CapabilityLayer.RECOVERY, CapabilityStatus.PARTIAL,
-            "retry failed jobs; no mid-render cancel yet",
+            "retry failed jobs + auto-checkpoint before render/export; no mid-render cancel yet",
         ),
     ),
 )
