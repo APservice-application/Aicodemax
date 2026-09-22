@@ -1317,7 +1317,7 @@ class AndroidRenderPort(
         var o = 0
         var d = atFrame
         while (o < outLen && d < mixFrames) {
-            val permille = ((o.toLong() * 1000) / outLen).toInt().coerceIn(0, 1000)
+            val permill = ((o.toLong() * 1000) / outLen).toInt().coerceIn(0, 1000)
             srcMs += prof[permill] * stepMs
             var f = startFrame + srcMs * stereo.sampleRate / 1000.0
             if (speed.reverse) f = endFrame - (f - startFrame)
