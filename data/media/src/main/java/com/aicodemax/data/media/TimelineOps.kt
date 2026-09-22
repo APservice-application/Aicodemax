@@ -124,6 +124,63 @@ object TimelineOps {
         return timeline.copy(tracks = timeline.tracks.map { if (it.id == trackId) next else it })
     }
 
+    /** CP-73: replaces the clip's visual transform (§12). Identity clears to null. */
+    fun transform(timeline: Timeline, clipId: String, transform: ClipTransform): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (track.kind == MediaKind.AUDIO) {
+            throw IllegalArgumentException("คลิปเสียงใช้ transform ภาพไม่ได้")
+        }
+        val problems = transform.validate()
+        if (problems.isNotEmpty()) {
+            throw IllegalArgumentException(problems.joinToString("; "))
+        }
+        val next = if (transform.isIdentity) null else transform
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(transform = next) else it })
+    }
+
+    /**
+     * CP-73: freeze support — splits [clipId] at [atTimelineMs], ripples the
+     * right part + later same-track clips by [holdMs], inserts [still].
+     */
+    fun insertHold(
+        timeline: Timeline,
+        clipId: String,
+        atTimelineMs: Long,
+        holdMs: Long,
+        still: Clip,
+    ): Timeline {
+        if (holdMs < 100 || holdMs > 30_000) {
+            throw IllegalArgumentException("ฟรีซได้ครั้งละ 100..30000ms (ได้ $holdMs)")
+        }
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        val start = clip.atMs
+        val end = clip.atMs + clip.durationMs
+        if (atTimelineMs < start || atTimelineMs > end) {
+            throw IllegalArgumentException("จุดฟรีซต้องอยู่ระหว่าง ${start}..${end}ms")
+        }
+        val cut = clip.startMs + (atTimelineMs - start)
+        // Edge-exact freezes keep only the non-empty side (no zero-length clips).
+        val left = if (atTimelineMs > start) listOf(clip.copy(endMs = cut)) else emptyList()
+        val right = if (atTimelineMs < end) {
+            listOf(clip.copy(id = still.id + "_r", startMs = cut, atMs = atTimelineMs + holdMs))
+        } else {
+            emptyList()
+        }
+        val moved = track.clips.flatMap {
+            when {
+                it.id == clipId -> left + right
+                it.atMs >= atTimelineMs -> listOf(it.copy(atMs = it.atMs + holdMs))
+                else -> listOf(it)
+            }
+        }
+        val withStill = (moved + still.copy(atMs = atTimelineMs)).sortedBy { it.atMs }
+        return timeline.replaceClips(track.id, withStill)
+    }
+
     private fun checkUnlocked(track: Track) {
         if (track.locked) throw IllegalArgumentException("แทร็ก ${track.id} ล็อกอยู่")
     }

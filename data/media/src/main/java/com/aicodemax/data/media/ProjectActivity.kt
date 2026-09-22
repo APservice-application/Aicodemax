@@ -49,6 +49,8 @@ object ProjectEventTypes {
     const val MARKER_ADDED = "MARKER_ADDED"
     const val MARKER_REMOVED = "MARKER_REMOVED"
     const val TRACK_FLAGS = "TRACK_FLAGS"
+    const val CLIP_TRANSFORMED = "CLIP_TRANSFORMED"
+    const val CLIP_FROZEN = "CLIP_FROZEN"
 }
 
 class FileEventLog(root: File) {

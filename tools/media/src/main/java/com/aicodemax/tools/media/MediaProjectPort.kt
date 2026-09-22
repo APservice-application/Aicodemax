@@ -7,6 +7,7 @@ import com.aicodemax.core.common.Outcome
 import com.aicodemax.core.common.SystemClock
 import com.aicodemax.data.media.CheckpointMeta
 import com.aicodemax.data.media.Clip
+import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.FileCheckpointStore
 import com.aicodemax.data.media.FileEventLog
 import com.aicodemax.data.media.FileMediaStore
@@ -62,6 +63,20 @@ interface MediaProjectPort {
     suspend fun deleteClip(projectId: String, clipId: String, actor: String = "AI"): Outcome<Project>
     suspend fun duplicateClip(
         projectId: String, clipId: String, atMs: Long? = null, actor: String = "AI",
+    ): Outcome<Project>
+    // CP-73 basic video ops (§12).
+    suspend fun transformClip(
+        projectId: String,
+        clipId: String,
+        transform: ClipTransform,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun freezeFrame(
+        projectId: String,
+        clipId: String,
+        frameMs: Long? = null,
+        holdMs: Long = 2000,
+        actor: String = "AI",
     ): Outcome<Project>
     suspend fun addMarker(projectId: String, atMs: Long, label: String = "", actor: String = "AI"): Outcome<TimelineMarker>
     suspend fun removeMarker(projectId: String, markerId: String, actor: String = "AI"): Outcome<Unit>
@@ -308,6 +323,68 @@ class FileMediaProject(
             setTimeline(projectId, edit(timelineOrFail(projectId)), actor)
         } catch (e: IllegalArgumentException) {
             Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "แก้คลิปไม่ได้"))
+        }
+    }
+
+    override suspend fun transformClip(
+        projectId: String,
+        clipId: String,
+        transform: ClipTransform,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "transform $clipId", ProjectEventTypes.CLIP_TRANSFORMED, actor,
+    ) { TimelineOps.transform(it, clipId, transform) }
+
+    override suspend fun freezeFrame(
+        projectId: String,
+        clipId: String,
+        frameMs: Long?,
+        holdMs: Long,
+        actor: String,
+    ): Outcome<Project> = runTransaction(projectId, "ฟรีซเฟรม", actor) {
+        if (holdMs < 100 || holdMs > 30_000) {
+            return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", "ฟรีซได้ครั้งละ 100..30000ms"))
+        }
+        val timeline = try {
+            timelineOrFail(projectId)
+        } catch (e: IllegalArgumentException) {
+            return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "อ่านไทม์ไลน์ไม่ได้"))
+        }
+        val (track, clip) = timeline.findClip(clipId)
+            ?: return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", "ไม่มีคลิป $clipId"))
+        if (track.kind != MediaKind.VIDEO) {
+            return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", "ฟรีซได้เฉพาะคลิปวิดีโอ"))
+        }
+        if (track.locked) {
+            return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", "แทร็ก ${track.id} ล็อกอยู่"))
+        }
+        val asset = when (val got = assets.get(projectId, clip.assetId)) {
+            is Outcome.Failure -> return@runTransaction got
+            is Outcome.Success -> got.value
+        }
+        val at = (frameMs ?: (clip.startMs + clip.durationMs / 2))
+            .coerceIn(clip.startMs, (clip.endMs - 1).coerceAtLeast(clip.startMs))
+        val atTimeline = clip.atMs + (at - clip.startMs)
+        val tmp = File.createTempFile("freeze-", ".jpg")
+        try {
+            when (val thumb = video.thumbnail(assets.assetFile(projectId, asset).path, tmp.path, at)) {
+                is Outcome.Failure -> return@runTransaction Outcome.Failure(
+                    AppError("MEDIA_CLIP", "ดึงเฟรมไม่ได้: ${thumb.error.message}"),
+                )
+                is Outcome.Success -> Unit
+            }
+            val image = when (val got = importAsset(projectId, tmp.path, actor)) {
+                is Outcome.Failure -> return@runTransaction got
+                is Outcome.Success -> got.value
+            }
+            val still = Clip(Ids.newId("clip"), image.id, 0, holdMs, atTimeline)
+            try {
+                setTimeline(projectId, TimelineOps.insertHold(timeline, clipId, atTimeline, holdMs, still), actor)
+            } catch (e: IllegalArgumentException) {
+                Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "ฟรีซไม่ได้"))
+            }
+        } finally {
+            tmp.delete()
         }
     }
 
@@ -794,6 +871,51 @@ class InMemoryMediaProject : MediaProjectPort {
             setTimeline(projectId, edit(timelineOrFail(projectId)), actor)
         } catch (e: IllegalArgumentException) {
             Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "แก้คลิปไม่ได้"))
+        }
+    }
+
+    override suspend fun transformClip(
+        projectId: String,
+        clipId: String,
+        transform: ClipTransform,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "transform $clipId", ProjectEventTypes.CLIP_TRANSFORMED, actor,
+    ) { TimelineOps.transform(it, clipId, transform) }
+
+    override suspend fun freezeFrame(
+        projectId: String,
+        clipId: String,
+        frameMs: Long?,
+        holdMs: Long,
+        actor: String,
+    ): Outcome<Project> = runTransaction(projectId, "ฟรีซเฟรม", actor) {
+        if (holdMs < 100 || holdMs > 30_000) {
+            return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", "ฟรีซได้ครั้งละ 100..30000ms"))
+        }
+        val timeline = try {
+            timelineOrFail(projectId)
+        } catch (e: IllegalArgumentException) {
+            return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "อ่านไทม์ไลน์ไม่ได้"))
+        }
+        val (track, clip) = timeline.findClip(clipId)
+            ?: return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", "ไม่มีคลิป $clipId"))
+        if (track.kind != MediaKind.VIDEO) {
+            return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", "ฟรีซได้เฉพาะคลิปวิดีโอ"))
+        }
+        if (track.locked) {
+            return@runTransaction Outcome.Failure(AppError("MEDIA_CLIP", "แทร็ก ${track.id} ล็อกอยู่"))
+        }
+        val at = (frameMs ?: (clip.startMs + clip.durationMs / 2))
+            .coerceIn(clip.startMs, (clip.endMs - 1).coerceAtLeast(clip.startMs))
+        val atTimeline = clip.atMs + (at - clip.startMs)
+        val image = MediaAsset(Ids.newId("asset"), MediaKind.IMAGE, "freeze.jpg", "freeze.jpg", 0)
+        assets.getOrPut(projectId) { mutableListOf() }.add(image)
+        val still = Clip(Ids.newId("clip"), image.id, 0, holdMs, atTimeline)
+        try {
+            setTimeline(projectId, TimelineOps.insertHold(timeline, clipId, atTimeline, holdMs, still), actor)
+        } catch (e: IllegalArgumentException) {
+            Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "ฟรีซไม่ได้"))
         }
     }
 

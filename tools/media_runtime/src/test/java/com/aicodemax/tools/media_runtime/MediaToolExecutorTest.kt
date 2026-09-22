@@ -92,4 +92,25 @@ class MediaToolExecutorTest {
         assertTrue(!r.ok)
         assertTrue(r.error.contains("ไม่มีโปรเจกต์"))
     }
+
+    @Test
+    fun transformAndFreezeFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("fx") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val imported = run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4"))
+        assertTrue(imported.ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        val clip = run(
+            "timeline.addClip",
+            mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0"),
+        )
+        assertTrue(clip.ok)
+        val rotated = run("timeline.transformClip", mapOf("projectId" to projectId, "clipIndex" to "1", "rotation" to "90"))
+        assertTrue(rotated.output, rotated.ok)
+        val listed = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed.output, listed.ok && listed.output.contains("R90"))
+        val frozen = run("timeline.freezeFrame", mapOf("projectId" to projectId, "clipIndex" to "1", "holdMs" to "1000"))
+        assertTrue(frozen.output, frozen.ok)
+        val undone = run("edit.undo", mapOf("projectId" to projectId))
+        assertTrue(undone.ok)
+    }
 }

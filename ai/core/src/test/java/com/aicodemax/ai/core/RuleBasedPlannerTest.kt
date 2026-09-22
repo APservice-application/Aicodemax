@@ -229,6 +229,17 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp73TransformPlansRealSteps() = runBlocking {
+        val rotate = (planner.plan(UserIntent(IntentType.CLIP_ROTATE, "t", mapOf("clipIndex" to "1", "rotation" to "90"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.transformClip", rotate.steps[0].action)
+        assertEquals("90", rotate.steps[0].args["rotation"])
+        val freeze = (planner.plan(UserIntent(IntentType.CLIP_FREEZE, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.freezeFrame", freeze.steps[0].action)
+        val missing = planner.plan(UserIntent(IntentType.CLIP_ROTATE, "t"))
+        assertEquals("PLAN_NO_CLIP", (missing as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp67RenderPlansRealSteps() = runBlocking {
         val start = (planner.plan(UserIntent(IntentType.RENDER_START, "t", mapOf("preset" to "480p"))) as Outcome.Success<Plan>).value
         assertEquals("render", start.steps[0].toolId)

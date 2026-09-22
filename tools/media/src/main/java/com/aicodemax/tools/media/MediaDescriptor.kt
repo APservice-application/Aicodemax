@@ -11,11 +11,11 @@ fun mediaDescriptorToday(): ToolDescriptor = ToolDescriptor(
     displayName = "Media Projects",
     version = "0.1.0",
     layers = listOf(
-        LayerCapability(CapabilityLayer.UI, CapabilityStatus.PARTIAL, "via chat (โปรเจกต์ใหม่:)"),
+        LayerCapability(CapabilityLayer.UI, CapabilityStatus.AVAILABLE, "Timeline screen + chat"),
         LayerCapability(CapabilityLayer.CONTROLLER, CapabilityStatus.AVAILABLE, "MediaProjectPort"),
         LayerCapability(
             CapabilityLayer.CAPABILITY_API, CapabilityStatus.AVAILABLE,
-            "project.create/list + asset.import/list + timeline.get/set + version.save/restore",
+            "project.*/asset.*/timeline.get/addClip/split/trim/move/delete/duplicate/transform/freeze/markers/trackFlags + version.* + edit.undo/redo + checkpoint.*",
         ),
         LayerCapability(
             CapabilityLayer.RUNTIME, CapabilityStatus.AVAILABLE,

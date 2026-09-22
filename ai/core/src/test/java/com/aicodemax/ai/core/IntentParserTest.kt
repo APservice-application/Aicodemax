@@ -244,6 +244,22 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp73TransformIntents() {
+        val rotate = IntentParser.parse("หมุนคลิปที่ 1 180")
+        assertEquals(IntentType.CLIP_ROTATE, rotate.type)
+        assertEquals("1", rotate.parameters["clipIndex"])
+        assertEquals("180", rotate.parameters["rotation"])
+        val flip = IntentParser.parse("พลิกคลิปที่ 2")
+        assertEquals(IntentType.CLIP_FLIP, flip.type)
+        assertEquals("true", flip.parameters["flipH"])
+        val flipV = IntentParser.parse("พลิกคลิปที่ 2 บนล่าง")
+        assertEquals("true", flipV.parameters["flipV"])
+        val freeze = IntentParser.parse("ฟรีซคลิปที่ 1 3 วิ")
+        assertEquals(IntentType.CLIP_FREEZE, freeze.type)
+        assertEquals("3000", freeze.parameters["holdMs"])
+    }
+
+    @Test
     fun cp67RenderIntents() {
         val start = IntentParser.parse("เรนเดอร์ 720p")
         assertEquals(IntentType.RENDER_START, start.type)
