@@ -107,4 +107,8 @@ object ThaiVocabulary {
 
     /** LLM-connect verbs — wired in CP-59 (key via Models UI, never chat). */
     val llmConnectWords: List<String> = listOf("เชื่อมต่อ ai", "ต่อ ai")
+
+    /** Voice verbs (CP-60): speak aloud / listen on mic. */
+    val speakWords: List<String> = listOf("อ่านให้ฟัง", "พูดให้ฟัง", "ออกเสียง", "อ่านออกเสียง")
+    val listenWords: List<String> = listOf("ฟังเสียง", "รับคำสั่งเสียง", "ฟังหน่อย")
 }

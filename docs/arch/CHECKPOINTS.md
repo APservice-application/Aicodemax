@@ -1,7 +1,7 @@
 # CHECKPOINT PROGRESS (MASTER_ARCHITECTURE §57–§59)
 
 > สถานะซื่อสัตย์ ณ 2026-09-21 — DONE = ผ่าน Definition of Done ทั้ง 13 ข้อเท่านั้น,
-> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **184/184** (`kc-build.sh` + JUnit)
+> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **228/228** (`kc-build.sh` + JUnit)
 
 ## ปัจจุบัน
 - **งาน code เสร็จทุก CP ที่ทำได้บนเครื่องนี้** — เหลือ TODO/PARTIAL ที่ต้องการ
@@ -98,7 +98,7 @@
 | CP-57 | SmartIntent Thai-155 + Dynamic Questionnaire | DONE | ThaiVocabulary 155 คำ + 13 intents + Questionnaire + debug/memory engines ต่อ gateway + เทส (195/195) |
 | CP-58 | SkillManager (skill files → context) | DONE | FileSkillStore (.md/.txt/.zip ≤2MB) + gateway 5 actions + Skills UI + intents + เทส (205/205) |
 | CP-59 | LLM Provider Adapter (OpenAI-compat + vision) | DONE | OpenAiCompatProvider + LlmBrain ACTION loop + localhost detect + Models UI + เทส (218/218) |
-| CP-60 | Voice (STT input + TTS output, TH/EN) | TODO | — |
+| CP-60 | Voice (STT input + TTS output, TH/EN) | DONE | VoicePort + voice.* gateway + VOICE intents + mic/🔊 UI + เทส (228/228) |
 | CP-61 | Image Engine (edit + info, AI tools) | TODO | — |
 | CP-62 | Audio Engine (edit + analysis, AI tools) | TODO | — |
 | CP-63 | Video Engine (ffmpeg + probe + tools) | TODO | arm64+x86_64, HW-pref, honest status |

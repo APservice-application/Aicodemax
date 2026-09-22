@@ -73,6 +73,9 @@ import com.aicodemax.tools.git.gitDescriptorToday
 import com.aicodemax.tools.git_runtime.GitToolExecutor
 import com.aicodemax.tools.memory_runtime.MemoryToolExecutor
 import com.aicodemax.tools.skill_runtime.SkillToolExecutor
+import com.aicodemax.tools.voice.VoicePort
+import com.aicodemax.tools.voice.voiceDescriptorToday
+import com.aicodemax.tools.voice_runtime.VoiceToolExecutor
 import com.aicodemax.tools.project.ProjectManager
 import com.aicodemax.tools.registry.InMemoryToolRegistry
 import com.aicodemax.tools.registry.ToolRegistry
@@ -96,6 +99,7 @@ class ServiceLocator(context: Context) {
     val conversations: ConversationStore = FileConversationStore(File(appContext.filesDir, "state"))
     val memory: MemoryStore = FileMemoryStore(File(appContext.filesDir, "state"))
     val skills: FileSkillStore = FileSkillStore(File(appContext.filesDir, "skills"))
+    val voice: VoicePort = AndroidVoicePort(appContext)
     val settings: SettingsRepository = DataStoreSettingsRepository(appContext)
 
     val resources: ResourceMonitor = AndroidResourceMonitor(appContext)
@@ -157,6 +161,7 @@ class ServiceLocator(context: Context) {
         toolRegistry.register(debugDescriptorToday())
         toolRegistry.register(memoryDescriptorToday())
         toolRegistry.register(skillDescriptorToday())
+        toolRegistry.register(voiceDescriptorToday())
 
         gateway = DefaultToolGateway(
             toolRegistry,
@@ -173,6 +178,7 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(DebugToolExecutor())
         gateway.registerExecutor(MemoryToolExecutor(MemoryEngine(memory)))
         gateway.registerExecutor(SkillToolExecutor(skills, files))
+        gateway.registerExecutor(VoiceToolExecutor(voice))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry)
 

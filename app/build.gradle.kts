@@ -63,6 +63,8 @@ dependencies {
     implementation(project(":tools:github"))
     implementation(project(":tools:browser"))
     implementation(project(":tools:browser_runtime"))
+    implementation(project(":tools:voice"))
+    implementation(project(":tools:voice_runtime"))
     implementation(project(":data:checkpoint"))
     implementation(project(":data:audit"))
     implementation(project(":data:memory"))

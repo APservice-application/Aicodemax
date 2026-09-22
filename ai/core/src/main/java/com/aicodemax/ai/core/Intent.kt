@@ -28,6 +28,8 @@ enum class IntentType {
     SKILL_LIST,
     SKILL_GET,
     SKILL_REMOVE,
+    VOICE_SPEAK,
+    VOICE_LISTEN,
     UNKNOWN,
 }
 
@@ -104,6 +106,14 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.shareWords)) {
             return UserIntent(IntentType.SHARE_MEDIA, text, params("platform" to findPlatform(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.speakWords)) {
+            val rest = ThaiVocabulary.speakWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
+                .removePrefix(":").trim()
+            return UserIntent(IntentType.VOICE_SPEAK, text, params("text" to rest.ifBlank { t }))
+        }
+        if (containsAny(t, ThaiVocabulary.listenWords)) {
+            return UserIntent(IntentType.VOICE_LISTEN, text)
         }
         if (containsAny(t, ThaiVocabulary.debugWords)) {
             val error = t.substringAfter(":", t).trim()

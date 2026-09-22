@@ -102,6 +102,15 @@ object StandardCapabilities {
             metadata = meta("skill", "ฉีดสกิลเข้า context", listOf("ids"), listOf("context"), emptyList(), false, "ids found", "list first")),
         CapabilityBinding("skill.remove", "skill", "remove", AdapterKind.NATIVE,
             metadata = meta("skill", "ลบสกิลที่ติดตั้ง", listOf("id"), listOf("ok"), listOf("fs.delete"), false, "id gone", "re-remove")),
+        // Voice engine (native, Android speech APIs).
+        CapabilityBinding("voice.listen", "voice", "listen", AdapterKind.NATIVE,
+            metadata = meta("voice", "ฟังเสียงแล้วถอดเป็นข้อความ", listOf("lang?,timeoutMs?"), listOf("transcript"), listOf("mic"), false, "text heard", "re-listen")),
+        CapabilityBinding("voice.speak", "voice", "speak", AdapterKind.NATIVE,
+            metadata = meta("voice", "พูดข้อความออกเสียง", listOf("text,lang?"), listOf("ok"), listOf("audio"), false, "utterance done", "retry")),
+        CapabilityBinding("voice.stop", "voice", "stop", AdapterKind.NATIVE,
+            metadata = meta("voice", "หยุดเสียงที่กำลังพูด", emptyList(), listOf("ok"), emptyList(), false, "silent", "re-stop")),
+        CapabilityBinding("voice.status", "voice", "status", AdapterKind.NATIVE,
+            metadata = meta("voice", "เช็คความพร้อม STT/TTS", emptyList(), listOf("status"), emptyList(), false, "engine probe", "re-check")),
         // Compatibility engine — CLI adapter, LAST resort (§29, CP-32).
         CapabilityBinding("terminal.open", "terminal", "open", AdapterKind.CLI_ADAPTER,
             metadata = meta("terminal", "เปิด terminal session", emptyList(), listOf("sessionId"), listOf("terminal"), false, "session listed", "re-open")),
@@ -125,7 +134,7 @@ object StandardCapabilities {
      */
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
-        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill")) {
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -154,6 +163,7 @@ private fun meta(
         "debug" to ("Debug Engine" to "StackTraceParser + DebugSession"),
         "memory" to ("Memory Engine" to "FileMemoryStore"),
         "skill" to ("Skill Engine" to "FileSkillStore"),
+        "voice" to ("Voice Engine" to "SpeechRecognizer + TTS"),
         "terminal" to ("Compatibility Engine" to "Termux bridge (pending device work)"),
     )
     val (engine, runtime) = engines.getValue(tool)

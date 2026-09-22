@@ -27,6 +27,7 @@ class ChatViewModel(
     private val tasks: com.aicodemax.ai.tasks.TaskEngine? = null,
     private val workingSet: com.aicodemax.core.state.WorkingSetStore? = null,
     private val monitor: com.aicodemax.core.resources.ResourceMonitor? = null,
+    private val voice: com.aicodemax.tools.voice.VoicePort? = null,
 ) : ViewModel() {
     private var sendJob: kotlinx.coroutines.Job? = null
 
@@ -109,6 +110,7 @@ class ChatViewModel(
     fun stop() {
         sendJob?.cancel()
         sendJob = null
+        stopVoice()
         val taskId = _state.value.lastTaskId
         if (taskId != null) {
             tasks?.cancel(taskId, "stopped from chat")
@@ -159,6 +161,39 @@ class ChatViewModel(
     }
 
     fun newChat() = openConversation(null)
+
+    /** CP-60: listens once on the mic and delivers the transcript to [onText]. */
+    fun voiceInput(onText: (String) -> Unit, onError: (String) -> Unit = {}) {
+        val port = voice
+        if (port == null) {
+            onError("เครื่องนี้ยังไม่ต่อระบบเสียง")
+            return
+        }
+        _state.value = _state.value.copy(sending = true)
+        viewModelScope.launch {
+            when (val result = port.listen()) {
+                is Outcome.Success -> onText(result.value.text)
+                is Outcome.Failure -> onError(result.error.message)
+            }
+            _state.value = _state.value.copy(sending = _state.value.sending && sendJob?.isActive == true)
+        }
+    }
+
+    /** CP-60: speaks [text] aloud; errors surface in the chat error line. */
+    fun speak(text: String) {
+        val port = voice ?: return
+        viewModelScope.launch {
+            when (val result = port.speak(text)) {
+                is Outcome.Success -> Unit
+                is Outcome.Failure -> _state.value = _state.value.copy(error = result.error.message)
+            }
+        }
+    }
+
+    fun stopVoice() {
+        val port = voice ?: return
+        viewModelScope.launch { port.stop() }
+    }
 
     private suspend fun refresh(id: String, sending: Boolean = false) {
         val messages = conversations.getMessages(id).fold(
