@@ -451,7 +451,8 @@ class FileMediaProject(
     }
 
     private fun restoreSnapshot(projectId: String, snap: ProjectSnapshot) {
-        if (snap.project == null) {
+        val snapProject = snap.project
+        if (snapProject == null) {
             // Undo of create/duplicate/restore: project did not exist before.
             if (projects.exists(projectId)) {
                 projects.delete(projectId)
@@ -472,7 +473,7 @@ class FileMediaProject(
         if (!projects.exists(projectId)) {
             File(rootDir, projectId).mkdirs()
         }
-        projects.writeProject(snap.project.copy(id = projectId))
+        projects.writeProject(snapProject.copy(id = projectId))
         assets.writeAll(projectId, snap.assets)
         snap.assets.forEach { assets.restoreFile(projectId, it.fileName) }
     }
@@ -839,7 +840,8 @@ class InMemoryMediaProject : MediaProjectPort {
         ProjectSnapshot(projects[projectId], assets[projectId]?.toList().orEmpty())
 
     private fun restoreSnapshot(projectId: String, snap: ProjectSnapshot) {
-        if (snap.project == null) {
+        val snapProject = snap.project
+        if (snapProject == null) {
             // Undo of create/duplicate/restore: drop the project (bytes kept in trash for file impl).
             val current = snapshot(projectId)
             if (current.project != null) {
@@ -854,7 +856,7 @@ class InMemoryMediaProject : MediaProjectPort {
             lastTrash[projectId]?.let { trashBin.remove(it) }
             lastTrash.remove(projectId)
         }
-        projects[projectId] = snap.project.copy(id = projectId)
+        projects[projectId] = snapProject.copy(id = projectId)
         assets[projectId] = snap.assets.toMutableList()
     }
 }
