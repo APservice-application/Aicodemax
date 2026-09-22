@@ -164,7 +164,7 @@ fun RenderScreen(services: ServiceLocator) {
                     )
                     if (job.status == RenderStatus.RUNNING || job.status == RenderStatus.QUEUED) {
                         LinearProgressIndicator(
-                            progress = { (job.progress.coerceIn(0, 100)) / 100f },
+                            progress = (job.progress.coerceIn(0, 100)) / 100f,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -186,15 +186,7 @@ fun RenderScreen(services: ServiceLocator) {
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         job.previews.take(3).forEach { path ->
-                            val bitmap = remember(path) { BitmapFactory.decodeFile(path) }
-                            if (bitmap != null) {
-                                Image(
-                                    bitmap = bitmap.asImageBitmap(),
-                                    contentDescription = "พรีวิว",
-                                    modifier = Modifier.weight(1f).height(96.dp),
-                                    contentScale = ContentScale.Crop,
-                                )
-                            }
+                            PreviewThumb(path, Modifier.weight(1f))
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -238,5 +230,18 @@ fun RenderScreen(services: ServiceLocator) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PreviewThumb(path: String, modifier: Modifier = Modifier) {
+    val bitmap = remember(path) { BitmapFactory.decodeFile(path) }
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = "พรีวิว",
+            modifier = modifier.height(96.dp),
+            contentScale = ContentScale.Crop,
+        )
     }
 }
