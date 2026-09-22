@@ -110,7 +110,8 @@ class FileUndoStore(root: File) {
     fun push(projectId: String, label: String, actor: String, snapshot: ProjectSnapshot) {
         try {
             val dir = stackDir(projectId, "undo")
-            val file = "e${System.currentTimeMillis()}_${(0..999999).random()}.json"
+            val file = nextName(dir, "e")
+
             File(dir, file).writeText(activityJson.encodeToString(UndoEntry(label, actor, System.currentTimeMillis(), snapshot)))
             clearStack(projectId, "redo")
             trim(dir)
@@ -123,7 +124,7 @@ class FileUndoStore(root: File) {
             ?: return Outcome.Failure(AppError("MEDIA_UNDO_EMPTY", "ไม่มีอะไรให้เลิกทำ"))
         try {
             val dir = stackDir(projectId, "redo")
-            val file = "e${System.currentTimeMillis()}_${(0..999999).random()}.json"
+            val file = nextName(dir, "e")
             File(dir, file).writeText(
                 activityJson.encodeToString(UndoEntry(popped.label, popped.actor, System.currentTimeMillis(), current)),
             )
@@ -138,7 +139,7 @@ class FileUndoStore(root: File) {
             ?: return Outcome.Failure(AppError("MEDIA_REDO_EMPTY", "ไม่มีอะไรให้ทำซ้ำ"))
         try {
             val dir = stackDir(projectId, "undo")
-            val file = "e${System.currentTimeMillis()}_${(0..999999).random()}.json"
+            val file = nextName(dir, "e")
             File(dir, file).writeText(
                 activityJson.encodeToString(UndoEntry(popped.label, actor = popped.actor, at = System.currentTimeMillis(), snapshot = current)),
             )
@@ -174,6 +175,19 @@ class FileUndoStore(root: File) {
         } catch (_: Exception) {
             null
         }
+    }
+
+    /**
+     * Fixed-width monotonic names (nanoTime + seq): lexicographic order ==
+     * chronological order, so pop/trim always hit the right end. The old
+     * `e<ms>_<rand>` scheme flaked when two pushes shared a millisecond.
+     */
+    private val seq = java.util.concurrent.atomic.AtomicLong(0)
+
+    private fun nextName(dir: File, prefix: String): String {
+        val nano = System.nanoTime()
+        val n = seq.incrementAndGet() % 1_000_000
+        return "%s%020d-%06d.json".format(prefix, nano, n)
     }
 
     private fun stackDir(projectId: String, stack: String): File =
@@ -212,7 +226,12 @@ class FileCheckpointStore(root: File) {
 
     fun save(projectId: String, reason: String, actor: String, snapshot: ProjectSnapshot): CheckpointMeta {
         val dir = File(rootDir, "$projectId/checkpoints").also { it.mkdirs() }
-        val id = "${System.currentTimeMillis()}-$reason"
+        var id = "${System.currentTimeMillis()}-$reason"
+        var n = 2
+        while (File(dir, "$id.json").exists()) {
+            id = "${System.currentTimeMillis()}-$reason-$n"
+            n += 1
+        }
         val meta = CheckpointMeta(id, reason, actor, System.currentTimeMillis())
         File(dir, "$id.json").writeText(activityJson.encodeToString(snapshot))
         trim(dir)
