@@ -67,7 +67,7 @@ class AndroidVoicePort(appContext: Context) : VoicePort {
         val heard = withTimeoutOrNull(timeoutMs) {
             withContext(Dispatchers.Main) {
                 try {
-                    suspendCancellableCoroutine { cont ->
+                    suspendCancellableCoroutine<Outcome<VoiceInput>> { cont ->
                     val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
                     cont.invokeOnCancellation {
                         try {
@@ -141,7 +141,7 @@ class AndroidVoicePort(appContext: Context) : VoicePort {
                 if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
                     engine.language = Locale.ENGLISH
                 }
-                suspendCancellableCoroutine { cont ->
+                suspendCancellableCoroutine<Outcome<Unit>> { cont ->
                     val utteranceId = UUID.randomUUID().toString()
                     engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                         override fun onStart(utteranceId: String?) = Unit
