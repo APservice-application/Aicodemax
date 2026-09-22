@@ -4,6 +4,7 @@ import android.content.Context
 import com.aicodemax.ai.agents.LlmBrain
 import com.aicodemax.ai.agents.LocalAgentRunner
 import com.aicodemax.ai.core.BootstrapOrchestrator
+import com.aicodemax.ai.core.EditingPlanner
 import com.aicodemax.ai.core.InMemoryQuestionnaireStore
 import com.aicodemax.ai.core.Orchestrator
 import com.aicodemax.ai.core.RuleBasedPlanner
@@ -211,7 +212,7 @@ class ServiceLocator(context: Context) {
         agent = LocalAgentRunner(gateway)
         val brain = LlmBrain({ llmProvider }, { llmModel }, gateway, llmSystemPrompt())
         orchestrator = BootstrapOrchestrator(
-            tasks, RuleBasedPlanner(capabilities), agent, RuleVerifier(), checkpoints, conversations,
+            tasks, RuleBasedPlanner(capabilities, EditingPlanner(media, capabilities)), agent, RuleVerifier(), checkpoints, conversations,
             recovery = RecoveryLadderPolicy(),
             questionnaires = InMemoryQuestionnaireStore(),
             brain = brain,

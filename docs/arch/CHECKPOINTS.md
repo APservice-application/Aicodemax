@@ -1,7 +1,7 @@
 # CHECKPOINT PROGRESS (MASTER_ARCHITECTURE §57–§59)
 
 > สถานะซื่อสัตย์ ณ 2026-09-21 — DONE = ผ่าน Definition of Done ทั้ง 13 ข้อเท่านั้น,
-> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **291/291** (`kc-build.sh` + JUnit)
+> อย่างอื่นเป็น PARTIAL/TODO. ชุดเทส local: **296/296** (`kc-build.sh` + JUnit)
 
 ## ปัจจุบัน
 - **งาน code เสร็จทุก CP ที่ทำได้บนเครื่องนี้** — เหลือ TODO/PARTIAL ที่ต้องการ
@@ -103,7 +103,7 @@
 | CP-62 | Audio Engine (edit + analysis, AI tools) | DONE | WAV pipeline + probe + MediaCodec decode + audio.* gateway + AUDIO intents + เทส (269/269) |
 | CP-63 | Video Engine (ffmpeg + probe + tools) | DONE | MP4 probe + thumb/trim/extract (MediaCodec/Muxer, no re-encode) + video.* gateway + VIDEO intents + เทส (277/277) |
 | CP-64 | Media Assets + Timeline + Project State | DONE | project/asset/timeline/version stores + media.* gateway + PROJECT intents + เทส (291/291) |
-| CP-65 | Editing Planner + Intent + NL mapping | TODO | ห้าม hard-coded workflow (§27) |
+| CP-65 | Editing Planner + Intent + NL mapping | DONE | EditingPlanner (preset data §27) + MEDIA_EDIT จริง + สกิล aicode-tools อัปเดต + เทส (296/296) |
 | CP-66 | Subtitle Engine (STT→SRT→burn-in, TH/EN) | TODO | — |
 | CP-67 | Render Queue + QC + Preview + Export + Approval | TODO | §19–21 |
 | CP-68 | Supabase Devtool (optional, user keys) | TODO | dev-tool เท่านั้น ไม่ใช่ infra (§24) |
