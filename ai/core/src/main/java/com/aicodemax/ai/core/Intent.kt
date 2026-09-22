@@ -40,6 +40,10 @@ enum class IntentType {
     AUDIO_CONCAT,
     AUDIO_GAIN,
     AUDIO_FADE,
+    VIDEO_INFO,
+    VIDEO_TRIM,
+    VIDEO_THUMB,
+    VIDEO_AUDIO,
     UNKNOWN,
 }
 
@@ -171,6 +175,23 @@ object IntentParser {
             val negative = t.contains("เบาเสียง")
             val db = digits?.let { if (negative) "-$it" else it }
             return UserIntent(IntentType.AUDIO_GAIN, text, params("path" to file, "db" to db))
+        }
+        if (containsAny(t, ThaiVocabulary.videoInfoWords)) {
+            return UserIntent(IntentType.VIDEO_INFO, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.videoTrimWords)) {
+            val nums = digitsPattern.findAll(tNoFile).map { it.value }.toList()
+            return UserIntent(
+                IntentType.VIDEO_TRIM, text,
+                params("path" to file, "startMs" to nums.getOrNull(0), "endMs" to nums.getOrNull(1)),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.videoThumbWords)) {
+            val timeMs = digitsPattern.find(tNoFile)?.value
+            return UserIntent(IntentType.VIDEO_THUMB, text, params("path" to file, "timeMs" to timeMs))
+        }
+        if (containsAny(t, ThaiVocabulary.videoAudioWords)) {
+            return UserIntent(IntentType.VIDEO_AUDIO, text, params("path" to file))
         }
         if (containsAny(t, ThaiVocabulary.audioFadeWords)) {
             val nums = digitsPattern.findAll(tNoFile).map { it.value }.toList()

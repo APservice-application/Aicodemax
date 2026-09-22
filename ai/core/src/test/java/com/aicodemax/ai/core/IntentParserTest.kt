@@ -169,4 +169,20 @@ class IntentParserTest {
         assertEquals("1000", fade.parameters["inMs"])
         assertEquals("2000", fade.parameters["outMs"])
     }
+
+    @Test
+    fun cp63VideoIntents() {
+        val info = IntentParser.parse("ข้อมูลวิดีโอ clip.mp4")
+        assertEquals(IntentType.VIDEO_INFO, info.type)
+        assertEquals("clip.mp4", info.parameters["path"])
+        val trim = IntentParser.parse("ตัดวิดีโอ a.mp4 0,10000")
+        assertEquals(IntentType.VIDEO_TRIM, trim.type)
+        assertEquals("10000", trim.parameters["endMs"])
+        val thumb = IntentParser.parse("ภาพปก a.mp4 2000")
+        assertEquals(IntentType.VIDEO_THUMB, thumb.type)
+        assertEquals("2000", thumb.parameters["timeMs"])
+        val audio = IntentParser.parse("ดึงเสียง a.mp4")
+        assertEquals(IntentType.VIDEO_AUDIO, audio.type)
+        assertEquals("a.mp4", audio.parameters["path"])
+    }
 }

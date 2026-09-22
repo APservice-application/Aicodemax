@@ -125,4 +125,10 @@ object ThaiVocabulary {
     val audioConcatWords: List<String> = listOf("ต่อเสียง")
     val audioGainWords: List<String> = listOf("เร่งเสียง", "เบาเสียง", "ปรับเสียง")
     val audioFadeWords: List<String> = listOf("เฟดเสียง", "เฟด")
+
+    /** Video verbs (CP-63). */
+    val videoInfoWords: List<String> = listOf("ข้อมูลวิดีโอ")
+    val videoTrimWords: List<String> = listOf("ตัดวิดีโอ")
+    val videoThumbWords: List<String> = listOf("ภาพปก", "แคปวิดีโอ")
+    val videoAudioWords: List<String> = listOf("ดึงเสียง")
 }
