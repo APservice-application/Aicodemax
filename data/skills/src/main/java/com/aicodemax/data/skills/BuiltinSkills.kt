@@ -17,8 +17,13 @@ Tasks/git:
 - Long work runs as tasks (queued→completed). Report task ids.
 - git.status/log/commit via the git engine; push/pull need network + credentials.
 
-Media (landing CP-61..67):
-- Images/audio/video become tools too. Until then say "pending" honestly — never fake edits.
+Media (real tools — use them):
+- voice.listen {lang?} ear; voice.speak {text,lang?} mouth. Mic permission is the user's job.
+- image.info {path}; image.resize {src,maxDim?}; image.crop {src,x,y,w,h}; image.rotate {src,degrees?}; image.grayscale {src}. dst defaults beside src.
+- audio.info/trim {src,startMs,endMs}/concat {srcs a|b}/gain {src,db}/fade {src,inMs?,outMs?} — edits land as .wav.
+- video.info/thumbnail {src,timeMs?}/trim {src,startMs,endMs} (stream-copy, ms)/extractAudio {src} (.m4a).
+- media.project.create {name?}/list; media.asset.import {path} (copies into latest project); media.timeline.get/addClip {assetId,startMs,endMs,atMs}; media.version.save/list/restore {version}.
+- Assembly order: create project → import assets → read timeline → addClip → version.save. Probe before placing (durations!).
 
 Safety:
 - Destructive/secret/network actions ask the user first (approval dialog).

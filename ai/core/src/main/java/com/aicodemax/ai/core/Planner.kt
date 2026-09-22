@@ -32,6 +32,7 @@ interface Planner {
  */
 class RuleBasedPlanner(
     private val resolver: CapabilityResolver = StandardCapabilities.defaultResolver(),
+    private val editPlanner: EditingPlanner? = null,
 ) : Planner {
     /** Capabilities that always need explicit user permission. */
     private val sensitive = setOf("files.delete", "skill.remove")
@@ -331,12 +332,18 @@ class RuleBasedPlanner(
             IntentType.OPEN_SETTINGS -> return Outcome.Failure(
                 AppError("PLAN_SETTINGS", "เปิดหน้า Settings ที่แถบล่าง (ไอคอนฟันเฟือง) ได้เลยครับ"),
             )
-            IntentType.MEDIA_EDIT -> return Outcome.Failure(
-                AppError(
-                    "PLAN_MEDIA_PENDING",
-                    "งานตัดย่อยทำได้แล้วครับ (ตัดวิดีโอ/ดึงเสียง/ภาพปก/ย่อรูป/ตัดเสียง) — ส่วนตัดต่อเต็มรูปแบบตาม timeline มาใน CP-64..67 ครับ",
-                ),
-            )
+            IntentType.MEDIA_EDIT -> {
+                val planner = editPlanner
+                if (planner == null) {
+                    return Outcome.Failure(
+                        AppError(
+                            "PLAN_MEDIA_PENDING",
+                            "งานตัดย่อยทำได้แล้วครับ (ตัดวิดีโอ/ดึงเสียง/ภาพปก/ย่อรูป/ตัดเสียง) — ส่วนตัดต่อเต็มรูปแบบตาม timeline มาใน CP-64..67 ครับ",
+                        ),
+                    )
+                }
+                return planner.plan(intent)
+            }
             IntentType.SHARE_MEDIA -> return Outcome.Failure(
                 AppError(
                     "PLAN_SHARE_PENDING",

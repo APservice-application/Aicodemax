@@ -30,6 +30,7 @@ dependencies {
     implementation(project(":data:memory"))
     implementation(project(":data:conversations"))
     implementation(project(":data:checkpoint"))
+    implementation(project(":tools:media"))
     implementation(libs.coroutines.android)
     testImplementation(libs.junit4)
 }
