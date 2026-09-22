@@ -254,14 +254,15 @@ class FileMediaProject(
         // Delete moves the whole dir (incl. undo history) to trash, so the
         // undo entry is pushed AFTERWARDS into a fresh stack (single entry).
         val before = snapshot(projectId)
-        if (before.project == null) {
+        val beforeProject = before.project
+        if (beforeProject == null) {
             return Outcome.Failure(AppError("MEDIA_NO_PROJECT", "ไม่มีโปรเจกต์ $projectId"))
         }
         return when (val deleted = projects.delete(projectId)) {
             is Outcome.Failure -> deleted
             is Outcome.Success -> {
                 trashOf[projectId] = deleted.value
-                undoStore.push(projectId, "ลบโปรเจกต์ ${before.project.name}", actor, before)
+                undoStore.push(projectId, "ลบโปรเจกต์ ${beforeProject.name}", actor, before)
                 events.append(
                     ProjectEvent(
                         Ids.newId("ev"), ProjectEventTypes.PROJECT_DELETED, projectId,
