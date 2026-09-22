@@ -1,9 +1,11 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
     `java-library`
 }
 
 dependencies {
+    implementation(libs.serialization.json)
     api(project(":core:common"))
     api(project(":tools:registry"))
     api(project(":data:media"))
