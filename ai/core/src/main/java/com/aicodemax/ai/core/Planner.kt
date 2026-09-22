@@ -149,6 +149,43 @@ class RuleBasedPlanner(
                 listOf("voice.speak" to mapOf("text" to say))
             }
             IntentType.VOICE_LISTEN -> listOf("voice.listen" to emptyMap())
+            IntentType.VIDEO_INFO -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_VIDEO", "ดูวิดีโอไฟล์ไหนครับ? เช่น ข้อมูลวิดีโอ clip.mp4"),
+                    )
+                listOf("video.info" to mapOf("path" to path))
+            }
+            IntentType.VIDEO_TRIM -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_VIDEO", "ตัดวิดีโอไฟล์ไหนครับ? เช่น ตัดวิดีโอ a.mp4 0,10000"),
+                    )
+                val start = intent.parameters["startMs"]
+                val end = intent.parameters["endMs"]
+                if (start == null || end == null) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_RANGE", "บอกช่วงเวลาด้วยครับ (มิลลิวินาที) เช่น ตัดวิดีโอ a.mp4 0,10000"),
+                    )
+                }
+                listOf("video.trim" to mapOf("src" to path, "startMs" to start, "endMs" to end))
+            }
+            IntentType.VIDEO_THUMB -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_VIDEO", "จับภาพปกไฟล์ไหนครับ? เช่น ภาพปก a.mp4 2000"),
+                    )
+                val args = mutableMapOf("src" to path)
+                intent.parameters["timeMs"]?.let { args["timeMs"] = it }
+                listOf("video.thumbnail" to args)
+            }
+            IntentType.VIDEO_AUDIO -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_VIDEO", "ดึงเสียงไฟล์ไหนครับ? เช่น ดึงเสียง a.mp4"),
+                    )
+                listOf("video.extractAudio" to mapOf("src" to path))
+            }
             IntentType.AUDIO_INFO -> {
                 val path = intent.parameters["path"]
                     ?: return Outcome.Failure(
@@ -276,7 +313,7 @@ class RuleBasedPlanner(
             IntentType.MEDIA_EDIT -> return Outcome.Failure(
                 AppError(
                     "PLAN_MEDIA_PENDING",
-                    "ระบบตัดต่อวิดีโอ/รูป/เสียงกำลังมาใน CP-61..63 ครับ — ตอนนี้ยังตัดให้จริงไม่ได้ เลยไม่แกล้งทำ",
+                    "งานตัดย่อยทำได้แล้วครับ (ตัดวิดีโอ/ดึงเสียง/ภาพปก/ย่อรูป/ตัดเสียง) — ส่วนตัดต่อเต็มรูปแบบตาม timeline มาใน CP-64..67 ครับ",
                 ),
             )
             IntentType.SHARE_MEDIA -> return Outcome.Failure(

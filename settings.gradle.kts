@@ -45,6 +45,8 @@ include(
     ":tools:image_runtime",
     ":tools:audio",
     ":tools:audio_runtime",
+    ":tools:video",
+    ":tools:video_runtime",
     ":tools:github",
     ":tools:browser",
     ":tools:browser_runtime",

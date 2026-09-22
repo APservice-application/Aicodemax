@@ -69,6 +69,8 @@ dependencies {
     implementation(project(":tools:image_runtime"))
     implementation(project(":tools:audio"))
     implementation(project(":tools:audio_runtime"))
+    implementation(project(":tools:video"))
+    implementation(project(":tools:video_runtime"))
     implementation(project(":data:checkpoint"))
     implementation(project(":data:audit"))
     implementation(project(":data:memory"))

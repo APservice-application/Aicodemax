@@ -151,4 +151,27 @@ class RuleBasedPlannerTest {
         val noRange = planner.plan(UserIntent(IntentType.AUDIO_TRIM, "t", mapOf("path" to "a.wav")))
         assertEquals("PLAN_NO_RANGE", (noRange as Outcome.Failure).error.code)
     }
+
+    @Test
+    fun cp63VideoPlansRealSteps() = runBlocking {
+        val info = UserIntent(IntentType.VIDEO_INFO, "t", mapOf("path" to "a.mp4"))
+        val infoPlan = (planner.plan(info) as Outcome.Success<Plan>).value
+        assertEquals("video", infoPlan.steps[0].toolId)
+        assertEquals("info", infoPlan.steps[0].action)
+
+        val trim = UserIntent(
+            IntentType.VIDEO_TRIM, "t",
+            mapOf("path" to "a.mp4", "startMs" to "0", "endMs" to "10000"),
+        )
+        val trimPlan = (planner.plan(trim) as Outcome.Success<Plan>).value
+        assertEquals("trim", trimPlan.steps[0].action)
+
+        val thumb = UserIntent(IntentType.VIDEO_THUMB, "t", mapOf("path" to "a.mp4", "timeMs" to "2000"))
+        val thumbPlan = (planner.plan(thumb) as Outcome.Success<Plan>).value
+        assertEquals("thumbnail", thumbPlan.steps[0].action)
+        assertEquals("2000", thumbPlan.steps[0].args["timeMs"])
+
+        val noPath = planner.plan(UserIntent(IntentType.VIDEO_AUDIO, "t"))
+        assertEquals("PLAN_NO_VIDEO", (noPath as Outcome.Failure).error.code)
+    }
 }
