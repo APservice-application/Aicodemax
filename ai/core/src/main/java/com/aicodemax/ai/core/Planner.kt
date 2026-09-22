@@ -545,6 +545,24 @@ class RuleBasedPlanner(
                     )
                 listOf("media.timeline.enhance" to mapOf("clipIndex" to clip))
             }
+            // CP-92 §36 honest defer: 3D camera solve needs a solver we don't ship yet.
+            IntentType.CAM_TRACK -> {
+                return Outcome.Failure(
+                    AppError(
+                        "DEFERRED_CAMTRACK",
+                        "การแทร็กกล้อง 3D ยังไม่รองรับครับ (ต้องใช้ตัวแก้การเคลื่อนกล้อง 3 มิติที่ยังไม่มี) — ตอนนี้ใช้ ติดตามวัตถุ 2D แทนได้ เช่น ติดตามวัตถุคลิปที่ 1",
+                    ),
+                )
+            }
+            // CP-93 honest defer: face-aware beauty needs an on-device face model.
+            IntentType.BEAUTY -> {
+                return Outcome.Failure(
+                    AppError(
+                        "DEFERRED_BEAUTY",
+                        "โหมดบิวตี้ (ตรวจจับใบหน้า+ปรับผิวเนียน) ยังไม่รองรับครับ — ตอนนี้ใช้ ปรับปรุงคลิป (ลดนอยส์+คมชัด) หรือ แต่งภาพ แทนได้",
+                    ),
+                )
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

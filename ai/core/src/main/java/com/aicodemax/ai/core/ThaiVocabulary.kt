@@ -180,6 +180,8 @@ object ThaiVocabulary {
     val colorMatchWords: List<String> = listOf("จับคู่สี", "สีเหมือน", "สีตาม", "แมตช์สี", "match")
     val colorWbWords: List<String> = listOf("ไวต์บาลานซ์", "สมดุลแสงขาว", "white balance")
     val enhanceWords: List<String> = listOf("ปรับปรุงคลิป", "เพิ่มคุณภาพ", "ภาพชัดขึ้น", "เอ็นฮานซ์", "enhance")
+    val camTrackWords: List<String> = listOf("แทร็กกล้อง", "ติดตามกล้อง", "camera track", "camtrack", "3d track")
+    val beautyWords: List<String> = listOf("บิวตี้", "หน้าเนียน", "ผิวเนียน", "beauty")
     val imageScopesWords: List<String> = listOf("สโคป", "ฮิสโตแกรม", "เช็คแสง", "วัดแสง")
     val clipMaskWords: List<String> = listOf("มาสก์คลิป", "maskคลิป")
     val clipChromaWords: List<String> = listOf("กรีนสกรีน", "ลบฉากเขียว", "ฉากเขียว", "chroma")

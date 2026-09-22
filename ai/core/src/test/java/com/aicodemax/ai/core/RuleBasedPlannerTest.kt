@@ -240,6 +240,20 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp92CamTrackDefersHonestly() = runBlocking {
+        val r = planner.plan(UserIntent(IntentType.CAM_TRACK, "t", mapOf("clipIndex" to "1")))
+        assertTrue(r is Outcome.Failure)
+        assertEquals("DEFERRED_CAMTRACK", (r as Outcome.Failure).error.code)
+    }
+
+    @Test
+    fun cp93BeautyDefersHonestly() = runBlocking {
+        val r = planner.plan(UserIntent(IntentType.BEAUTY, "t", mapOf("clipIndex" to "1")))
+        assertTrue(r is Outcome.Failure)
+        assertEquals("DEFERRED_BEAUTY", (r as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp91EnhancePlansRealStep() = runBlocking {
         val en = (planner.plan(UserIntent(IntentType.CLIP_ENHANCE, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.enhance", en.steps[0].action)

@@ -106,6 +106,8 @@ enum class IntentType {
     COLOR_MATCH,
     COLOR_WB,
     CLIP_ENHANCE,
+    CAM_TRACK,
+    BEAUTY,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -660,6 +662,12 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.enhanceWords)) {
             return UserIntent(IntentType.CLIP_ENHANCE, text, params("clipIndex" to parseClipIndex(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.camTrackWords)) {
+            return UserIntent(IntentType.CAM_TRACK, text, params("clipIndex" to parseClipIndex(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.beautyWords)) {
+            return UserIntent(IntentType.BEAUTY, text, params("clipIndex" to parseClipIndex(t)))
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value

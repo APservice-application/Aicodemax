@@ -257,6 +257,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp92CamTrackDeferIntent() {
+        val ct = IntentParser.parse("แทร็กกล้องคลิปที่ 1")
+        assertEquals(IntentType.CAM_TRACK, ct.type)
+    }
+
+    @Test
+    fun cp93BeautyDeferIntent() {
+        val b = IntentParser.parse("บิวตี้หน้าเนียนคลิปที่ 1")
+        assertEquals(IntentType.BEAUTY, b.type)
+    }
+
+    @Test
     fun cp91EnhanceIntent() {
         val en = IntentParser.parse("ปรับปรุงคลิปที่ 1")
         assertEquals(IntentType.CLIP_ENHANCE, en.type)
