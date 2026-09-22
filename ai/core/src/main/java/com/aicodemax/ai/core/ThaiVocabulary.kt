@@ -111,4 +111,11 @@ object ThaiVocabulary {
     /** Voice verbs (CP-60): speak aloud / listen on mic. */
     val speakWords: List<String> = listOf("อ่านให้ฟัง", "พูดให้ฟัง", "ออกเสียง", "อ่านออกเสียง")
     val listenWords: List<String> = listOf("ฟังเสียง", "รับคำสั่งเสียง", "ฟังหน่อย")
+
+    /** Image verbs (CP-61). */
+    val imageInfoWords: List<String> = listOf("ข้อมูลรูป", "รายละเอียดรูป")
+    val imageResizeWords: List<String> = listOf("ย่อรูป", "ลดขนาดรูป")
+    val imageCropWords: List<String> = listOf("ครอปรูป", "ตัดรูป")
+    val imageRotateWords: List<String> = listOf("หมุนรูป")
+    val imageGrayWords: List<String> = listOf("รูปขาวดำ", "ขาวดำ")
 }

@@ -30,6 +30,11 @@ enum class IntentType {
     SKILL_REMOVE,
     VOICE_SPEAK,
     VOICE_LISTEN,
+    IMAGE_INFO,
+    IMAGE_RESIZE,
+    IMAGE_CROP,
+    IMAGE_ROTATE,
+    IMAGE_GRAY,
     UNKNOWN,
 }
 
@@ -114,6 +119,33 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.listenWords)) {
             return UserIntent(IntentType.VOICE_LISTEN, text)
+        }
+        if (containsAny(t, ThaiVocabulary.imageInfoWords)) {
+            return UserIntent(IntentType.IMAGE_INFO, text, params("path" to file))
+        }
+        // Digits inside the file name (photo2.png) must not become params.
+        val tNoFile = if (file != null) t.replace(file, "") else t
+        if (containsAny(t, ThaiVocabulary.imageResizeWords)) {
+            val maxDim = digitsPattern.find(tNoFile)?.value
+            return UserIntent(IntentType.IMAGE_RESIZE, text, params("path" to file, "maxDim" to maxDim))
+        }
+        if (containsAny(t, ThaiVocabulary.imageCropWords)) {
+            val nums = digitsPattern.findAll(tNoFile).map { it.value }.toList()
+            return UserIntent(
+                IntentType.IMAGE_CROP, text,
+                params(
+                    "path" to file,
+                    "x" to nums.getOrNull(0), "y" to nums.getOrNull(1),
+                    "w" to nums.getOrNull(2), "h" to nums.getOrNull(3),
+                ),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.imageRotateWords)) {
+            val degrees = digitsPattern.find(tNoFile)?.value
+            return UserIntent(IntentType.IMAGE_ROTATE, text, params("path" to file, "degrees" to degrees))
+        }
+        if (containsAny(t, ThaiVocabulary.imageGrayWords)) {
+            return UserIntent(IntentType.IMAGE_GRAY, text, params("path" to file))
         }
         if (containsAny(t, ThaiVocabulary.debugWords)) {
             val error = t.substringAfter(":", t).trim()
