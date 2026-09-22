@@ -99,4 +99,16 @@ class IntentParserTest {
         assertEquals(IntentType.CHAT, IntentParser.parse("ตกลง").type)
         assertEquals(IntentType.CHAT, IntentParser.parse("อย่าหยุดนะ").type)
     }
+
+    @Test
+    fun cp58SkillIntents() {
+        assertEquals(IntentType.SKILL_LIST, IntentParser.parse("สกิล").type)
+        assertEquals(IntentType.SKILL_LIST, IntentParser.parse("ขอดูสกิลหน่อยครับ").type)
+        val get = IntentParser.parse("สกิล aicode-tools")
+        assertEquals(IntentType.SKILL_GET, get.type)
+        assertEquals("aicode-tools", get.parameters["id"])
+        val remove = IntentParser.parse("ลบสกิล my-note")
+        assertEquals(IntentType.SKILL_REMOVE, remove.type)
+        assertEquals("my-note", remove.parameters["id"])
+    }
 }

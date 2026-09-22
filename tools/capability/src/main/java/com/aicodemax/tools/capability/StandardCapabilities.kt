@@ -91,6 +91,17 @@ object StandardCapabilities {
             metadata = meta("memory", "จำ key=value ระดับ global", listOf("key,value"), listOf("ok"), emptyList(), false, "read-back", "retry")),
         CapabilityBinding("memory.recall", "memory", "recall", AdapterKind.NATIVE,
             metadata = meta("memory", "ทวนความจำ global", listOf("key"), listOf("value"), emptyList(), false, "record found", "ask user")),
+        // Skill engine (native).
+        CapabilityBinding("skill.list", "skill", "list", AdapterKind.NATIVE,
+            metadata = meta("skill", "list สกิลทั้งหมด", emptyList(), listOf("skills"), emptyList(), false, "index read", "re-list")),
+        CapabilityBinding("skill.get", "skill", "get", AdapterKind.NATIVE,
+            metadata = meta("skill", "อ่านเนื้อหาสกิล", listOf("id"), listOf("content"), emptyList(), false, "file read", "re-get")),
+        CapabilityBinding("skill.install", "skill", "install", AdapterKind.NATIVE,
+            metadata = meta("skill", "ติดตั้งสกิลจากไฟล์ workspace", listOf("path"), listOf("id"), listOf("fs.write"), false, "id listed", "fix file")),
+        CapabilityBinding("skill.inject", "skill", "inject", AdapterKind.NATIVE,
+            metadata = meta("skill", "ฉีดสกิลเข้า context", listOf("ids"), listOf("context"), emptyList(), false, "ids found", "list first")),
+        CapabilityBinding("skill.remove", "skill", "remove", AdapterKind.NATIVE,
+            metadata = meta("skill", "ลบสกิลที่ติดตั้ง", listOf("id"), listOf("ok"), listOf("fs.delete"), false, "id gone", "re-remove")),
         // Compatibility engine — CLI adapter, LAST resort (§29, CP-32).
         CapabilityBinding("terminal.open", "terminal", "open", AdapterKind.CLI_ADAPTER,
             metadata = meta("terminal", "เปิด terminal session", emptyList(), listOf("sessionId"), listOf("terminal"), false, "session listed", "re-open")),
@@ -114,7 +125,7 @@ object StandardCapabilities {
      */
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
-        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory")) {
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -142,6 +153,7 @@ private fun meta(
         "browser" to ("Browser Engine" to "WebView + tab store"),
         "debug" to ("Debug Engine" to "StackTraceParser + DebugSession"),
         "memory" to ("Memory Engine" to "FileMemoryStore"),
+        "skill" to ("Skill Engine" to "FileSkillStore"),
         "terminal" to ("Compatibility Engine" to "Termux bridge (pending device work)"),
     )
     val (engine, runtime) = engines.getValue(tool)

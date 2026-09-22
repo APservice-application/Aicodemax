@@ -25,6 +25,9 @@ enum class IntentType {
     SHARE_MEDIA,
     OPEN_SETTINGS,
     LLM_CONNECT,
+    SKILL_LIST,
+    SKILL_GET,
+    SKILL_REMOVE,
     UNKNOWN,
 }
 
@@ -129,6 +132,20 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.llmConnectWords)) {
             return UserIntent(IntentType.LLM_CONNECT, text)
+        }
+        // CP-58 skills: "สกิล" list, "สกิล <id>" read, "ลบสกิล <id>" remove.
+        if (t.contains("สกิล") || lower.contains("skill")) {
+            val rest = t.replace("สกิล", "").replace("skill", "", ignoreCase = true).trim()
+                .removePrefix("ดู").trim()
+            if (rest.startsWith("ลบ") || rest.startsWith("remove", ignoreCase = true)) {
+                val id = rest.removePrefix("ลบ")
+                    .replace("remove", "", ignoreCase = true).trim()
+                return UserIntent(IntentType.SKILL_REMOVE, text, params("id" to id.ifBlank { rest }))
+            }
+            if (rest.isBlank()) {
+                return UserIntent(IntentType.SKILL_LIST, text)
+            }
+            return UserIntent(IntentType.SKILL_GET, text, params("id" to rest.split(Regex("\\s+")).first()))
         }
         // Browser: close beats open beats list ("ปิดแท็บ" contains "แท็บ").
         // NOTE: startsWith only — "เปิด" literally contains "ปิด" (เ+ปิด), so

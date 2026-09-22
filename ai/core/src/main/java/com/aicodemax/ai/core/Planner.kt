@@ -34,7 +34,7 @@ class RuleBasedPlanner(
     private val resolver: CapabilityResolver = StandardCapabilities.defaultResolver(),
 ) : Planner {
     /** Capabilities that always need explicit user permission. */
-    private val sensitive = setOf("files.delete")
+    private val sensitive = setOf("files.delete", "skill.remove")
 
     override suspend fun plan(intent: UserIntent): Outcome<Plan> {
         val requests = when (intent.type) {
@@ -138,6 +138,21 @@ class RuleBasedPlanner(
                     return Outcome.Failure(AppError("PLAN_NO_MEMORY", "ถามเรื่องอะไรครับ? เช่น ความจำ wifi"))
                 }
                 listOf("memory.recall" to mapOf("key" to key))
+            }
+            IntentType.SKILL_LIST -> listOf("skill.list" to emptyMap())
+            IntentType.SKILL_GET -> {
+                val id = intent.parameters["id"]?.trim().orEmpty()
+                if (id.isBlank()) {
+                    return Outcome.Failure(AppError("PLAN_NO_SKILL", "อ่านสกิลไหนครับ? เช่น สกิล aicode-tools"))
+                }
+                listOf("skill.get" to mapOf("id" to id))
+            }
+            IntentType.SKILL_REMOVE -> {
+                val id = intent.parameters["id"]?.trim().orEmpty()
+                if (id.isBlank()) {
+                    return Outcome.Failure(AppError("PLAN_NO_SKILL", "ลบสกิลไหนครับ? เช่น ลบสกิล my-note"))
+                }
+                listOf("skill.remove" to mapOf("id" to id))
             }
             // Chat-handled or pending-engine intents: honest guidance, no fake steps.
             IntentType.STOP_TASK -> return Outcome.Failure(
