@@ -256,6 +256,19 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp76KeyframeIntents() {
+        val set = IntentParser.parse("คีย์เฟรมสเกลคลิปที่ 1 150 ตอน 2 วิ")
+        assertEquals(IntentType.KEYFRAME_SET, set.type)
+        assertEquals("1", set.parameters["clipIndex"])
+        assertEquals("scale", set.parameters["prop"])
+        assertEquals("150", set.parameters["value"])
+        assertEquals("2000", set.parameters["atMs"])
+        val clear = IntentParser.parse("ลบคีย์เฟรมคลิปที่ 2")
+        assertEquals(IntentType.KEYFRAME_CLEAR, clear.type)
+        assertEquals("2", clear.parameters["clipIndex"])
+    }
+
+    @Test
     fun cp74TextIntents() {
         val add = IntentParser.parse("เพิ่มข้อความ: เปิดร้านแล้ว!")
         assertEquals(IntentType.TEXT_ADD, add.type)

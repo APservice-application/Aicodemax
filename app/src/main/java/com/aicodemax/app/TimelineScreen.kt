@@ -49,6 +49,9 @@ fun TimelineScreen(services: ServiceLocator) {
     var ideaTopic by remember { mutableStateOf("") }
     var ideaKindIndex by remember { mutableStateOf(2) }
     var ideas by remember { mutableStateOf("") }
+    var keyPropIndex by remember { mutableStateOf(0) }
+    var keyValue by remember { mutableStateOf(100f) }
+    var keyEaseIndex by remember { mutableStateOf(0) }
 
     suspend fun refresh() {
         val project = projects.getOrNull(projectIndex) ?: return
@@ -99,6 +102,11 @@ fun TimelineScreen(services: ServiceLocator) {
                 onFailure = { message = it.message },
             )
         }
+    }
+
+    fun keyCall(block: suspend (String, String) -> Unit) {
+        val clip = selectedClip()?.second ?: return
+        runCall { projectId -> block(projectId, clip.id) }
     }
 
     fun adjustClip(mutate: (ClipTransform) -> ClipTransform) {
@@ -401,12 +409,103 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }
                             }, enabled = !busy) { Text("ramp: ${selectedCurveName(clip)}") }
                         }
+                        // CP-76 keyframes (§14).
+                        val keyProps = listOf("scale", "rotation", "opacity", "volume", "posX", "posY")
+                        val keyEases = listOf("linear", "easein", "easeout", "easeinout")
+                        val keyProp = keyProps[keyPropIndex % keyProps.size]
+                        val keyEase = keyEases[keyEaseIndex % keyEases.size]
+                        Text(
+                            "คีย์เฟรม: ${(clip.keyframes?.summary()?.ifBlank { null } ?: "ไม่มี")}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(onClick = {
+                                keyPropIndex = (keyPropIndex + 1) % keyProps.size
+                                keyValue = keyDefault(keyProps[keyPropIndex % keyProps.size])
+                            }, enabled = !busy) { Text(keyProp) }
+                            OutlinedButton(onClick = {
+                                keyEaseIndex = (keyEaseIndex + 1) % keyEases.size
+                            }, enabled = !busy) { Text(keyEase) }
+                            OutlinedButton(onClick = {
+                                keyValue = (keyValue - keyStep(keyProp)).coerceAtLeast(keyRange(keyProp).first)
+                            }, enabled = !busy) { Text("-") }
+                            OutlinedButton(onClick = {
+                                keyValue = (keyValue + keyStep(keyProp)).coerceAtMost(keyRange(keyProp).second)
+                            }, enabled = !busy) { Text("+") }
+                            Text("=${keyValue.toInt()}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            val outLen = clip.outputDurationMs()
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setKeyframe(projectId, clipId, keyProp, 0L, keyValue, keyEase, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("＋ต้น") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setKeyframe(projectId, clipId, keyProp, outLen / 2, keyValue, keyEase, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("＋กลาง") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setKeyframe(projectId, clipId, keyProp, outLen, keyValue, keyEase, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("＋ท้าย") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.clearKeyframes(projectId, clipId, null, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ล้าง") }
+                        }
+                        clip.keyframes?.let { keys ->
+                            for (prop in com.aicodemax.data.media.ClipKeyframes.PROPS) {
+                                for (pt in keys.points(prop)) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                                        Text("$prop @${pt.atMs}ms = ${pt.value} (${pt.ease})", style = MaterialTheme.typography.bodySmall)
+                                        TextButton(onClick = {
+                                            keyCall { projectId, clipId ->
+                                                services.media.removeKeyframe(projectId, clipId, prop, pt.atMs, "HUMAN").fold(
+                                                    onSuccess = {},
+                                                    onFailure = { message = it.message },
+                                                )
+                                            }
+                                        }, enabled = !busy) { Text("ลบ") }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
 }
+
+private fun keyStep(prop: String): Float = when (prop) {
+    "posX", "posY" -> 40f
+    "rotation" -> 15f
+    else -> 10f
+}
+
+private fun keyDefault(prop: String): Float = when (prop) {
+    "scale", "opacity", "volume" -> 100f
+    else -> 0f
+}
+
+private fun keyRange(prop: String): Pair<Float, Float> =
+    com.aicodemax.data.media.ClipKeyframes.RANGES[prop] ?: (0f to 100f)
 
 /** Matches the clip's curve against known presets (UI label only). */
 private fun selectedCurveName(clip: Clip): String {

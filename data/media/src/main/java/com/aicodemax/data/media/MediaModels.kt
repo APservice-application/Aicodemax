@@ -195,6 +195,157 @@ data class ClipSpeed(
     }
 }
 
+/** CP-76 one keyframe: output-relative ms → value + easing into the NEXT point. */
+@Serializable
+data class KeyPoint(
+    val atMs: Long,
+    val value: Float,
+    /** linear/easein/easeout/easeinout/bezier. */
+    val ease: String = "linear",
+    /** Cubic-bezier control points (used when ease=bezier). */
+    val c1x: Float = 0.25f,
+    val c1y: Float = 0.1f,
+    val c2x: Float = 0.25f,
+    val c2y: Float = 1f,
+)
+
+/**
+ * CP-76 animated clip properties (§14). Times are OUTPUT-relative ms
+ * (stable when speed changes). A property with no points uses the base
+ * [ClipTransform]/volume value; one point = hold that value.
+ */
+@Serializable
+data class ClipKeyframes(
+    val posX: List<KeyPoint> = emptyList(),
+    val posY: List<KeyPoint> = emptyList(),
+    val scale: List<KeyPoint> = emptyList(),
+    val rotation: List<KeyPoint> = emptyList(),
+    val opacity: List<KeyPoint> = emptyList(),
+    val volume: List<KeyPoint> = emptyList(),
+    val cropX: List<KeyPoint> = emptyList(),
+    val cropY: List<KeyPoint> = emptyList(),
+    val cropW: List<KeyPoint> = emptyList(),
+    val cropH: List<KeyPoint> = emptyList(),
+) {
+    val isEmpty: Boolean get() = count() == 0
+
+    fun count(): Int = posX.size + posY.size + scale.size + rotation.size + opacity.size +
+        volume.size + cropX.size + cropY.size + cropW.size + cropH.size
+
+    fun summary(): String = PROPS.mapNotNull { prop ->
+        val n = points(prop).size
+        if (n > 0) "$prop×$n" else null
+    }.joinToString(" ")
+
+    fun points(prop: String): List<KeyPoint> = when (prop) {
+        "posX" -> posX
+        "posY" -> posY
+        "scale" -> scale
+        "rotation" -> rotation
+        "opacity" -> opacity
+        "volume" -> volume
+        "cropX" -> cropX
+        "cropY" -> cropY
+        "cropW" -> cropW
+        "cropH" -> cropH
+        else -> emptyList()
+    }
+
+    fun withPoints(prop: String, next: List<KeyPoint>): ClipKeyframes = when (prop) {
+        "posX" -> copy(posX = next)
+        "posY" -> copy(posY = next)
+        "scale" -> copy(scale = next)
+        "rotation" -> copy(rotation = next)
+        "opacity" -> copy(opacity = next)
+        "volume" -> copy(volume = next)
+        "cropX" -> copy(cropX = next)
+        "cropY" -> copy(cropY = next)
+        "cropW" -> copy(cropW = next)
+        "cropH" -> copy(cropH = next)
+        else -> this
+    }
+
+    /** Sampled value of [prop] at output-relative [atMs] (graph interpolation). */
+    fun valueAt(prop: String, atMs: Long): Float? {
+        val pts = points(prop).sortedBy { it.atMs }
+        if (pts.isEmpty()) return null
+        if (atMs <= pts.first().atMs) return pts.first().value
+        if (atMs >= pts.last().atMs) return pts.last().value
+        for (i in 0 until pts.size - 1) {
+            val a = pts[i]
+            val b = pts[i + 1]
+            if (atMs in a.atMs until b.atMs) {
+                val span = (b.atMs - a.atMs).coerceAtLeast(1)
+                val f = ((atMs - a.atMs).toFloat() / span).coerceIn(0f, 1f)
+                return a.value + (b.value - a.value) * Easing.apply(a, f)
+            }
+        }
+        return pts.last().value
+    }
+
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        for (prop in PROPS) {
+            val pts = points(prop)
+            if (pts.size > 64) errors.add("$prop มีคีย์เกิน 64 จุด")
+            if (pts.any { it.atMs < 0 }) errors.add("$prop เวลาติดลบไม่ได้")
+            for (p in pts) {
+                if (p.ease !in EASES) errors.add("$prop ease ไม่รู้จัก (${p.ease})")
+                val range = RANGES[prop]!!
+                if (p.value < range.first || p.value > range.second) {
+                    errors.add("$prop ค่าต้องอยู่ ${range.first}..${range.second} (ได้ ${p.value})")
+                }
+            }
+        }
+        return errors
+    }
+
+    companion object {
+        val PROPS = listOf("posX", "posY", "scale", "rotation", "opacity", "volume", "cropX", "cropY", "cropW", "cropH")
+        val EASES = setOf("linear", "easein", "easeout", "easeinout", "bezier")
+
+        /** Value ranges per property (same units as base transform). */
+        val RANGES = mapOf(
+            "posX" to (-4000f to 4000f),
+            "posY" to (-4000f to 4000f),
+            "scale" to (1f to 400f),
+            "rotation" to (-180f to 180f),
+            "opacity" to (0f to 100f),
+            "volume" to (0f to 100f),
+            "cropX" to (0f to 100f),
+            "cropY" to (0f to 100f),
+            "cropW" to (1f to 100f),
+            "cropH" to (1f to 100f),
+        )
+    }
+}
+
+/** CP-76 easing curves (§14 graph editor data). */
+object Easing {
+    fun apply(point: KeyPoint, f: Float): Float {
+        val x = f.coerceIn(0f, 1f)
+        return when (point.ease) {
+            "easein" -> x * x
+            "easeout" -> 1 - (1 - x) * (1 - x)
+            "easeinout" -> if (x < 0.5f) 2 * x * x else 1 - (-2 * x + 2) * (-2 * x + 2) / 2
+            "bezier" -> cubic(point.c1x, point.c1y, point.c2x, point.c2y, x)
+            else -> x
+        }
+    }
+
+    /** Cubic-bezier y(x) via Newton iterations (graph-editor compatible). */
+    fun cubic(c1x: Float, c1y: Float, c2x: Float, c2y: Float, x: Float): Float {
+        var t = x.coerceIn(0f, 1f)
+        repeat(5) {
+            val cx = 3 * c1x * t * (1 - t) * (1 - t) + 3 * c2x * t * t * (1 - t) + t * t * t
+            val dx = 3 * c1x * (1 - t) * (1 - t) + 6 * (c2x - c1x) * t * (1 - t) + 3 * (1 - c2x) * t * t
+            if (dx == 0f) return@repeat
+            t = (t - (cx - x) / dx).coerceIn(0f, 1f)
+        }
+        return 3 * c1y * t * (1 - t) * (1 - t) + 3 * c2y * t * t * (1 - t) + t * t * t
+    }
+}
+
 /** One placed piece of an asset on a track. Times in ms. */
 @Serializable
 data class Clip(
@@ -211,6 +362,8 @@ data class Clip(
     val transform: ClipTransform? = null,
     /** Playback speed (null = identity). */
     val speed: ClipSpeed? = null,
+    /** Animated properties (null/empty = static base values). */
+    val keyframes: ClipKeyframes? = null,
 ) {
     val durationMs: Long get() = endMs - startMs
 
@@ -349,6 +502,7 @@ data class Timeline(
                 }
                 clip.transform?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.speed?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.keyframes?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
             }
         }
         for (marker in markers) {

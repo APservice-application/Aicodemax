@@ -240,6 +240,17 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp76KeyframePlansRealSteps() = runBlocking {
+        val set = (planner.plan(UserIntent(IntentType.KEYFRAME_SET, "t", mapOf("clipIndex" to "1", "prop" to "scale", "atMs" to "2000", "value" to "150"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setKeyframe", set.steps[0].action)
+        assertEquals("150", set.steps[0].args["value"])
+        val missing = planner.plan(UserIntent(IntentType.KEYFRAME_SET, "t", mapOf("clipIndex" to "1")))
+        assertEquals("PLAN_NO_KEYPROP", (missing as Outcome.Failure).error.code)
+        val clear = (planner.plan(UserIntent(IntentType.KEYFRAME_CLEAR, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.clearKeyframes", clear.steps[0].action)
+    }
+
+    @Test
     fun cp74TextPlansRealSteps() = runBlocking {
         val add = (planner.plan(UserIntent(IntentType.TEXT_ADD, "t", mapOf("text" to "hi"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.addText", add.steps[0].action)
