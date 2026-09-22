@@ -99,7 +99,6 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             line = "เทมเพลตโปรเจกต์ + คลัง asset",
             action = "เปิด" to { onOpen(Routes.TEMPLATES) },
         )
-        )
         StatusCard(
             title = "เทอร์มินัล (dev)",
             line = terminalLine(services),
