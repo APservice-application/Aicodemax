@@ -178,8 +178,8 @@ class RuleBasedPlanner(
             )
             IntentType.LLM_CONNECT -> return Outcome.Failure(
                 AppError(
-                    "PLAN_LLM_PENDING",
-                    "ตัวต่อ LLM มาจริงใน CP-59 ครับ (ใส่ key ที่หน้า Models — ไม่ต้องพิมพ์ในแชท)",
+                    "PLAN_LLM_GUIDE",
+                    "ใส่ base URL + API key + model ที่หน้า Models แล้วกดเชื่อมต่อได้เลยครับ (key อยู่ในหน่วยความจำเท่านั้น ไม่ต้องพิมพ์ในแชท)",
                 ),
             )
             IntentType.CHAT, IntentType.UNKNOWN -> return Outcome.Failure(

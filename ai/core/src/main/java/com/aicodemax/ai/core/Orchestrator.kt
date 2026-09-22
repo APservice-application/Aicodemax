@@ -40,6 +40,8 @@ class BootstrapOrchestrator(
     private val recovery: RecoveryLadderPolicy? = null,
     /** CP-57 pending questionnaires (dynamic slot-filling dialog). */
     private val questionnaires: QuestionnaireStore = InMemoryQuestionnaireStore(),
+    /** CP-59 LLM brain for open chat (null = rule-based help text). */
+    private val brain: ChatBrain? = null,
 ) : Orchestrator {
 
     override suspend fun handleUserMessage(conversationId: String, text: String): Outcome<OrchestratorReply> {
@@ -73,6 +75,30 @@ class BootstrapOrchestrator(
         return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, text))))
     }
 
+    private suspend fun brainReply(
+        conversationId: String,
+        text: String,
+        activeBrain: ChatBrain,
+    ): Outcome<OrchestratorReply> {
+        val history = when (val got = conversations.getMessages(conversationId)) {
+            is Outcome.Failure -> emptyList<LlmTurn>()
+            is Outcome.Success -> got.value.takeLast(11).dropLast(1).mapNotNull { message ->
+                when (message.role) {
+                    MessageRole.USER -> LlmTurn("user", message.text)
+                    MessageRole.AI -> LlmTurn("assistant", message.text)
+                    MessageRole.SYSTEM, MessageRole.STATUS -> null
+                }
+            }
+        }
+        return when (val result = activeBrain.reply(text, history)) {
+            is Outcome.Failure -> statusReply(conversationId, "LLM ตอบไม่ได้: ${result.error.message}")
+            is Outcome.Success -> {
+                conversations.appendMessage(conversationId, MessageRole.AI, result.value)
+                Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.AI, result.value))))
+            }
+        }
+    }
+
     private suspend fun runIntent(
         conversationId: String,
         intent: UserIntent,
@@ -80,6 +106,10 @@ class BootstrapOrchestrator(
     ): Outcome<OrchestratorReply> {
 
         if (intent.type == IntentType.CHAT || intent.type == IntentType.UNKNOWN) {
+            val activeBrain = brain
+            if (activeBrain != null) {
+                return brainReply(conversationId, text, activeBrain)
+            }
             val status = "รับทราบครับ — เชื่อมต่อ AI bootstrap แล้ว (v0).\n" +
                 "ตอนนี้สั่งได้จริง เช่น:\n" +
                 "• สร้างไฟล์ notes.txt: สวัสดี / อ่านไฟล์ / ดูไฟล์ / ค้นหา TODO\n" +
@@ -87,6 +117,8 @@ class BootstrapOrchestrator(
                 "• บันทึก wifi: รหัส 1234 / ความจำ wifi\n" +
                 "• แก้บั๊ก: <วาง error> / สถานะระบบ / หยุดงาน\n" +
                 "• git status / git commit -m \"done\"\n" +
+                "• สกิล / ดูสกิล\n" +
+                "อยากคุยอิสระกับ LLM จริง: ต่อ provider ที่หน้า Models ครับ\n" +
                 "ส่วน terminal / build / ตัดต่อวิดีโอ จะตามมาใน CP ถัดไปครับ"
             conversations.appendMessage(conversationId, MessageRole.STATUS, status)
             return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, status))))

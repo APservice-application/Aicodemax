@@ -182,4 +182,35 @@ class BootstrapOrchestratorTest {
         assertEquals(null, reply.taskId)
         assertTrue(tasks.list().isEmpty())
     }
+
+    @Test
+    fun chatWithBrainUsesBrainReply() = runBlocking {
+        val (checkpoints, conversations, bus) = stores()
+        val tasks = DefaultTaskEngine(bus, FakeClock())
+        val brain = object : ChatBrain {
+            override suspend fun reply(text: String, history: List<LlmTurn>): Outcome<String> =
+                Outcome.Success("brain-says:$text")
+        }
+        val orchestrator = BootstrapOrchestrator(
+            tasks, RuleBasedPlanner(), FakeAgent(), RuleVerifier(), checkpoints, conversations,
+            brain = brain,
+        )
+        val conv = (conversations.createConversation("t") as Outcome.Success<Conversation>).value
+        val reply = (orchestrator.handleUserMessage(conv.id, "เล่าเรื่องตลกหน่อย")
+            as Outcome.Success<OrchestratorReply>).value
+        assertEquals(MessageRole.AI, reply.messages[0].role)
+        assertTrue(reply.messages[0].text.contains("brain-says:"))
+    }
+
+    @Test
+    fun chatWithoutBrainKeepsHelpText() = runBlocking {
+        val (checkpoints, conversations, bus) = stores()
+        val tasks = DefaultTaskEngine(bus, FakeClock())
+        val orchestrator = orchestrator(FakeAgent(), tasks, checkpoints, conversations)
+        val conv = (conversations.createConversation("t") as Outcome.Success<Conversation>).value
+        val reply = (orchestrator.handleUserMessage(conv.id, "เล่าเรื่องตลกหน่อย")
+            as Outcome.Success<OrchestratorReply>).value
+        assertEquals(MessageRole.STATUS, reply.messages[0].role)
+        assertTrue(reply.messages[0].text.contains("หน้า Models"))
+    }
 }
