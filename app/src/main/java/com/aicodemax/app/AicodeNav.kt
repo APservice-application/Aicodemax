@@ -49,6 +49,7 @@ object Routes {
     const val AGENTS = "agents"
     const val GIT = "git"
     const val BUILD = "build"
+    const val SKILLS = "skills"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -74,6 +75,7 @@ private fun titleFor(route: String): String = when (route) {
     Routes.AGENTS -> "เอเจนต์"
     Routes.GIT -> "Git"
     Routes.BUILD -> "Build & Test"
+    Routes.SKILLS -> "Skills"
     else -> "Aicodemax"
 }
 
@@ -128,6 +130,8 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                         if (toolId == "git") nav.navigateSingle(Routes.GIT)
                         if (toolId == "terminal") nav.navigateSingle(Routes.TERMINAL)
                         if (toolId == "build") nav.navigateSingle(Routes.BUILD)
+                        if (toolId == "skill") nav.navigateSingle(Routes.SKILLS)
+                        if (toolId == "memory" || toolId == "debug") nav.navigateSingle(Routes.CHAT)
                     },
                     onSelfTest = { toolId -> selfTest(services, toolId) },
                 )
@@ -158,6 +162,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
             composable(Routes.AGENTS) { AgentsScreen(services) }
             composable(Routes.GIT) { GitScreen(services) }
             composable(Routes.BUILD) { BuildScreen(services) }
+            composable(Routes.SKILLS) { SkillsScreen(services) }
         }
     }
 }
@@ -172,6 +177,12 @@ private suspend fun selfTest(services: ServiceLocator, toolId: String): String {
             mapOf("repo" to services.workspaceDir.path), actor = "USER",
         )
         "browser" -> ToolCall(Ids.newId("selftest"), "browser", "list", emptyMap(), actor = "USER")
+        "debug" -> ToolCall(
+            Ids.newId("selftest"), "debug", "analyze",
+            mapOf("error" to "java.lang.Exception: selftest"), actor = "USER",
+        )
+        "memory" -> ToolCall(Ids.newId("selftest"), "memory", "recall", mapOf("key" to "__selftest__"), actor = "USER")
+        "skill" -> ToolCall(Ids.newId("selftest"), "skill", "list", emptyMap(), actor = "USER")
         else -> return "ยังไม่มี self-test (ไม่มี executor ให้ทดสอบ)"
     }
     return services.gateway.call(call).fold(

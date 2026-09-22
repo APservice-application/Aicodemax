@@ -58,6 +58,8 @@ dependencies {
     implementation(project(":tools:debug"))
     implementation(project(":tools:debug_runtime"))
     implementation(project(":tools:memory_runtime"))
+    implementation(project(":data:skills"))
+    implementation(project(":tools:skill_runtime"))
     implementation(project(":tools:github"))
     implementation(project(":tools:browser"))
     implementation(project(":tools:browser_runtime"))

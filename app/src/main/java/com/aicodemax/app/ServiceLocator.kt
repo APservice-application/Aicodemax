@@ -33,6 +33,8 @@ import com.aicodemax.data.conversations.FileConversationStore
 import com.aicodemax.data.memory.FileMemoryStore
 import com.aicodemax.data.memory.MemoryEngine
 import com.aicodemax.data.memory.memoryDescriptorToday
+import com.aicodemax.data.skills.FileSkillStore
+import com.aicodemax.data.skills.skillDescriptorToday
 import com.aicodemax.data.memory.MemoryStore
 import com.aicodemax.data.settings.DataStoreSettingsRepository
 import com.aicodemax.data.settings.SettingsRepository
@@ -66,6 +68,7 @@ import com.aicodemax.tools.git.JGitGitPort
 import com.aicodemax.tools.git.gitDescriptorToday
 import com.aicodemax.tools.git_runtime.GitToolExecutor
 import com.aicodemax.tools.memory_runtime.MemoryToolExecutor
+import com.aicodemax.tools.skill_runtime.SkillToolExecutor
 import com.aicodemax.tools.project.ProjectManager
 import com.aicodemax.tools.registry.InMemoryToolRegistry
 import com.aicodemax.tools.registry.ToolRegistry
@@ -88,6 +91,7 @@ class ServiceLocator(context: Context) {
     val checkpoints: CheckpointStore = FileCheckpointStore(File(appContext.filesDir, "state"))
     val conversations: ConversationStore = FileConversationStore(File(appContext.filesDir, "state"))
     val memory: MemoryStore = FileMemoryStore(File(appContext.filesDir, "state"))
+    val skills: FileSkillStore = FileSkillStore(File(appContext.filesDir, "skills"))
     val settings: SettingsRepository = DataStoreSettingsRepository(appContext)
 
     val resources: ResourceMonitor = AndroidResourceMonitor(appContext)
@@ -129,6 +133,7 @@ class ServiceLocator(context: Context) {
         toolRegistry.register(gitDescriptorToday())
         toolRegistry.register(debugDescriptorToday())
         toolRegistry.register(memoryDescriptorToday())
+        toolRegistry.register(skillDescriptorToday())
 
         gateway = DefaultToolGateway(
             toolRegistry,
@@ -144,6 +149,7 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(BrowserToolExecutor(browser))
         gateway.registerExecutor(DebugToolExecutor())
         gateway.registerExecutor(MemoryToolExecutor(MemoryEngine(memory)))
+        gateway.registerExecutor(SkillToolExecutor(skills, files))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry)
 
