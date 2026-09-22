@@ -240,6 +240,18 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp83GenPlansRealSteps() = runBlocking {
+        val make = (planner.plan(UserIntent(IntentType.GEN_MAKE, "t", mapOf("kind" to "poster", "prompt" to "Hi"))) as Outcome.Success<Plan>).value
+        assertEquals("gen.make", make.steps[0].action)
+        val list = (planner.plan(UserIntent(IntentType.GEN_LIST, "t")) as Outcome.Success<Plan>).value
+        assertEquals("gen.list", list.steps[0].action)
+        val noprompt = planner.plan(UserIntent(IntentType.GEN_MAKE, "t", mapOf("kind" to "tts")))
+        assertEquals("PLAN_NO_PROMPT", (noprompt as Outcome.Failure).error.code)
+        val nofile = planner.plan(UserIntent(IntentType.GEN_MAKE, "t", mapOf("kind" to "stylize")))
+        assertEquals("PLAN_NO_FILE", (nofile as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp82TemplateLibPlansRealSteps() = runBlocking {
         val save = (planner.plan(UserIntent(IntentType.TEMPLATE_SAVE, "t", mapOf("name" to "X"))) as Outcome.Success<Plan>).value
         assertEquals("template.save", save.steps[0].action)

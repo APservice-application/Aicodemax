@@ -406,6 +406,24 @@ class RuleBasedPlanner(
                 if (q == null) listOf("media.library.list" to emptyMap())
                 else listOf("media.library.search" to mapOf("query" to q))
             }
+            IntentType.GEN_MAKE -> {
+                val kind = intent.parameters["kind"] ?: "poster"
+                val args = mutableMapOf("kind" to kind)
+                intent.parameters["prompt"]?.let { args["prompt"] = it }
+                intent.parameters["path"]?.let { args["path"] = it }
+                if (args["prompt"] == null && (kind == "poster" || kind == "tts")) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_PROMPT", "บอกข้อความหน่อยครับ เช่น ทำโปสเตอร์ \"เปิดร้าน\""),
+                    )
+                }
+                if (args["path"] == null && kind == "stylize") {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "แต่งรูปไหนครับ? (ระบุชื่อไฟล์รูป)"),
+                    )
+                }
+                listOf("media.gen.make" to args)
+            }
+            IntentType.GEN_LIST -> listOf("media.gen.list" to emptyMap())
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

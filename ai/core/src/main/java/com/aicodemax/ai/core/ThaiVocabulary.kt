@@ -163,6 +163,8 @@ object ThaiVocabulary {
     val lutWords: List<String> = listOf("lut", "ลุต", "ลัท")
     val templateWords: List<String> = listOf("เทมเพลต", "เทมเพลท", "template")
     val libraryWords: List<String> = listOf("คลัง", "ไลบรารี", "library")
+    val genWords: List<String> = listOf("สร้างภาพ", "สร้างโปสเตอร์", "ทำโปสเตอร์", "สร้างพื้นหลัง", "ทำเสียงพูด", "เสียงบรรยาย", "พากย์เสียง", "แต่งรูป")
+    val genListWords: List<String> = listOf("สร้างอะไรได้บ้าง", "มีตัวสร้างอะไร", "ตัวสร้างมีเดีย")
     val imageScopesWords: List<String> = listOf("สโคป", "ฮิสโตแกรม", "เช็คแสง", "วัดแสง")
     val clipMaskWords: List<String> = listOf("มาสก์คลิป", "maskคลิป")
     val clipChromaWords: List<String> = listOf("กรีนสกรีน", "ลบฉากเขียว", "ฉากเขียว", "chroma")

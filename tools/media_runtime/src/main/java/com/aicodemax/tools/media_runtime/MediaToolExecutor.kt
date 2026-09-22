@@ -25,7 +25,11 @@ import com.aicodemax.data.media.TrackPoint
 import com.aicodemax.tools.media.TextIdeas
 import com.aicodemax.tools.media.ColorPort
 import com.aicodemax.tools.media.ColorRequest
+import com.aicodemax.tools.media.GenKinds
+import com.aicodemax.tools.media.GenPort
+import com.aicodemax.tools.media.GenRequest
 import com.aicodemax.tools.media.InMemoryColorPort
+import com.aicodemax.tools.media.InMemoryGenPort
 import com.aicodemax.tools.media.InMemoryMediaProject
 import com.aicodemax.tools.media.InMemoryTrackingPort
 import com.aicodemax.tools.media.MediaProjectPort
@@ -40,6 +44,7 @@ class MediaToolExecutor(
     private val media: MediaProjectPort = InMemoryMediaProject(),
     private val tracking: TrackingPort = InMemoryTrackingPort(),
     private val color: ColorPort = InMemoryColorPort(),
+    private val gen: GenPort = InMemoryGenPort(),
 ) : ToolExecutor {
     override val toolId: String = "media"
 
@@ -734,6 +739,41 @@ class MediaToolExecutor(
                         ?: return@withContext done(false, error = "missing arg: itemId")
                     media.libraryRemove(id).fold(
                         onSuccess = { done(true, "ลบออกจากคลังแล้ว") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "gen.list" -> {
+                    val caps = gen.list()
+                    done(true, caps.joinToString("\n") { c ->
+                        "- ${c.kind}: ${c.title}" + if (c.available) "" else " (ยังใช้ไม่ได้: ${c.note})"
+                    })
+                }
+                "gen.make" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val kind = call.args["kind"]?.lowercase()
+                        ?: return@withContext done(false, error = "missing arg: kind (poster/background/stylize/tts)")
+                    if (kind !in GenKinds.ALL) {
+                        return@withContext done(false, error = "kind ไม่รู้จัก ($kind) ใช้ ${GenKinds.ALL.joinToString("/")}")
+                    }
+                    val req = GenRequest(
+                        kind = kind,
+                        prompt = call.args["prompt"] ?: "",
+                        inputPath = call.args["path"] ?: "",
+                        width = call.args["w"]?.toIntOrNull() ?: 1280,
+                        height = call.args["h"]?.toIntOrNull() ?: 720,
+                        style = call.args["style"] ?: "",
+                        lang = call.args["lang"] ?: "th-TH",
+                    )
+                    val outcome = gen.generate(req)
+                    if (outcome is Outcome.Failure) {
+                        return@withContext done(false, error = outcome.error.message)
+                    }
+                    val result = (outcome as Outcome.Success).value
+                    media.importAsset(projectId, result.path, call.actor).fold(
+                        onSuccess = { asset ->
+                            done(true, "สร้างแล้ว: ${asset.id} (${result.note}) — เพิ่มลงไทม์ไลน์ด้วย timeline.addClip assetId=${asset.id}")
+                        },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

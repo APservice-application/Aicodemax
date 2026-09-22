@@ -261,6 +261,10 @@ object StandardCapabilities {
             metadata = meta("media", "ค้นหาคลัง asset", listOf("query"), listOf("items"), emptyList(), false, "results shown", "fix query")),
         CapabilityBinding("media.library.remove", "media", "library.remove", AdapterKind.NATIVE,
             metadata = meta("media", "ลบ asset ออกจากคลัง", listOf("itemId"), listOf("ok"), listOf("fs.write"), false, "removed", "fix id", true, "edit.undo")),
+        CapabilityBinding("media.gen.list", "media", "gen.list", AdapterKind.NATIVE,
+            metadata = meta("media", "list ตัวสร้างมีเดีย", emptyList(), listOf("providers"), emptyList(), false, "providers listed", "—")),
+        CapabilityBinding("media.gen.make", "media", "gen.make", AdapterKind.NATIVE,
+            metadata = meta("media", "สร้างมีเดีย (โปสเตอร์/พื้นหลัง/แต่งรูป/เสียงพูด)", listOf("kind,prompt?,path?,style?,w?,h?,lang?"), listOf("assetId"), listOf("fs.write"), false, "asset imported", "fix kind", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

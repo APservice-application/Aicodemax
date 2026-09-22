@@ -87,6 +87,8 @@ enum class IntentType {
     TEMPLATE_LIST,
     TEMPLATE_DELETE,
     LIB_SEARCH,
+    GEN_MAKE,
+    GEN_LIST,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -496,6 +498,24 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.imageScopesWords)) {
             return UserIntent(IntentType.IMAGE_SCOPES, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.genListWords)) {
+            return UserIntent(IntentType.GEN_LIST, text, params())
+        }
+        if (containsAny(t, ThaiVocabulary.genWords)) {
+            val kind = when {
+                t.contains("โปสเตอร์") -> "poster"
+                t.contains("พื้นหลัง") -> "background"
+                t.contains("แต่งรูป") -> "stylize"
+                t.contains("เสียง") || t.contains("พากย์") || t.contains("บรรยาย") -> "tts"
+                else -> "poster"
+            }
+            val prompt = Regex("[\"']([^\"']+)[\"']").find(text)?.groupValues?.get(1)
+                ?: text.replace(Regex("(?i)สร้างภาพ|สร้างโปสเตอร์|ทำโปสเตอร์|สร้างพื้นหลัง|ทำเสียงพูด|เสียงบรรยาย|พากย์เสียง|แต่งรูป"), "").trim().ifBlank { null }
+            return UserIntent(
+                IntentType.GEN_MAKE, text,
+                params("kind" to kind, "prompt" to prompt, "path" to file),
+            )
         }
         if (containsAny(lower, ThaiVocabulary.templateWords)) {
             val name = Regex("[\"']([^\"']+)[\"']").find(text)?.groupValues?.get(1)

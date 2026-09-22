@@ -167,6 +167,52 @@ class AndroidVoicePort(appContext: Context) : VoicePort {
         }
     }
 
+    override suspend fun speakToFile(text: String, lang: String, path: String): Outcome<Unit> {
+        if (text.isBlank()) {
+            return Outcome.Failure(AppError("VOICE_EMPTY", "ไม่มีข้อความให้พูด"))
+        }
+        if (path.isBlank()) {
+            return Outcome.Failure(AppError("VOICE_NO_PATH", "ไม่ได้ระบุพาธไฟล์"))
+        }
+        val engine = tts
+        if (withTimeoutOrNull(3_000) { ttsReady.await() } != true || engine == null) {
+            return Outcome.Failure(AppError("VOICE_NO_TTS", "เครื่องนี้ไม่มีตัวอ่านออกเสียง (TTS engine)"))
+        }
+        return withContext(Dispatchers.Main) {
+            try {
+                val out = java.io.File(path)
+                out.parentFile?.mkdirs()
+                val locale = Locale.forLanguageTag(lang.ifBlank { "th-TH" })
+                val langResult = engine.setLanguage(locale)
+                if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    engine.language = Locale.ENGLISH
+                }
+                suspendCancellableCoroutine<Outcome<Unit>> { cont ->
+                    val utteranceId = UUID.randomUUID().toString()
+                    engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) = Unit
+                        override fun onError(utteranceId: String?) {
+                            if (cont.isActive) {
+                                cont.resume(Outcome.Failure(AppError("VOICE_SPEAK", "บันทึกเสียงพูดไม่สำเร็จ")))
+                            }
+                        }
+
+                        override fun onDone(doneId: String?) {
+                            if (cont.isActive) cont.resume(Outcome.Success(Unit))
+                        }
+                    })
+                    cont.invokeOnCancellation { engine.stop() }
+                    val queued = engine.synthesizeToFile(text, null, out, utteranceId)
+                    if (queued != TextToSpeech.SUCCESS && cont.isActive) {
+                        cont.resume(Outcome.Failure(AppError("VOICE_SPEAK", "เริ่มบันทึกเสียงไม่ได้ (engine error)")))
+                    }
+                }
+            } catch (e: Exception) {
+                Outcome.Failure(AppError("VOICE_SPEAK", "บันทึกเสียงไม่ได้: ${e.message}"))
+            }
+        }
+    }
+
     override suspend fun stop(): Outcome<Unit> {
         return try {
             withContext(Dispatchers.Main) { tts?.stop() }

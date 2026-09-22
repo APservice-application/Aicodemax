@@ -307,4 +307,21 @@ class MediaToolExecutorTest {
         val itemId = (media.libraryList(null) as Outcome.Success<List<com.aicodemax.data.media.LibraryItem>>).value[0].id
         assertTrue(run("library.remove", mapOf("itemId" to itemId)).ok)
     }
+
+    @Test
+    fun genFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("gen") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val listed = run("gen.list", emptyMap())
+        assertTrue(listed.output, listed.ok && listed.output.contains("poster") && listed.output.contains("text2video"))
+        val made = run("gen.make", mapOf("projectId" to projectId, "kind" to "poster", "prompt" to "Hi"))
+        assertTrue(made.output, made.ok && made.output.contains("timeline.addClip"))
+        val assets = (media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value
+        assertTrue(assets.size == 1 && assets[0].kind == com.aicodemax.data.media.MediaKind.IMAGE)
+        val voiced = run("gen.make", mapOf("projectId" to projectId, "kind" to "tts", "prompt" to "hello"))
+        assertTrue(voiced.ok)
+        val bad = run("gen.make", mapOf("projectId" to projectId, "kind" to "poster"))
+        assertTrue(!bad.ok)
+        val slot = run("gen.make", mapOf("projectId" to projectId, "kind" to "text2video", "prompt" to "x"))
+        assertTrue(!slot.ok && slot.error.contains("§29"))
+    }
 }

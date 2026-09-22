@@ -257,6 +257,19 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp83GenIntents() {
+        val poster = IntentParser.parse("ทำโปสเตอร์ \"เปิดร้าน\"")
+        assertEquals(IntentType.GEN_MAKE, poster.type)
+        assertEquals("poster", poster.parameters["kind"])
+        assertEquals("เปิดร้าน", poster.parameters["prompt"])
+        val tts = IntentParser.parse("ทำเสียงพูด \"สวัสดีครับ\"")
+        assertEquals(IntentType.GEN_MAKE, tts.type)
+        assertEquals("tts", tts.parameters["kind"])
+        val list = IntentParser.parse("สร้างอะไรได้บ้าง")
+        assertEquals(IntentType.GEN_LIST, list.type)
+    }
+
+    @Test
     fun cp82TemplateLibIntents() {
         val save = IntentParser.parse("บันทึกเทมเพลต \"เปิดคลิป\"")
         assertEquals(IntentType.TEMPLATE_SAVE, save.type)

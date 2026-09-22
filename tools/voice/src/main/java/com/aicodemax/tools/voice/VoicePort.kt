@@ -38,6 +38,13 @@ interface VoicePort {
 
     /** Stops any in-progress speech output. */
     suspend fun stop(): Outcome<Unit>
+
+    /**
+     * CP-83 §46: renders [text] to a WAV [path] (offline TTS file output).
+     * Default: unsupported (headless/JVM ports have no TTS engine).
+     */
+    suspend fun speakToFile(text: String, lang: String = "th-TH", path: String = ""): Outcome<Unit> =
+        Outcome.Failure(com.aicodemax.core.common.AppError("VOICE_NO_FILE", "port นี้บันทึกเสียงพูดเป็นไฟล์ไม่ได้"))
 }
 
 /** Scriptable fake: feeds transcripts to [listen], records [speak] calls. */
