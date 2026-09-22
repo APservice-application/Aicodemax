@@ -240,6 +240,12 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp91EnhancePlansRealStep() = runBlocking {
+        val en = (planner.plan(UserIntent(IntentType.CLIP_ENHANCE, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.enhance", en.steps[0].action)
+    }
+
+    @Test
     fun cp90ColorProPlansRealSteps() = runBlocking {
         val match = (planner.plan(UserIntent(IntentType.COLOR_MATCH, "t", mapOf("clipIndex" to "2", "refIndex" to "1"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.colorMatch", match.steps[0].action)

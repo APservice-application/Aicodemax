@@ -451,4 +451,27 @@ class MediaToolExecutorTest {
         assertEquals(-5, wheels.gamma)
         assertEquals(20, wheels.gain)
     }
+
+    @Test
+    fun enhanceFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("en") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4")).ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        assertTrue(run("timeline.addClip", mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "5000", "atMs" to "0")).ok)
+        val en = run("timeline.enhance", mapOf("projectId" to projectId, "clipIndex" to "1"))
+        assertTrue(en.output.ifBlank { en.error }, en.ok && en.output.contains("ปรับปรุง"))
+        val clip = ((media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value.tracks[0].clips[0])
+        assertEquals(5, clip.color!!.temperature)
+        assertEquals(10, clip.color!!.saturation)
+        assertEquals(25, clip.fx!!.sharpen)
+        assertEquals(30, clip.fx!!.denoise)
+        val fx = run("timeline.setFx", mapOf("projectId" to projectId, "clipIndex" to "1", "sharpen" to "50"))
+        assertTrue(fx.ok)
+        try {
+            com.aicodemax.data.media.TimelineOps.fx(com.aicodemax.data.media.Timeline(), "x", com.aicodemax.data.media.ClipFx(sharpen = 101))
+            assertTrue(false)
+        } catch (e: IllegalArgumentException) {
+            assertTrue(true)
+        }
+    }
 }

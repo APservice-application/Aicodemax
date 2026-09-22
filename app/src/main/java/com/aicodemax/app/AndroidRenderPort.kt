@@ -1642,9 +1642,43 @@ class AndroidRenderPort(
     private fun applyFx(px: IntArray, w: Int, h: Int, fx: ClipFx?, seed: Long): IntArray {
         if (fx == null || fx.isIdentity) return px
         var cur = if (fx.blur > 0) boxBlur(px, w, h, fx.blur) else px
+        if (fx.denoise > 0) cur = mixBlur(cur, w, h, fx.denoise)
+        if (fx.sharpen > 0) cur = unsharp(cur, w, h, fx.sharpen)
         if (fx.vignette > 0) applyVignette(cur, w, h, fx.vignette)
         if (fx.grain > 0) applyGrain(cur, fx.grain, seed)
         return cur
+    }
+
+    /** CP-91: denoise = blend toward a radius-1 blur. */
+    private fun mixBlur(src: IntArray, w: Int, h: Int, amount: Int): IntArray {
+        val k = (amount / 100f * 0.8f).coerceIn(0f, 0.8f)
+        val soft = boxBlur(src, w, h, 1)
+        val out = IntArray(src.size)
+        for (i in src.indices) {
+            val a = src[i]
+            val b = soft[i]
+            val r = (((a shr 16) and 0xFF) * (1 - k) + ((b shr 16) and 0xFF) * k).toInt()
+            val g = (((a shr 8) and 0xFF) * (1 - k) + ((b shr 8) and 0xFF) * k).toInt()
+            val bl = ((a and 0xFF) * (1 - k) + (b and 0xFF) * k).toInt()
+            out[i] = 0xFF000000.toInt() or (r.coerceIn(0, 255) shl 16) or (g.coerceIn(0, 255) shl 8) or bl.coerceIn(0, 255)
+        }
+        return out
+    }
+
+    /** CP-91: unsharp mask against a radius-1 blur. */
+    private fun unsharp(src: IntArray, w: Int, h: Int, amount: Int): IntArray {
+        val k = amount / 100f * 1.2f
+        val soft = boxBlur(src, w, h, 1)
+        val out = IntArray(src.size)
+        for (i in src.indices) {
+            val a = src[i]
+            val b = soft[i]
+            val r = (((a shr 16) and 0xFF) * (1 + k) - ((b shr 16) and 0xFF) * k).toInt()
+            val g = (((a shr 8) and 0xFF) * (1 + k) - ((b shr 8) and 0xFF) * k).toInt()
+            val bl = ((a and 0xFF) * (1 + k) - (b and 0xFF) * k).toInt()
+            out[i] = 0xFF000000.toInt() or (r.coerceIn(0, 255) shl 16) or (g.coerceIn(0, 255) shl 8) or bl.coerceIn(0, 255)
+        }
+        return out
     }
 
     /** Separable box blur, O(w*h) per pass (sliding window). */

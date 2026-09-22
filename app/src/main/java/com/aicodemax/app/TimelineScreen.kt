@@ -639,6 +639,18 @@ fun TimelineScreen(services: ServiceLocator) {
                                     )
                                 }
                             }, enabled = !busy) { Text("ออโต้สี") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val call = com.aicodemax.tools.gateway.ToolCall(
+                                        com.aicodemax.core.common.Ids.newId("ui"), "media", "timeline.enhance",
+                                        mapOf("projectId" to projectId, "clipId" to clipId), actor = "HUMAN",
+                                    )
+                                    services.gateway.call(call).fold(
+                                        onSuccess = { message = if (it.ok) it.output else it.error },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ปรับปรุง") }
                         }
                         // CP-90 wheels (§34 Pro).
                         listOf(

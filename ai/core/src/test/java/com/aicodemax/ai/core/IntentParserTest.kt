@@ -257,6 +257,13 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp91EnhanceIntent() {
+        val en = IntentParser.parse("ปรับปรุงคลิปที่ 1")
+        assertEquals(IntentType.CLIP_ENHANCE, en.type)
+        assertEquals("1", en.parameters["clipIndex"])
+    }
+
+    @Test
     fun cp90ColorProIntents() {
         val match = IntentParser.parse("จับคู่สีคลิปที่ 2 ตามคลิปที่ 1")
         assertEquals(IntentType.COLOR_MATCH, match.type)

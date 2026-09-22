@@ -374,14 +374,20 @@ data class ClipFx(
     val blur: Int = 0,
     val vignette: Int = 0,
     val grain: Int = 0,
+    /** CP-91 §35: unsharp-mask sharpen 0..100. */
+    val sharpen: Int = 0,
+    /** CP-91 §35: blur-blend denoise 0..100. */
+    val denoise: Int = 0,
 ) {
-    val isIdentity: Boolean get() = blur == 0 && vignette == 0 && grain == 0
+    val isIdentity: Boolean get() = blur == 0 && vignette == 0 && grain == 0 && sharpen == 0 && denoise == 0
 
     fun validate(): List<String> {
         val errors = mutableListOf<String>()
         if (blur !in 0..10) errors.add("blur ต้องอยู่ 0..10 (ได้ $blur)")
         if (vignette !in 0..100) errors.add("vignette ต้องอยู่ 0..100 (ได้ $vignette)")
         if (grain !in 0..100) errors.add("grain ต้องอยู่ 0..100 (ได้ $grain)")
+        if (sharpen !in 0..100) errors.add("sharpen ต้องอยู่ 0..100 (ได้ $sharpen)")
+        if (denoise !in 0..100) errors.add("denoise ต้องอยู่ 0..100 (ได้ $denoise)")
         return errors
     }
 
@@ -389,6 +395,8 @@ data class ClipFx(
         if (blur > 0) add("b$blur")
         if (vignette > 0) add("v$vignette")
         if (grain > 0) add("g$grain")
+        if (sharpen > 0) add("s$sharpen")
+        if (denoise > 0) add("d$denoise")
     }.joinToString("/")
 }
 

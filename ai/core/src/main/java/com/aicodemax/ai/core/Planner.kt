@@ -538,6 +538,13 @@ class RuleBasedPlanner(
                     else -> listOf("media.timeline.colorAuto" to mapOf("clipIndex" to clip))
                 }
             }
+            IntentType.CLIP_ENHANCE -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ปรับปรุงคลิปที่เท่าไหร่ครับ? เช่น ปรับปรุงคลิปที่ 1"),
+                    )
+                listOf("media.timeline.enhance" to mapOf("clipIndex" to clip))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

@@ -70,6 +70,7 @@ object ProjectEventTypes {
     const val CLIP_VOLUME = "CLIP_VOLUME"
     const val CLIP_AUTOCUT = "CLIP_AUTOCUT"
     const val TIMELINE_CANVAS = "TIMELINE_CANVAS"
+    const val CLIP_ENHANCE = "CLIP_ENHANCE"
     const val CLIP_CHROMA = "CLIP_CHROMA"
     const val TIMELINE_BG = "TIMELINE_BG"
     const val TRACK_APPLIED = "TRACK_APPLIED"

@@ -222,6 +222,8 @@ interface MediaProjectPort {
     // CP-85 mixer + beat markers (§31/§102).
     suspend fun setClipVolume(projectId: String, clipId: String, volume: Int, actor: String = "AI"): Outcome<Project>
     suspend fun setCanvas(projectId: String, canvas: String, actor: String = "AI"): Outcome<Project>
+    // CP-91 one-click enhance (§35): color + fx in a single undo step.
+    suspend fun enhanceClip(projectId: String, clipId: String, color: com.aicodemax.data.media.ClipColor, fx: com.aicodemax.data.media.ClipFx, actor: String = "AI"): Outcome<Project>
     suspend fun addMarkers(projectId: String, markers: List<TimelineMarker>, actor: String = "AI"): Outcome<Project>
     // CP-87 autocut (§32).
     suspend fun autocutClip(projectId: String, clipId: String, keep: List<Pair<Long, Long>>, actor: String = "AI"): Outcome<Project>
@@ -779,6 +781,10 @@ class FileMediaProject(
     override suspend fun setCanvas(projectId: String, canvas: String, actor: String): Outcome<Project> =
         editTimeline(projectId, "ตั้งแคนวาส $canvas", ProjectEventTypes.TIMELINE_CANVAS, actor) {
             TimelineOps.setCanvas(it, canvas)
+        }
+    override suspend fun enhanceClip(projectId: String, clipId: String, color: com.aicodemax.data.media.ClipColor, fx: com.aicodemax.data.media.ClipFx, actor: String): Outcome<Project> =
+        editTimeline(projectId, "ปรับปรุงคลิป $clipId", ProjectEventTypes.CLIP_ENHANCE, actor) {
+            TimelineOps.fx(TimelineOps.color(it, clipId, color), clipId, fx)
         }
     override suspend fun setClipLut(
         projectId: String,
@@ -1576,6 +1582,10 @@ class InMemoryMediaProject : MediaProjectPort {
     override suspend fun setCanvas(projectId: String, canvas: String, actor: String): Outcome<Project> =
         editTimeline(projectId, "ตั้งแคนวาส $canvas", ProjectEventTypes.TIMELINE_CANVAS, actor) {
             TimelineOps.setCanvas(it, canvas)
+        }
+    override suspend fun enhanceClip(projectId: String, clipId: String, color: com.aicodemax.data.media.ClipColor, fx: com.aicodemax.data.media.ClipFx, actor: String): Outcome<Project> =
+        editTimeline(projectId, "ปรับปรุงคลิป $clipId", ProjectEventTypes.CLIP_ENHANCE, actor) {
+            TimelineOps.fx(TimelineOps.color(it, clipId, color), clipId, fx)
         }
     override suspend fun setClipLut(
         projectId: String,

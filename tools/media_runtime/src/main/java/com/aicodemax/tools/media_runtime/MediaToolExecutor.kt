@@ -548,6 +548,8 @@ class MediaToolExecutor(
                         blur = call.args["blur"]?.toIntOrNull() ?: base.blur,
                         vignette = call.args["vignette"]?.toIntOrNull() ?: base.vignette,
                         grain = call.args["grain"]?.toIntOrNull() ?: base.grain,
+                        sharpen = call.args["sharpen"]?.toIntOrNull() ?: base.sharpen,
+                        denoise = call.args["denoise"]?.toIntOrNull() ?: base.denoise,
                     )
                     media.setClipFx(projectId, clipId, next, call.actor).fold(
                         onSuccess = { done(true, "ตั้งเอฟเฟกต์แล้ว (${next.summary().ifBlank { "ปิด" }}) (เลิกทำได้: edit.undo)") },
@@ -695,6 +697,42 @@ class MediaToolExecutor(
                     )
                     media.setClipColor(projectId, clipId, next, call.actor).fold(
                         onSuccess = { done(true, "จับคู่สีตามคลิปแล้ว (${grade.summary().ifBlank { "สีใกล้กันอยู่แล้ว" }}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.enhance" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val clip = timeline.findClip(clipId)?.second
+                        ?: return@withContext done(false, error = "ไม่มีคลิป $clipId")
+                    val strength = (call.args["strength"]?.toIntOrNull() ?: 100).coerceIn(0, 100) / 100.0
+                    val assetPath = (media.assetPath(projectId, clip.assetId) as? Outcome.Success)?.value
+                    val sg = if (assetPath == null) null else (color.analyze(ColorRequest(assetPath, clip.startMs + clip.durationMs / 2)) as? Outcome.Success)?.value?.suggest
+                    val baseColor = clip.color ?: ClipColor()
+                    fun scaled(v: Int): Int = (v * strength).toInt()
+                    val nextColor = baseColor.copy(
+                        brightness = if (sg != null && sg.brightness != 0) scaled(sg.brightness) else baseColor.brightness,
+                        contrast = if (sg != null && sg.contrast != 0) scaled(sg.contrast) else baseColor.contrast,
+                        saturation = maxOf(baseColor.saturation, (10 * strength).toInt()),
+                        temperature = if (sg != null && sg.temperature != 0) scaled(sg.temperature) else baseColor.temperature,
+                        tint = if (sg != null && sg.tint != 0) scaled(sg.tint) else baseColor.tint,
+                        highlights = if (sg != null && sg.highlights != 0) scaled(sg.highlights) else baseColor.highlights,
+                        shadows = if (sg != null && sg.shadows != 0) scaled(sg.shadows) else baseColor.shadows,
+                        exposure = if (sg != null && sg.exposure != 0) scaled(sg.exposure) else baseColor.exposure,
+                        whites = if (sg != null && sg.whites != 0) scaled(sg.whites) else baseColor.whites,
+                        blacks = if (sg != null && sg.blacks != 0) scaled(sg.blacks) else baseColor.blacks,
+                    )
+                    val baseFx = clip.fx ?: ClipFx()
+                    val nextFx = baseFx.copy(
+                        sharpen = maxOf(baseFx.sharpen, (25 * strength).toInt()),
+                        denoise = maxOf(baseFx.denoise, (30 * strength).toInt()),
+                    )
+                    media.enhanceClip(projectId, clipId, nextColor, nextFx, call.actor).fold(
+                        onSuccess = { done(true, "ปรับปรุงคลิปแล้ว (ออโต้สี+สด+คมชัด+ลดนอยส์) (เลิกทำได้: edit.undo)") },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

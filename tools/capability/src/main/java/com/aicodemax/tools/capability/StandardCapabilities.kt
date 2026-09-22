@@ -301,6 +301,8 @@ object StandardCapabilities {
             metadata = meta("media", "ตั้งสัดส่วนแคนวาส", listOf("aspect?"), listOf("ok"), listOf("fs.write"), false, "canvas set", "fix args", true, "edit.undo")),
         CapabilityBinding("media.timeline.colorMatch", "media", "timeline.colorMatch", AdapterKind.NATIVE,
             metadata = meta("media", "จับคู่สีตามคลิปอ้างอิง", listOf("clipIndex,refIndex"), listOf("ok"), listOf("fs.write"), false, "matched", "fix file", true, "edit.undo")),
+        CapabilityBinding("media.timeline.enhance", "media", "timeline.enhance", AdapterKind.NATIVE,
+            metadata = meta("media", "ปรับปรุงคลิปอัตโนมัติ", listOf("clipIndex,strength?"), listOf("ok"), listOf("fs.write"), false, "enhanced", "fix file", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).
