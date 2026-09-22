@@ -115,7 +115,24 @@ class AudioToolExecutor(private val audio: AudioPort = InMemoryAudioPort()) : To
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade/beats/voicefx/synthmusic/synthsfx)")
+                "speech" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    audio.speech(
+                        src,
+                        call.args["thresholdDb"]?.toDoubleOrNull() ?: -40.0,
+                        call.args["minSpeechMs"]?.toLongOrNull() ?: 300L,
+                        call.args["minSilenceMs"]?.toLongOrNull() ?: 500L,
+                        call.args["padMs"]?.toLongOrNull() ?: 150L,
+                    ).fold(
+                        onSuccess = {
+                            if (it.ranges.isEmpty()) done(true, "ไม่เจอช่วงเสียงพูด")
+                            else done(true, "เจอเสียงพูด ${it.ranges.size} ช่วง: " + it.ranges.take(10).joinToString { r -> "${r.startMs}-${r.endMs}" })
+                        },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade/beats/voicefx/synthmusic/synthsfx/speech)")
             }
         }
 

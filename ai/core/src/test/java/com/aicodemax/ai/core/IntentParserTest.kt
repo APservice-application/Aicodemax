@@ -257,6 +257,17 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp87CutHighlightIntents() {
+        val cut = IntentParser.parse("ตัดเงียบคลิปที่ 1")
+        assertEquals(IntentType.AUTOCUT, cut.type)
+        val hi = IntentParser.parse("ช็อตเด่นคลิปที่ 2")
+        assertEquals(IntentType.HIGHLIGHTS, hi.type)
+        assertEquals("2", hi.parameters["clipIndex"])
+        val colorStill = IntentParser.parse("เพิ่มไฮไลต์คลิปที่ 1 20")
+        assertEquals(IntentType.CLIP_COLOR, colorStill.type)
+    }
+
+    @Test
     fun cp86VoiceSynthIntents() {
         val fx = IntentParser.parse("เปลี่ยนเสียงพูด a.wav เสียงแหลม")
         assertEquals(IntentType.VOICE_FX, fx.type)

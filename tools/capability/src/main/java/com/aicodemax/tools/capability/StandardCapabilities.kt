@@ -143,6 +143,8 @@ object StandardCapabilities {
             metadata = meta("audio", "ทำดนตรีประกอบ", listOf("style?,seconds?,dst?"), listOf("dst"), listOf("fs.write"), false, "music ok", "retry")),
         CapabilityBinding("audio.synthsfx", "audio", "synthsfx", AdapterKind.NATIVE,
             metadata = meta("audio", "ทำเสียงเอฟเฟกต์", listOf("kind,dst?"), listOf("dst"), listOf("fs.write"), false, "sfx ok", "retry")),
+        CapabilityBinding("audio.speech", "audio", "speech", AdapterKind.NATIVE,
+            metadata = meta("audio", "หาช่วงเสียงพูด", listOf("src,thresholdDb?"), listOf("ranges"), emptyList(), false, "ranges shown", "retry")),
         // Video engine (native, MP4 probe + stream-copy ops).
         CapabilityBinding("video.info", "video", "info", AdapterKind.NATIVE,
             metadata = meta("video", "ดูฟอร์แมต+ขนาด+ความยาววิดีโอ", listOf("path"), listOf("info"), emptyList(), false, "header parsed", "re-probe")),
@@ -281,6 +283,10 @@ object StandardCapabilities {
             metadata = meta("media", "ตั้งเสียงคลิป", listOf("clipIndex,volume"), listOf("ok"), listOf("fs.write"), false, "volume shown", "0..100", true, "edit.undo")),
         CapabilityBinding("media.timeline.beatsToMarkers", "media", "timeline.beatsToMarkers", AdapterKind.NATIVE,
             metadata = meta("media", "จับจังหวะคลิปเป็นมาร์กเกอร์", listOf("clipIndex"), listOf("ok"), listOf("fs.write"), false, "markers added", "fix audio", true, "edit.undo")),
+        CapabilityBinding("media.timeline.autocut", "media", "timeline.autocut", AdapterKind.NATIVE,
+            metadata = meta("media", "ตัดช่วงเงียบอัตโนมัติ", listOf("clipIndex,thresholdDb?,minSpeechMs?,minSilenceMs?"), listOf("ok"), listOf("fs.write"), false, "ranges kept", "fix audio", true, "edit.undo")),
+        CapabilityBinding("media.timeline.highlights", "media", "timeline.highlights", AdapterKind.NATIVE,
+            metadata = meta("media", "หาช็อตเด่นเป็นมาร์กเกอร์", listOf("clipIndex,count?,windowSec?"), listOf("ok"), listOf("fs.write"), false, "markers added", "fix audio", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

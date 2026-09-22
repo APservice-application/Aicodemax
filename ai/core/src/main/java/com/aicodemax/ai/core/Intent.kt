@@ -96,6 +96,8 @@ enum class IntentType {
     VOICE_FX,
     SYNTH_MUSIC,
     SYNTH_SFX,
+    AUTOCUT,
+    HIGHLIGHTS,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -591,6 +593,17 @@ object IntentParser {
                 IntentType.CLIP_VOLUME, text,
                 params("clipIndex" to parseClipIndex(t), "volume" to value),
             )
+        }
+        if (containsAny(lower, ThaiVocabulary.autocutWords)) {
+            return UserIntent(IntentType.AUTOCUT, text, params("clipIndex" to parseClipIndex(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.highlightWords)) {
+            // "เพิ่มไฮไลต์คลิปที่ 1 20" (color value) must fall through to CLIP_COLOR.
+            val noClip = t.replace(Regex("คลิป(?:ที่)?\\s*\\d+"), "")
+            val hasValue = Regex("\\d+").containsMatchIn(noClip) && !t.contains("ช็อต") && !t.contains("ช่วง")
+            if (!hasValue) {
+                return UserIntent(IntentType.HIGHLIGHTS, text, params("clipIndex" to parseClipIndex(t)))
+            }
         }
         if (containsAny(lower, ThaiVocabulary.templateWords)) {
             val name = Regex("[\"']([^\"']+)[\"']").find(text)?.groupValues?.get(1)

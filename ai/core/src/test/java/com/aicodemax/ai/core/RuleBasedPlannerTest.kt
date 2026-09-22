@@ -240,6 +240,14 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp87CutHighlightPlansRealSteps() = runBlocking {
+        val cut = (planner.plan(UserIntent(IntentType.AUTOCUT, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.autocut", cut.steps[0].action)
+        val hi = (planner.plan(UserIntent(IntentType.HIGHLIGHTS, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.highlights", hi.steps[0].action)
+    }
+
+    @Test
     fun cp86VoiceSynthPlansRealSteps() = runBlocking {
         val fx = (planner.plan(UserIntent(IntentType.VOICE_FX, "t", mapOf("path" to "a.wav", "semitones" to "5"))) as Outcome.Success<Plan>).value
         assertEquals("voicefx", fx.steps[0].action)

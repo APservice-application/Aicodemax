@@ -483,6 +483,20 @@ class RuleBasedPlanner(
             IntentType.SYNTH_SFX -> {
                 listOf("audio.synthsfx" to mapOf("kind" to (intent.parameters["kind"] ?: "impact")))
             }
+            IntentType.AUTOCUT -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ตัดเงียบคลิปที่เท่าไหร่ครับ? เช่น ตัดเงียบคลิปที่ 1"),
+                    )
+                listOf("media.timeline.autocut" to mapOf("clipIndex" to clip))
+            }
+            IntentType.HIGHLIGHTS -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "หาช็อตเด่นคลิปที่เท่าไหร่ครับ? เช่น ช็อตเด่นคลิปที่ 1"),
+                    )
+                listOf("media.timeline.highlights" to mapOf("clipIndex" to clip))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

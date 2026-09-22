@@ -90,6 +90,16 @@ class AndroidAudioPort : AudioPort {
             }
         }
 
+    override suspend fun speech(path: String, thresholdDb: Double, minSpeechMs: Long, minSilenceMs: Long, padMs: Long): Outcome<com.aicodemax.tools.audio.SpeechAnalysis> =
+        withContext(Dispatchers.IO) {
+            when (val decoded = decode(path)) {
+                is Outcome.Failure -> decoded
+                is Outcome.Success -> Outcome.Success(
+                    com.aicodemax.tools.audio.Speech.analyze(decoded.value, thresholdDb, minSpeechMs, minSilenceMs, padMs),
+                )
+            }
+        }
+
     override suspend fun beats(path: String): Outcome<com.aicodemax.tools.audio.BeatAnalysis> =
         withContext(Dispatchers.IO) {
             when (val decoded = decode(path)) {

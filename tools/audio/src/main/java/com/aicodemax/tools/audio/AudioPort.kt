@@ -40,6 +40,15 @@ interface AudioPort {
 
     /** CP-86 §30: procedural one-shot SFX → WAV. */
     suspend fun synthSfx(kind: String, dst: String): Outcome<AudioInfo>
+
+    /** CP-87 §32/§40: speech ranges + energy curve (offline, no ML). */
+    suspend fun speech(
+        path: String,
+        thresholdDb: Double = -40.0,
+        minSpeechMs: Long = 300,
+        minSilenceMs: Long = 500,
+        padMs: Long = 150,
+    ): Outcome<SpeechAnalysis>
 }
 
 /**
@@ -118,6 +127,12 @@ class InMemoryAudioPort : AudioPort {
 
     override suspend fun synthSfx(kind: String, dst: String): Outcome<AudioInfo> =
         synthTo(dst, "AUDIO_SYNTH") { Synth.sfx(kind) }
+
+    override suspend fun speech(path: String, thresholdDb: Double, minSpeechMs: Long, minSilenceMs: Long, padMs: Long): Outcome<SpeechAnalysis> {
+        val clip = store[path]
+            ?: return Outcome.Failure(AppError("AUDIO_MISSING", "ไม่มีเสียง $path (put ก่อน)"))
+        return Outcome.Success(Speech.analyze(clip, thresholdDb, minSpeechMs, minSilenceMs, padMs))
+    }
 
     private inline fun synthTo(dst: String, code: String, op: () -> PcmAudio): Outcome<AudioInfo> {
         return try {

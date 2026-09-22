@@ -55,6 +55,13 @@ class AudioToolExecutorTest {
     }
 
     @Test
+    fun speechFlow() {
+        val p = port()
+        val r = run(p, "speech", mapOf("src" to "/tmp/a.wav"))
+        assertTrue(r.output, r.ok)
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         val p = port()
         assertTrue(!run(p, "info", emptyMap()).ok)

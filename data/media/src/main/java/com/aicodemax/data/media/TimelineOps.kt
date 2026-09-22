@@ -511,6 +511,35 @@ object TimelineOps {
         return timeline.copy(markers = timeline.markers + markers)
     }
 
+    /** CP-87 §32: replaces a clip with kept sub-clips (source-ms ranges, packed). */
+    fun autocut(timeline: Timeline, clipId: String, keep: List<Pair<Long, Long>>, ids: List<String>): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (clip.speed != null) throw IllegalArgumentException("autocut ยังไม่รองรับคลิปที่เปลี่ยนสปีด")
+        if (keep.isEmpty()) throw IllegalArgumentException("ไม่มีช่วงให้เก็บ")
+        if (keep.size > 100) throw IllegalArgumentException("ช่วงมากสุด 100 ช่วง (ได้ ${keep.size})")
+        if (ids.size != keep.size) throw IllegalArgumentException("ids ไม่ครบ")
+        val sorted = keep.sortedBy { it.first }
+        for ((s, e) in sorted) {
+            if (s < clip.startMs || e > clip.endMs || s >= e) {
+                throw IllegalArgumentException("ช่วง $s-$e อยู่นอกคลิป")
+            }
+        }
+        for (i in 1 until sorted.size) {
+            if (sorted[i].first < sorted[i - 1].second) throw IllegalArgumentException("ช่วงทับซ้อนกัน")
+        }
+        var cursor = clip.atMs
+        val subs = sorted.mapIndexed { i, (s, e) ->
+            Clip(
+                ids[i], clip.assetId, s, e, cursor, clip.volume,
+                transform = clip.transform, fx = clip.fx, color = clip.color, motion = clip.motion,
+            ).also { cursor += (e - s) }
+        }
+        val clips = track.clips.flatMap { if (it.id == clipId) subs else listOf(it) }
+        return timeline.replaceClips(track.id, clips)
+    }
+
     /** CP-79: replaces the timeline background (§19). Null/identity clears. */
     fun background(timeline: Timeline, background: ClipBackground?): Timeline {
         if (background != null) {

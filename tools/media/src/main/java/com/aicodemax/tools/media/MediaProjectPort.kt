@@ -222,6 +222,8 @@ interface MediaProjectPort {
     // CP-85 mixer + beat markers (§31/§102).
     suspend fun setClipVolume(projectId: String, clipId: String, volume: Int, actor: String = "AI"): Outcome<Project>
     suspend fun addMarkers(projectId: String, markers: List<TimelineMarker>, actor: String = "AI"): Outcome<Project>
+    // CP-87 autocut (§32).
+    suspend fun autocutClip(projectId: String, clipId: String, keep: List<Pair<Long, Long>>, actor: String = "AI"): Outcome<Project>
     // CP-78 color correction (§42).
     suspend fun setClipColor(
         projectId: String,
@@ -769,6 +771,10 @@ class FileMediaProject(
 
     override suspend fun addMarkers(projectId: String, markers: List<TimelineMarker>, actor: String): Outcome<Project> =
         editTimeline(projectId, "มาร์กเกอร์ ${markers.size} จุด", ProjectEventTypes.MARKER_ADDED, actor) { TimelineOps.addMarkers(it, markers) }
+    override suspend fun autocutClip(projectId: String, clipId: String, keep: List<Pair<Long, Long>>, actor: String): Outcome<Project> =
+        editTimeline(projectId, "ตัดเงียบ $clipId", ProjectEventTypes.CLIP_AUTOCUT, actor) {
+            TimelineOps.autocut(it, clipId, keep, keep.map { Ids.newId("clip") })
+        }
     override suspend fun setClipLut(
         projectId: String,
         clipId: String,
@@ -1558,6 +1564,10 @@ class InMemoryMediaProject : MediaProjectPort {
 
     override suspend fun addMarkers(projectId: String, markers: List<TimelineMarker>, actor: String): Outcome<Project> =
         editTimeline(projectId, "มาร์กเกอร์ ${markers.size} จุด", ProjectEventTypes.MARKER_ADDED, actor) { TimelineOps.addMarkers(it, markers) }
+    override suspend fun autocutClip(projectId: String, clipId: String, keep: List<Pair<Long, Long>>, actor: String): Outcome<Project> =
+        editTimeline(projectId, "ตัดเงียบ $clipId", ProjectEventTypes.CLIP_AUTOCUT, actor) {
+            TimelineOps.autocut(it, clipId, keep, keep.map { Ids.newId("clip") })
+        }
     override suspend fun setClipLut(
         projectId: String,
         clipId: String,

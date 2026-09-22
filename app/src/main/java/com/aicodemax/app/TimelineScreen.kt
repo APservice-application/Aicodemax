@@ -760,6 +760,30 @@ fun TimelineScreen(services: ServiceLocator) {
                                     )
                                 }
                             }, enabled = !busy) { Text("จังหวะ→มาร์ก") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val call = com.aicodemax.tools.gateway.ToolCall(
+                                        com.aicodemax.core.common.Ids.newId("ui"), "media", "timeline.autocut",
+                                        mapOf("projectId" to projectId, "clipId" to clipId), actor = "HUMAN",
+                                    )
+                                    services.gateway.call(call).fold(
+                                        onSuccess = { message = if (it.ok) it.output else it.error },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ตัดเงียบ") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val call = com.aicodemax.tools.gateway.ToolCall(
+                                        com.aicodemax.core.common.Ids.newId("ui"), "media", "timeline.highlights",
+                                        mapOf("projectId" to projectId, "clipId" to clipId), actor = "HUMAN",
+                                    )
+                                    services.gateway.call(call).fold(
+                                        onSuccess = { message = if (it.ok) it.output else it.error },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ช็อตเด่น") }
                         }
                         // CP-79 mask + chroma (§17/§18).
                         val mk = clip.mask ?: com.aicodemax.data.media.ClipMask()

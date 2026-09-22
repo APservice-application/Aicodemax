@@ -373,4 +373,32 @@ class MediaToolExecutorTest {
         val timeline = (media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value
         assertTrue(timeline.markers.size in 4..10)
     }
+
+    @Test
+    fun autocutHighlightsFlow(): Unit = runBlocking {
+        val audioPort = com.aicodemax.tools.audio.InMemoryAudioPort()
+        val exec2 = MediaToolExecutor(media, audio = audioPort)
+        fun run2(action: String, args: Map<String, String>): com.aicodemax.tools.gateway.ToolResult =
+            runBlocking {
+                (exec2.execute(ToolCall(id = "c1", toolId = "media", action = action, args = args)) as Outcome.Success<com.aicodemax.tools.gateway.ToolResult>).value
+            }
+        val projectId = (media.createProject("ah") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "s.wav")).ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        val assetPath = ((media.assetPath(projectId, assetId) as Outcome.Success<String>).value)
+        val sr = 8000
+        val samples = FloatArray(sr * 30)
+        for (i in samples.indices) {
+            val sec = i / sr
+            samples[i] = if (sec % 6 < 3) kotlin.math.sin(2 * Math.PI * 440 * i / sr).toFloat() * 0.5f else 0f
+        }
+        audioPort.put(assetPath, com.aicodemax.tools.audio.PcmAudio(sr, 1, samples))
+        assertTrue(run("timeline.addClip", mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "30000", "atMs" to "0")).ok)
+        val hi = run2("timeline.highlights", mapOf("projectId" to projectId, "clipIndex" to "1", "count" to "2", "windowSec" to "6"))
+        assertTrue(hi.output.ifBlank { hi.error }, hi.ok && hi.output.contains("ช็อตเด่น"))
+        val cut = run2("timeline.autocut", mapOf("projectId" to projectId, "clipIndex" to "1"))
+        assertTrue(cut.output.ifBlank { cut.error }, cut.ok && cut.output.contains("ตัดเงียบแล้ว"))
+        val timeline = (media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value
+        assertTrue(timeline.tracks[0].clips.size == 5)
+    }
 }

@@ -871,6 +871,104 @@ class MediaToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "timeline.autocut" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val clip = timeline.findClip(clipId)?.second
+                        ?: return@withContext done(false, error = "ไม่มีคลิป $clipId")
+                    val assetPath = (media.assetPath(projectId, clip.assetId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "หาไฟล์ต้นฉบับของคลิปไม่เจอ")
+                    val spoken = audio.speech(
+                        assetPath,
+                        call.args["thresholdDb"]?.toDoubleOrNull() ?: -40.0,
+                        call.args["minSpeechMs"]?.toLongOrNull() ?: 300L,
+                        call.args["minSilenceMs"]?.toLongOrNull() ?: 500L,
+                    )
+                    if (spoken is Outcome.Failure) {
+                        return@withContext done(false, error = spoken.error.message)
+                    }
+                    val analysis = (spoken as Outcome.Success).value
+                    val keep = analysis.ranges.mapNotNull { r ->
+                        val s = maxOf(r.startMs, clip.startMs)
+                        val e = minOf(r.endMs, clip.endMs)
+                        if (e - s >= 200) s to e else null
+                    }
+                    if (keep.isEmpty()) {
+                        return@withContext done(true, "ไม่เจอช่วงเสียงพูดในคลิป (ไม่ตัดอะไร)")
+                    }
+                    val keptMs = keep.sumOf { it.second - it.first }
+                    media.autocutClip(projectId, clipId, keep, call.actor).fold(
+                        onSuccess = {
+                            done(true, "ตัดเงียบแล้ว: เก็บ ${keep.size} ช่วง (${keptMs}ms) ตัดออก ${clip.durationMs - keptMs}ms (เลิกทำได้: edit.undo)")
+                        },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.highlights" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val clip = timeline.findClip(clipId)?.second
+                        ?: return@withContext done(false, error = "ไม่มีคลิป $clipId")
+                    val assetPath = (media.assetPath(projectId, clip.assetId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "หาไฟล์ต้นฉบับของคลิปไม่เจอ")
+                    val spoken = audio.speech(assetPath)
+                    if (spoken is Outcome.Failure) {
+                        return@withContext done(false, error = spoken.error.message)
+                    }
+                    val analysis = (spoken as Outcome.Success).value
+                    val count = (call.args["count"]?.toIntOrNull() ?: 3).coerceIn(1, 10)
+                    val windowSec = (call.args["windowSec"]?.toLongOrNull() ?: 15L).coerceIn(5, 120)
+                    val winMs = windowSec * 1000
+                    val cands = mutableListOf<Pair<Long, Double>>()
+                    var w = clip.startMs
+                    while (w + 2000 <= clip.endMs) {
+                        val wEnd = minOf(w + winMs, clip.endMs)
+                        var sum = 0.0
+                        var n = 0
+                        for (r in analysis.ranges) {
+                            val ov = minOf(r.endMs, wEnd) - maxOf(r.startMs, w)
+                            if (ov > 0) {
+                                sum += ov
+                                n++
+                            }
+                        }
+                        val speechMs = sum
+                        val ei0 = ((w - 0) / analysis.windowMs).toInt().coerceAtLeast(0)
+                        val ei1 = ((wEnd - 0) / analysis.windowMs).toInt().coerceAtMost(analysis.energyDb.size - 1)
+                        var eSum = 0.0
+                        var eN = 0
+                        for (i in ei0..ei1) {
+                            if (i in analysis.energyDb.indices) {
+                                eSum += analysis.energyDb[i]
+                                eN++
+                            }
+                        }
+                        val score = speechMs + (if (eN > 0) (eSum / eN + 60.0) * 50.0 else 0.0)
+                        cands.add(w to score)
+                        w += winMs / 2
+                    }
+                    if (cands.isEmpty()) {
+                        return@withContext done(true, "คลิปสั้นไป (หาช่วงเด่นไม่ได้)")
+                    }
+                    val picked = cands.sortedByDescending { it.second }.take(count).sortedBy { it.first }
+                    val markers = picked.mapIndexed { i, (ms, _) ->
+                        com.aicodemax.data.media.TimelineMarker(
+                            Ids.newId("mark"), clip.atMs + clip.sourceToOutput(ms - clip.startMs), "เด่น${i + 1}",
+                        )
+                    }
+                    media.addMarkers(projectId, markers, call.actor).fold(
+                        onSuccess = { done(true, "วางช็อตเด่นแล้ว ${markers.size} จุด (${picked.joinToString { "${it.first}ms" }}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
                 "timeline.setMask" -> {
                     val projectId = call.args["projectId"] ?: latestProject()
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
