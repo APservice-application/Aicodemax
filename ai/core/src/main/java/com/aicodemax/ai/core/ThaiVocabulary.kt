@@ -143,4 +143,8 @@ object ThaiVocabulary {
     val subtitleMakeWords: List<String> = listOf("ทำซับ", "ซับไตเติล")
     val subtitleShiftWords: List<String> = listOf("เลื่อนซับ")
     val subtitleBurnWords: List<String> = listOf("ฝังซับ")
+    val renderStatusWords: List<String> = listOf("สถานะเรนเดอร์", "คิวเรนเดอร์", "งานเรนเดอร์")
+    val renderApproveWords: List<String> = listOf("อนุมัติ")
+    val renderExportWords: List<String> = listOf("เอ็กซ์พอร์ต", "export", "ส่งออก")
+    val renderStartWords: List<String> = listOf("เรนเดอร์", "render")
 }

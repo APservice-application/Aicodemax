@@ -201,6 +201,21 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp67RenderPlansRealSteps() = runBlocking {
+        val start = (planner.plan(UserIntent(IntentType.RENDER_START, "t", mapOf("preset" to "480p"))) as Outcome.Success<Plan>).value
+        assertEquals("render", start.steps[0].toolId)
+        assertEquals("runNow", start.steps[0].action)
+        assertEquals("480p", start.steps[0].args["preset"])
+        val status = (planner.plan(UserIntent(IntentType.RENDER_STATUS, "t")) as Outcome.Success<Plan>).value
+        assertEquals("list", status.steps[0].action)
+        val export = (planner.plan(UserIntent(IntentType.RENDER_EXPORT, "t")) as Outcome.Success<Plan>).value
+        assertEquals("export", export.steps[0].action)
+        val share = (planner.plan(UserIntent(IntentType.SHARE_MEDIA, "t")) as Outcome.Success<Plan>).value
+        assertEquals("render", share.steps[0].toolId)
+        assertEquals("export", share.steps[0].action)
+    }
+
+    @Test
     fun cp66SubtitlePlansRealSteps() = runBlocking {
         val make = UserIntent(
             IntentType.SUBTITLE_MAKE, "t",

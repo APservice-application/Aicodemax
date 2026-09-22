@@ -99,6 +99,9 @@ class AndroidAudioPort : AudioPort {
         }
     }
 
+    /** Decodes WAV/MP3/M4A/OGG/FLAC to PCM — also used by the render mixer. */
+    fun decodeToPcm(src: String): Outcome<PcmAudio> = decode(src)
+
     private fun decode(src: String): Outcome<PcmAudio> {
         if (src.substringAfterLast('.', "").lowercase() == "wav") {
             return WavCodec.read(File(src))

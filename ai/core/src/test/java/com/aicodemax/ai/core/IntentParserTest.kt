@@ -203,6 +203,21 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp67RenderIntents() {
+        val start = IntentParser.parse("เรนเดอร์ 720p")
+        assertEquals(IntentType.RENDER_START, start.type)
+        assertEquals("720p", start.parameters["preset"])
+        val status = IntentParser.parse("สถานะเรนเดอร์")
+        assertEquals(IntentType.RENDER_STATUS, status.type)
+        val approve = IntentParser.parse("อนุมัติ")
+        assertEquals(IntentType.RENDER_APPROVE, approve.type)
+        val export = IntentParser.parse("เอ็กซ์พอร์ต")
+        assertEquals(IntentType.RENDER_EXPORT, export.type)
+        val share = IntentParser.parse("แชร์ลงติ๊กต็อก")
+        assertEquals(IntentType.SHARE_MEDIA, share.type)
+    }
+
+    @Test
     fun cp66SubtitleIntents() {
         val make = IntentParser.parse("ทำซับ a.wav: สวัสดีครับทุกคน")
         assertEquals(IntentType.SUBTITLE_MAKE, make.type)

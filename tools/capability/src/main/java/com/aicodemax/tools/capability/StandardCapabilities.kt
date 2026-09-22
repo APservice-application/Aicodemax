@@ -170,6 +170,22 @@ object StandardCapabilities {
             metadata = meta("subtitle", "เลื่อนเวลาซับ", listOf("src,offsetMs"), listOf("dst"), listOf("fs.write"), false, "times moved", "retry")),
         CapabilityBinding("subtitle.burn", "subtitle", "burn", AdapterKind.NATIVE,
             metadata = meta("subtitle", "ฝังซับลงวิดีโอ", listOf("src,srt"), listOf("dst"), listOf("fs.write"), false, "mp4 out", "retry")),
+        CapabilityBinding("render.enqueue", "render", "enqueue", AdapterKind.NATIVE,
+            metadata = meta("render", "เข้าคิวเรนเดอร์", listOf("projectId?,preset?"), listOf("job"), emptyList(), false, "job queued", "retry")),
+        CapabilityBinding("render.runNow", "render", "runNow", AdapterKind.NATIVE,
+            metadata = meta("render", "เรนเดอร์ทันที", listOf("projectId?,preset?"), listOf("mp4"), listOf("fs.write"), false, "qc pass", "retry")),
+        CapabilityBinding("render.run", "render", "run", AdapterKind.NATIVE,
+            metadata = meta("render", "รันงานที่ค้าง", listOf("jobId"), listOf("mp4"), listOf("fs.write"), false, "qc pass", "retry")),
+        CapabilityBinding("render.status", "render", "status", AdapterKind.NATIVE,
+            metadata = meta("render", "สถานะงาน", listOf("jobId?"), listOf("info"), emptyList(), false, "job found", "check id")),
+        CapabilityBinding("render.list", "render", "list", AdapterKind.NATIVE,
+            metadata = meta("render", "รายการงาน", emptyList(), listOf("list"), emptyList(), false, "list ok", "retry")),
+        CapabilityBinding("render.retry", "render", "retry", AdapterKind.NATIVE,
+            metadata = meta("render", "ลองใหม่งานที่ล้มเหลว", listOf("jobId?"), listOf("job"), emptyList(), false, "requeued", "check id")),
+        CapabilityBinding("render.approve", "render", "approve", AdapterKind.NATIVE,
+            metadata = meta("render", "อนุมัติผลลัพธ์", listOf("jobId?"), listOf("job"), emptyList(), false, "qc passed", "fix timeline")),
+        CapabilityBinding("render.export", "render", "export", AdapterKind.NATIVE,
+            metadata = meta("render", "เอ็กซ์พอร์ตไป Download", listOf("jobId?"), listOf("uri"), listOf("fs.write"), false, "approved", "approve first")),
         // Compatibility engine — CLI adapter, LAST resort (§29, CP-32).
         CapabilityBinding("terminal.open", "terminal", "open", AdapterKind.CLI_ADAPTER,
             metadata = meta("terminal", "เปิด terminal session", emptyList(), listOf("sessionId"), listOf("terminal"), false, "session listed", "re-open")),
@@ -193,7 +209,7 @@ object StandardCapabilities {
      */
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
-        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video", "media", "subtitle")) {
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video", "media", "subtitle", "render")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -228,6 +244,7 @@ private fun meta(
         "video" to ("Video Engine" to "MP4 probe + Muxer"),
         "media" to ("Media Engine" to "project stores"),
         "subtitle" to ("Subtitle Engine" to "SRT + transcode"),
+        "render" to ("Render Engine" to "queue + QC + export"),
         "terminal" to ("Compatibility Engine" to "Termux bridge (pending device work)"),
     )
     val (engine, runtime) = engines.getValue(tool)

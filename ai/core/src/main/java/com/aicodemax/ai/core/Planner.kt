@@ -202,6 +202,15 @@ class RuleBasedPlanner(
                 }
                 listOf("subtitle.burn" to mapOf("src" to src, "srt" to srt))
             }
+            IntentType.RENDER_START -> {
+                val args = mutableMapOf<String, String>()
+                intent.parameters["preset"]?.let { args["preset"] = it }
+                listOf("render.runNow" to args)
+            }
+            IntentType.RENDER_STATUS -> listOf("render.list" to emptyMap())
+            IntentType.RENDER_APPROVE -> listOf("render.approve" to emptyMap())
+            IntentType.RENDER_EXPORT, IntentType.SHARE_MEDIA ->
+                listOf("render.export" to emptyMap())
             IntentType.VIDEO_INFO -> {
                 val path = intent.parameters["path"]
                     ?: return Outcome.Failure(
@@ -375,12 +384,6 @@ class RuleBasedPlanner(
                 }
                 return planner.plan(intent)
             }
-            IntentType.SHARE_MEDIA -> return Outcome.Failure(
-                AppError(
-                    "PLAN_SHARE_PENDING",
-                    "ระบบแชร์/โพสต์มาพร้อมหน้า Export ใน CP-67 ครับ",
-                ),
-            )
             IntentType.LLM_CONNECT -> return Outcome.Failure(
                 AppError(
                     "PLAN_LLM_GUIDE",

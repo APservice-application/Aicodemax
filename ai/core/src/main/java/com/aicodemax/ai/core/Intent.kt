@@ -52,6 +52,10 @@ enum class IntentType {
     SUBTITLE_MAKE,
     SUBTITLE_SHIFT,
     SUBTITLE_BURN,
+    RENDER_START,
+    RENDER_STATUS,
+    RENDER_APPROVE,
+    RENDER_EXPORT,
     UNKNOWN,
 }
 
@@ -225,6 +229,19 @@ object IntentParser {
             val srt = files.firstOrNull { it.lowercase().endsWith(".srt") }
             val src = files.firstOrNull { it != srt }
             return UserIntent(IntentType.SUBTITLE_BURN, text, params("src" to src, "srt" to srt))
+        }
+        if (containsAny(t, ThaiVocabulary.renderStatusWords)) {
+            return UserIntent(IntentType.RENDER_STATUS, text)
+        }
+        if (containsAny(t, ThaiVocabulary.renderApproveWords)) {
+            return UserIntent(IntentType.RENDER_APPROVE, text)
+        }
+        if (containsAny(t, ThaiVocabulary.renderExportWords)) {
+            return UserIntent(IntentType.RENDER_EXPORT, text)
+        }
+        if (containsAny(t, ThaiVocabulary.renderStartWords)) {
+            val preset = listOf("720p", "480p", "original").firstOrNull { t.contains(it) }
+            return UserIntent(IntentType.RENDER_START, text, params("preset" to preset))
         }
         if (containsAny(t, ThaiVocabulary.videoInfoWords)) {
             return UserIntent(IntentType.VIDEO_INFO, text, params("path" to file))

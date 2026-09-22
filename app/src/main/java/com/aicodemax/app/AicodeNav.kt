@@ -50,6 +50,7 @@ object Routes {
     const val GIT = "git"
     const val BUILD = "build"
     const val SKILLS = "skills"
+    const val RENDER = "render"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -76,6 +77,7 @@ private fun titleFor(route: String): String = when (route) {
     Routes.GIT -> "Git"
     Routes.BUILD -> "Build & Test"
     Routes.SKILLS -> "Skills"
+    Routes.RENDER -> "เรนเดอร์"
     else -> "Aicodemax"
 }
 
@@ -131,6 +133,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                         if (toolId == "terminal") nav.navigateSingle(Routes.TERMINAL)
                         if (toolId == "build") nav.navigateSingle(Routes.BUILD)
                         if (toolId == "skill") nav.navigateSingle(Routes.SKILLS)
+                        if (toolId == "render") nav.navigateSingle(Routes.RENDER)
                         if (toolId == "memory" || toolId == "debug") nav.navigateSingle(Routes.CHAT)
                     },
                     onSelfTest = { toolId -> selfTest(services, toolId) },
@@ -163,6 +166,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
             composable(Routes.GIT) { GitScreen(services) }
             composable(Routes.BUILD) { BuildScreen(services) }
             composable(Routes.SKILLS) { SkillsScreen(services) }
+            composable(Routes.RENDER) { RenderScreen(services) }
         }
     }
 }
