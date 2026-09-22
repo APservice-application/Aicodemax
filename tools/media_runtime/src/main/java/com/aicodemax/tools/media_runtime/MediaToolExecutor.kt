@@ -6,6 +6,7 @@ import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.gateway.ToolExecutor
 import com.aicodemax.tools.gateway.ToolResult
 import com.aicodemax.data.media.ClipSpeed
+import com.aicodemax.data.media.ClipKeyframes
 import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.SpeedPoint
 import com.aicodemax.core.common.Ids
@@ -67,7 +68,8 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                             val lines = ordered.mapIndexed { i, (track, clip) ->
                                 "  ${i + 1}. ${track.id}: ${clip.assetId} ${clip.startMs}..${clip.endMs} @${clip.atMs} [${clip.id}]" +
                                     (clip.transform?.summary()?.ifBlank { null }?.let { " <$it>" } ?: "") +
-                                    (clip.speed?.summary()?.ifBlank { null }?.let { " [$it]" } ?: "")
+                                    (clip.speed?.summary()?.ifBlank { null }?.let { " [$it]" } ?: "") +
+                                    (clip.keyframes?.takeUnless { it.isEmpty }?.let { " {KF ${it.summary()}}" } ?: "")
                             }
                             val flags = timeline.tracks.joinToString(" ") { track ->
                                 buildString {
@@ -427,6 +429,47 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                     )
                     media.setClipSpeed(projectId, clipId, next, call.actor).fold(
                         onSuccess = { done(true, "ตั้งความเร็วแล้ว (${next.summary().ifBlank { "ปกติ" }}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.setKeyframe" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val prop = call.args["prop"]
+                        ?: return@withContext done(false, error = "missing arg: prop (${ClipKeyframes.PROPS.joinToString("/")})")
+                    val at = call.args["atMs"]?.toLongOrNull()
+                        ?: return@withContext done(false, error = "missing arg: atMs (มิลลิวินาทีจากต้นคลิป)")
+                    val value = call.args["value"]?.toFloatOrNull()
+                        ?: return@withContext done(false, error = "missing arg: value")
+                    val ease = call.args["ease"] ?: "linear"
+                    media.setKeyframe(projectId, clipId, prop, at, value, ease, call.actor).fold(
+                        onSuccess = { done(true, "ตั้งคีย์เฟรม $prop=$value @${at}ms ($ease) แล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.removeKeyframe" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val prop = call.args["prop"]
+                        ?: return@withContext done(false, error = "missing arg: prop")
+                    val at = call.args["atMs"]?.toLongOrNull()
+                        ?: return@withContext done(false, error = "missing arg: atMs")
+                    media.removeKeyframe(projectId, clipId, prop, at, call.actor).fold(
+                        onSuccess = { done(true, "ลบคีย์เฟรม $prop ใกล้ ${at}ms แล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.clearKeyframes" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    media.clearKeyframes(projectId, clipId, call.args["prop"], call.actor).fold(
+                        onSuccess = { done(true, "ล้างคีย์เฟรมแล้ว (เลิกทำได้: edit.undo)") },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

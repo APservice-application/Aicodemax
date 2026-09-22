@@ -68,6 +68,8 @@ enum class IntentType {
     TEXT_IDEA,
     CLIP_SPEED,
     CLIP_REVERSE,
+    KEYFRAME_SET,
+    KEYFRAME_CLEAR,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -399,6 +401,34 @@ object IntentParser {
             return UserIntent(
                 IntentType.TEXT_IDEA, text,
                 params("kind" to kind, "topic" to topic.ifBlank { null }, "platform" to findPlatform(t)),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.keyframeClearWords)) {
+            return UserIntent(IntentType.KEYFRAME_CLEAR, text, params("clipIndex" to parseClipIndex(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.keyframeWords)) {
+            val prop = when {
+                t.contains("สเกล") || t.contains("ขนาด") -> "scale"
+                t.contains("หมุน") -> "rotation"
+                t.contains("ทึบ") || t.contains("โปร่งใส") -> "opacity"
+                t.contains("เสียง") || lower.contains("volume") -> "volume"
+                t.contains("ตำแหน่งx") || t.contains("ตำแหน่ง x") -> "posX"
+                t.contains("ตำแหน่งy") || t.contains("ตำแหน่ง y") -> "posY"
+                else -> null
+            }
+            val noClip = t.replace(Regex("คลิป(?:ที่)?\\s*\\d+"), "")
+            val noTime = noClip.replace(Regex("\\d+\\s*(?:นาที|วิ(?:นาที)?)|(?:นาที|วิ(?:นาที)?)(?:ที่)?\\s*\\d+"), "")
+            val value = Regex("(\\d+)").find(noTime)?.groupValues?.get(1)
+            val ease = if (t.contains("นุ่ม")) "easeinout" else null
+            return UserIntent(
+                IntentType.KEYFRAME_SET, text,
+                params(
+                    "clipIndex" to parseClipIndex(t),
+                    "prop" to prop,
+                    "atMs" to parseTimeMs(t)?.toString(),
+                    "value" to value,
+                    "ease" to ease,
+                ),
             )
         }
         if (containsAny(t, ThaiVocabulary.clipReverseWords)) {

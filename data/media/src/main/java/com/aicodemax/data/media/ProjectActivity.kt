@@ -55,6 +55,9 @@ object ProjectEventTypes {
     const val TEXT_UPDATED = "TEXT_UPDATED"
     const val TEXT_REMOVED = "TEXT_REMOVED"
     const val CLIP_SPEED = "CLIP_SPEED"
+    const val KEYFRAME_SET = "KEYFRAME_SET"
+    const val KEYFRAME_REMOVED = "KEYFRAME_REMOVED"
+    const val KEYFRAMES_CLEARED = "KEYFRAMES_CLEARED"
 }
 
 class FileEventLog(root: File) {

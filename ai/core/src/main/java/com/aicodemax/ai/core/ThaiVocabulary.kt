@@ -154,6 +154,8 @@ object ThaiVocabulary {
     val textIdeaWords: List<String> = listOf("คิดแคปชัน", "คิดหัวข้อ", "คิดสโลแกน", "ช่วยคิดข้อความ", "เขียนแคปชัน")
     val clipSpeedWords: List<String> = listOf("ความเร็วคลิป", "สปีดคลิป", "ช้าลงคลิป", "เร็วขึ้นคลิป")
     val clipReverseWords: List<String> = listOf("ย้อนคลิป", "เล่นย้อนกลับ")
+    val keyframeWords: List<String> = listOf("คีย์เฟรม", "keyframe")
+    val keyframeClearWords: List<String> = listOf("ลบคีย์เฟรม", "ล้างคีย์เฟรม")
     val markerAddWords: List<String> = listOf("เพิ่มมาร์กเกอร์", "มาร์กเกอร์", "จุดมาร์ก")
     val markerRemoveWords: List<String> = listOf("ลบมาร์กเกอร์")
     val trackUnlockWords: List<String> = listOf("ปลดล็อกแทร็ก")

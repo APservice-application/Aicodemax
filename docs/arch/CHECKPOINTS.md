@@ -114,7 +114,7 @@
 | CP-73 | Basic video ops + render transform | DONE | ClipTransform + TimelineOps + transform/freeze tools + CLIP intents + render compose + Timeline UI + เทส (351/351) |
 | CP-74 | Text engine + AI text | DONE | OverlayText + presets + anim + text tools/ideas + TEXT intents + render overlay + UI + เทส (358/358) |
 | CP-75 | Speed engine | DONE | ClipSpeed rate/reverse/curve + speed-aware ops + audio/video render + intents + UI + เทส (364/364) |
-| CP-76 | Keyframe engine | TODO | §14 keyframe + graph data + render interpolation |
+| CP-76 | Keyframe engine | DONE | KeyPoint/ClipKeyframes + Easing(linear/ease/bezier) + set/remove/clear + split-shift + render interp (video/still/reverse/audio) + intents + UI + เทส (373/373) |
 | CP-77 | Transitions + basic effects | TODO | §21 + §20 blur/vignette/grain + render chain |
 | CP-78 | Color engine + scopes | TODO | §42 basic/HSL + histogram §101 + render |
 | CP-79 | Mask + chroma + background | TODO | §17/§18/§19 + render |

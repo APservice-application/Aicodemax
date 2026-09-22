@@ -16,8 +16,9 @@ object TimelineOps {
             throw IllegalArgumentException("จุดแยกต้องอยู่ระหว่าง ${start}..${end}ms")
         }
         val cut = clip.startMs + clip.outputToSource(atTimelineMs - start)
-        val left = clip.copy(endMs = cut)
-        val right = clip.copy(id = newId, startMs = cut, atMs = atTimelineMs)
+        val leftLen = atTimelineMs - start
+        val left = clip.copy(endMs = cut, keyframes = clip.keyframes?.splitAt(leftLen)?.first)
+        val right = clip.copy(id = newId, startMs = cut, atMs = atTimelineMs, keyframes = clip.keyframes?.splitAt(leftLen)?.second)
         return timeline.replaceClips(track.id, track.clips.flatMap { if (it.id == clipId) listOf(left, right) else listOf(it) })
     }
 
@@ -222,6 +223,86 @@ object TimelineOps {
         }
         val next = if (speed.isIdentity) null else speed
         return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(speed = next) else it })
+    }
+
+    /** CP-76: adds/replaces one key point on a clip property (§14). */
+    fun setKeyframe(
+        timeline: Timeline,
+        clipId: String,
+        prop: String,
+        atMs: Long,
+        value: Float,
+        ease: String = "linear",
+    ): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (prop !in ClipKeyframes.PROPS) throw IllegalArgumentException("property ไม่รู้จัก ($prop)")
+        if (ease !in ClipKeyframes.EASES) throw IllegalArgumentException("ease ไม่รู้จัก ($ease)")
+        if (track.kind == MediaKind.AUDIO && prop != "volume") {
+            throw IllegalArgumentException("คลิปเสียงใช้ keyframe ภาพไม่ได้")
+        }
+        if (atMs < 0) throw IllegalArgumentException("เวลา keyframe ติดลบไม่ได้")
+        val outLen = clip.outputDurationMs()
+        if (atMs > outLen) throw IllegalArgumentException("keyframe เกินความยาวคลิป (${outLen}ms)")
+        val range = ClipKeyframes.RANGES[prop]!!
+        if (value < range.first || value > range.second) {
+            throw IllegalArgumentException("$prop ค่าต้องอยู่ ${range.first}..${range.second}")
+        }
+        val keys = clip.keyframes ?: ClipKeyframes()
+        val next = (keys.points(prop).filterNot { it.atMs == atMs } +
+            KeyPoint(atMs, value, ease)).sortedBy { it.atMs }
+        if (next.size > 64) throw IllegalArgumentException("$prop มีคีย์เกิน 64 จุด")
+        val done = keys.withPoints(prop, next)
+        val problems = done.validate()
+        if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(keyframes = done) else it })
+    }
+
+    /** CP-76: deletes the key point nearest [atMs] (within 120ms). */
+    fun removeKeyframe(timeline: Timeline, clipId: String, prop: String, atMs: Long): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (prop !in ClipKeyframes.PROPS) throw IllegalArgumentException("property ไม่รู้จัก ($prop)")
+        val keys = clip.keyframes ?: throw IllegalArgumentException("คลิปนี้ไม่มี keyframe")
+        val near = keys.points(prop).minByOrNull { kotlin.math.abs(it.atMs - atMs) }
+            ?: throw IllegalArgumentException("$prop ไม่มีคีย์ให้ลบ")
+        if (kotlin.math.abs(near.atMs - atMs) > 120) {
+            throw IllegalArgumentException("ไม่พบคีย์ใกล้ ${atMs}ms")
+        }
+        val done = keys.withPoints(prop, keys.points(prop).filterNot { it === near })
+        val next = done.takeUnless { it.isEmpty }
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(keyframes = next) else it })
+    }
+
+    /** CP-76: clears all keys of [prop], or every property when null. */
+    fun clearKeyframes(timeline: Timeline, clipId: String, prop: String? = null): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        val keys = clip.keyframes ?: return timeline
+        val next = if (prop == null) {
+            null
+        } else {
+            if (prop !in ClipKeyframes.PROPS) throw IllegalArgumentException("property ไม่รู้จัก ($prop)")
+            keys.withPoints(prop, emptyList()).takeUnless { it.isEmpty }
+        }
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(keyframes = next) else it })
+    }
+
+    /** CP-76: splits output-relative keyframes at [leftLen] into (left, right-shifted). */
+    private fun ClipKeyframes.splitAt(leftLen: Long): Pair<ClipKeyframes?, ClipKeyframes?> {
+        var left = ClipKeyframes()
+        var right = ClipKeyframes()
+        for (prop in ClipKeyframes.PROPS) {
+            left = left.withPoints(prop, points(prop).filter { it.atMs < leftLen })
+            right = right.withPoints(
+                prop,
+                points(prop).filter { it.atMs >= leftLen }.map { it.copy(atMs = it.atMs - leftLen) },
+            )
+        }
+        return left.takeUnless { it.isEmpty } to right.takeUnless { it.isEmpty }
     }
 
     private fun checkUnlocked(track: Track) {

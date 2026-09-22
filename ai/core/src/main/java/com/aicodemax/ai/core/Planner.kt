@@ -312,6 +312,31 @@ class RuleBasedPlanner(
                 intent.parameters["rate"]?.let { args["rate"] = it }
                 listOf("media.timeline.setSpeed" to args)
             }
+            IntentType.KEYFRAME_SET -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ตั้งคีย์เฟรมคลิปที่เท่าไหร่ครับ? เช่น คีย์เฟรมสเกลคลิปที่ 1 150 ตอน 2 วิ"),
+                    )
+                val prop = intent.parameters["prop"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_KEYPROP", "คีย์เฟรมอะไรครับ? สเกล/หมุน/ทึบ/เสียง/ตำแหน่งx/ตำแหน่งy"),
+                    )
+                val at = intent.parameters["atMs"] ?: "0"
+                val value = intent.parameters["value"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_KEYVALUE", "ค่าคีย์เฟรมเท่าไหร่ครับ? เช่น คีย์เฟรมสเกลคลิปที่ 1 150 ตอน 2 วิ"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip, "prop" to prop, "atMs" to at, "value" to value)
+                intent.parameters["ease"]?.let { args["ease"] = it }
+                listOf("media.timeline.setKeyframe" to args)
+            }
+            IntentType.KEYFRAME_CLEAR -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ลบคีย์เฟรมคลิปที่เท่าไหร่ครับ? เช่น ลบคีย์เฟรมคลิปที่ 1"),
+                    )
+                listOf("media.timeline.clearKeyframes" to mapOf("clipIndex" to clip))
+            }
             IntentType.CLIP_REVERSE -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

@@ -213,6 +213,12 @@ object StandardCapabilities {
             metadata = meta("media", "ลบข้อความ", listOf("textIndex"), listOf("ok"), listOf("fs.write"), false, "text gone", "check id", true, "edit.undo")),
         CapabilityBinding("media.timeline.setSpeed", "media", "timeline.setSpeed", AdapterKind.NATIVE,
             metadata = meta("media", "ความเร็ว/ย้อนกลับ/ramp คลิป", listOf("clipIndex,rate?,reverse?,curve?"), listOf("ok"), listOf("fs.write"), false, "speed shown", "25..400", true, "edit.undo")),
+        CapabilityBinding("media.timeline.setKeyframe", "media", "timeline.setKeyframe", AdapterKind.NATIVE,
+            metadata = meta("media", "ตั้งคีย์เฟรมคลิป", listOf("clipIndex,prop,atMs,value,ease?"), listOf("ok"), listOf("fs.write"), false, "key shown", "fix prop", true, "edit.undo")),
+        CapabilityBinding("media.timeline.removeKeyframe", "media", "timeline.removeKeyframe", AdapterKind.NATIVE,
+            metadata = meta("media", "ลบคีย์เฟรมคลิป", listOf("clipIndex,prop,atMs"), listOf("ok"), listOf("fs.write"), false, "key gone", "check id", true, "edit.undo")),
+        CapabilityBinding("media.timeline.clearKeyframes", "media", "timeline.clearKeyframes", AdapterKind.NATIVE,
+            metadata = meta("media", "ล้างคีย์เฟรมคลิป", listOf("clipIndex,prop?"), listOf("ok"), listOf("fs.write"), false, "keys gone", "check id", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

@@ -91,6 +91,29 @@ interface MediaProjectPort {
         speed: ClipSpeed,
         actor: String = "AI",
     ): Outcome<Project>
+    // CP-76 keyframes (§14).
+    suspend fun setKeyframe(
+        projectId: String,
+        clipId: String,
+        prop: String,
+        atMs: Long,
+        value: Float,
+        ease: String = "linear",
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun removeKeyframe(
+        projectId: String,
+        clipId: String,
+        prop: String,
+        atMs: Long,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun clearKeyframes(
+        projectId: String,
+        clipId: String,
+        prop: String? = null,
+        actor: String = "AI",
+    ): Outcome<Project>
     suspend fun addMarker(projectId: String, atMs: Long, label: String = "", actor: String = "AI"): Outcome<TimelineMarker>
     suspend fun removeMarker(projectId: String, markerId: String, actor: String = "AI"): Outcome<Unit>
     suspend fun setTrackFlags(
@@ -424,6 +447,37 @@ class FileMediaProject(
     ): Outcome<Project> = editTimeline(
         projectId, "ความเร็วคลิป $clipId", ProjectEventTypes.CLIP_SPEED, actor,
     ) { TimelineOps.speed(it, clipId, speed) }
+
+    override suspend fun setKeyframe(
+        projectId: String,
+        clipId: String,
+        prop: String,
+        atMs: Long,
+        value: Float,
+        ease: String,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "คีย์เฟรม $prop $clipId", ProjectEventTypes.KEYFRAME_SET, actor,
+    ) { TimelineOps.setKeyframe(it, clipId, prop, atMs, value, ease) }
+
+    override suspend fun removeKeyframe(
+        projectId: String,
+        clipId: String,
+        prop: String,
+        atMs: Long,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ลบคีย์เฟรม $prop $clipId", ProjectEventTypes.KEYFRAME_REMOVED, actor,
+    ) { TimelineOps.removeKeyframe(it, clipId, prop, atMs) }
+
+    override suspend fun clearKeyframes(
+        projectId: String,
+        clipId: String,
+        prop: String?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ล้างคีย์เฟรม $clipId", ProjectEventTypes.KEYFRAMES_CLEARED, actor,
+    ) { TimelineOps.clearKeyframes(it, clipId, prop) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(
@@ -979,6 +1033,37 @@ class InMemoryMediaProject : MediaProjectPort {
     ): Outcome<Project> = editTimeline(
         projectId, "ความเร็วคลิป $clipId", ProjectEventTypes.CLIP_SPEED, actor,
     ) { TimelineOps.speed(it, clipId, speed) }
+
+    override suspend fun setKeyframe(
+        projectId: String,
+        clipId: String,
+        prop: String,
+        atMs: Long,
+        value: Float,
+        ease: String,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "คีย์เฟรม $prop $clipId", ProjectEventTypes.KEYFRAME_SET, actor,
+    ) { TimelineOps.setKeyframe(it, clipId, prop, atMs, value, ease) }
+
+    override suspend fun removeKeyframe(
+        projectId: String,
+        clipId: String,
+        prop: String,
+        atMs: Long,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ลบคีย์เฟรม $prop $clipId", ProjectEventTypes.KEYFRAME_REMOVED, actor,
+    ) { TimelineOps.removeKeyframe(it, clipId, prop, atMs) }
+
+    override suspend fun clearKeyframes(
+        projectId: String,
+        clipId: String,
+        prop: String?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ล้างคีย์เฟรม $clipId", ProjectEventTypes.KEYFRAMES_CLEARED, actor,
+    ) { TimelineOps.clearKeyframes(it, clipId, prop) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(projectId, "บันทึกเวอร์ชัน", ProjectEventTypes.VERSION_SAVED, actor) {

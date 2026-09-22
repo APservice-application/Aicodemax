@@ -18,6 +18,7 @@ import com.aicodemax.core.common.fold
 import com.aicodemax.data.media.Clip
 import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.ClipSpeed
+import com.aicodemax.data.media.ClipKeyframes
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.MediaAsset
 import com.aicodemax.data.media.MediaKind
@@ -261,7 +262,8 @@ class AndroidRenderPort(
             (single.transform == null || single.transform.isIdentity) &&
             single.height in 1..job.preset.maxHeight &&
             timeline.texts.isEmpty() &&
-            (single.speed == null)
+            (single.speed == null) &&
+            (single.clip.keyframes == null || single.clip.keyframes.isEmpty)
         return RenderPlan(
             timeline = timeline,
             segments = probed.sortedBy { it.clip.atMs },
@@ -518,14 +520,17 @@ class AndroidRenderPort(
         var lastYuv: ByteArray? = null
         fun needed(j: Int): Long =
             speed?.outputToSource(j * 1000L / 30, srcLen) ?: (j * 1000L / 30)
+        val keys = seg.clip.keyframes?.takeUnless { it.isEmpty }
         fun emit(image: android.media.Image, j: Int) {
             val timelineMs = seg.clip.atMs + j * 1000L / 30
             val live = texts.filter { timelineMs in it.startMs until it.endMs }
-            val yuv = if (active == null && live.isEmpty()) {
+            val yuv = if (active == null && live.isEmpty() && keys == null) {
                 frameToYuv(image, outW, outH, planar)
             } else {
                 val argb = yuv420888ToArgb(image)
-                val base = if (active != null) {
+                val base = if (keys != null) {
+                    composeLook(argb, image.width, image.height, frameLook(active, keys, j * 1000L / 30), outW, outH)
+                } else if (active != null) {
                     composeFrame(argb, image.width, image.height, active, outW, outH)
                 } else {
                     scaleArgb(argb, image.width, image.height, outW, outH)
@@ -662,6 +667,7 @@ class AndroidRenderPort(
                 ext.getTrackFormat(trackIndex).getString(MediaFormat.KEY_MIME)!!,
             )
             val rels = mutableListOf<Long>()
+            val keys = seg.clip.keyframes?.takeUnless { it.isEmpty }
             try {
                 decoder.configure(ext.getTrackFormat(trackIndex), reader.surface, null, 0)
                 decoder.start()
@@ -693,13 +699,20 @@ class AndroidRenderPort(
                                 if (image != null) {
                                     try {
                                         val argb = yuv420888ToArgb(image)
-                                        val base = if (active != null) {
-                                            composeFrame(argb, image.width, image.height, active, outW, outH)
+                                        val iw = image.width
+                                        val ih = image.height
+                                        val base: IntArray
+                                        val bw: Int
+                                        val bh: Int
+                                        if (keys != null) {
+                                            base = argb; bw = iw; bh = ih
+                                        } else if (active != null) {
+                                            base = composeFrame(argb, iw, ih, active, outW, outH); bw = outW; bh = outH
                                         } else {
-                                            scaleArgb(argb, image.width, image.height, outW, outH)
+                                            base = scaleArgb(argb, iw, ih, outW, outH); bw = outW; bh = outH
                                         }
-                                        val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
-                                        bmp.setPixels(base, 0, outW, 0, 0, outW, outH)
+                                        val bmp = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888)
+                                        bmp.setPixels(base, 0, bw, 0, 0, bw, bh)
                                         File(cacheDir, "f$stored.jpg").outputStream().use { out ->
                                             bmp.compress(Bitmap.CompressFormat.JPEG, 90, out)
                                         }
@@ -737,7 +750,12 @@ class AndroidRenderPort(
                 val bmp = BitmapFactory.decodeFile(File(cacheDir, "f$best.jpg").path)
                     ?: throw IllegalStateException("อ่านเฟรมแคชไม่ได้")
                 val frame = IntArray(outW * outH)
-                if (bmp.width == outW && bmp.height == outH) {
+                if (keys != null) {
+                    val raw = IntArray(bmp.width * bmp.height)
+                    bmp.getPixels(raw, 0, bmp.width, 0, 0, bmp.width, bmp.height)
+                    val composed = composeLook(raw, bmp.width, bmp.height, frameLook(active, keys, j * 1000L / 30), outW, outH)
+                    composed.copyInto(frame)
+                } else if (bmp.width == outW && bmp.height == outH) {
                     bmp.getPixels(frame, 0, outW, 0, 0, outW, outH)
                 } else {
                     val scaled = Bitmap.createScaledBitmap(bmp, outW, outH, true)
@@ -765,9 +783,10 @@ class AndroidRenderPort(
     ) {
         val raw = BitmapFactory.decodeFile(seg.file.path) ?: return
         val active = seg.transform?.takeUnless { it.isIdentity }
+        val keys = seg.clip.keyframes?.takeUnless { it.isEmpty }
         val stillEnd = seg.clip.atMs + seg.clip.outputDurationMs()
         val live = texts.filter { it.startMs < stillEnd && it.endMs > seg.clip.atMs }
-        if (active != null || live.isNotEmpty()) {
+        if (active != null || live.isNotEmpty() || keys != null) {
             feedStillComposed(raw, active, live, seg, outW, outH, planar, feed)
             return
         }
@@ -806,12 +825,22 @@ class AndroidRenderPort(
     ) {
         val pixels = IntArray(raw.width * raw.height)
         raw.getPixels(pixels, 0, raw.width, 0, 0, raw.width, raw.height)
+        val frames = ((seg.clip.outputDurationMs() * 30) / 1000).toInt().coerceIn(1, 30 * 600)
+        val keys = seg.clip.keyframes?.takeUnless { it.isEmpty }
+        if (keys != null) {
+            repeat(frames) { i ->
+                val timelineMs = seg.clip.atMs + i * 1000L / 30
+                val frame = composeLook(pixels, raw.width, raw.height, frameLook(t, keys, i * 1000L / 30), outW, outH)
+                drawTexts(frame, outW, outH, live.filter { timelineMs in it.startMs until it.endMs }, timelineMs)
+                feed(if (planar) Yuv.toI420(frame, outW, outH) else Yuv.toNV12(frame, outW, outH))
+            }
+            return
+        }
         val base = if (t != null) {
             composeFrame(pixels, raw.width, raw.height, t, outW, outH)
         } else {
             scaleArgb(centerCropPixels(pixels, raw.width, raw.height, outW, outH), outW, outH, outW, outH)
         }
-        val frames = ((seg.clip.outputDurationMs() * 30) / 1000).toInt().coerceIn(1, 30 * 600)
         if (live.isEmpty()) {
             val yuv = if (planar) Yuv.toI420(base, outW, outH) else Yuv.toNV12(base, outW, outH)
             repeat(frames) { feed(yuv) }
@@ -1060,6 +1089,94 @@ class AndroidRenderPort(
         return Triple(out, ow, oh)
     }
 
+    // ---- CP-76 keyframes (§14) ----
+
+    /** Per-frame sampled visual state: effective transform + free rotation degrees. */
+    private data class FrameLook(val transform: ClipTransform?, val rotFree: Float)
+
+    private fun frameLook(base: ClipTransform?, keys: ClipKeyframes?, offsetMs: Long): FrameLook {
+        if (keys == null || keys.isEmpty) {
+            return FrameLook(base?.takeUnless { it.isIdentity }, base?.rotation?.toFloat() ?: 0f)
+        }
+        val b = base ?: ClipTransform()
+        val rot = keys.valueAt("rotation", offsetMs) ?: b.rotation.toFloat()
+        val t = b.copy(
+            posX = keys.valueAt("posX", offsetMs)?.toInt() ?: b.posX,
+            posY = keys.valueAt("posY", offsetMs)?.toInt() ?: b.posY,
+            scale = keys.valueAt("scale", offsetMs)?.toInt() ?: b.scale,
+            rotation = rot.toInt(),
+            opacity = keys.valueAt("opacity", offsetMs)?.toInt() ?: b.opacity,
+            cropX = keys.valueAt("cropX", offsetMs)?.toInt() ?: b.cropX,
+            cropY = keys.valueAt("cropY", offsetMs)?.toInt() ?: b.cropY,
+            cropW = keys.valueAt("cropW", offsetMs)?.toInt() ?: b.cropW,
+            cropH = keys.valueAt("cropH", offsetMs)?.toInt() ?: b.cropH,
+        )
+        return FrameLook(t.takeUnless { it.isIdentity && isStep90(rot) }, rot)
+    }
+
+    private fun isStep90(deg: Float): Boolean {
+        val r = ((deg % 360 + 360) % 360).toInt()
+        return r == 0 || r == 90 || r == 180 || r == 270
+    }
+
+    private fun composeLook(
+        pixels: IntArray,
+        w: Int,
+        h: Int,
+        look: FrameLook,
+        outW: Int,
+        outH: Int,
+    ): IntArray {
+        val st = look.transform ?: return scaleArgb(pixels, w, h, outW, outH)
+        return if (isStep90(look.rotFree)) {
+            composeFrame(pixels, w, h, st, outW, outH)
+        } else {
+            composeFrameFree(pixels, w, h, st, look.rotFree, outW, outH)
+        }
+    }
+
+    /** Arbitrary-rotation variant of [composeFrame] (Matrix path, keyframed spin). */
+    private fun composeFrameFree(
+        pixels: IntArray,
+        w: Int,
+        h: Int,
+        t: ClipTransform,
+        rotDeg: Float,
+        outW: Int,
+        outH: Int,
+    ): IntArray {
+        val cx = (w * t.cropX / 100).coerceIn(0, w - 1)
+        val cy = (h * t.cropY / 100).coerceIn(0, h - 1)
+        val cw = (w * t.cropW / 100).coerceIn(1, w - cx)
+        val ch = (h * t.cropH / 100).coerceIn(1, h - cy)
+        val cropped = IntArray(cw * ch)
+        for (row in 0 until ch) {
+            pixels.copyInto(cropped, row * cw, (cy + row) * w + cx, (cy + row) * w + cx + cw)
+        }
+        val (oriented, ow, oh) = rotateFlip(cropped, cw, ch, 0, t.flipH, t.flipV)
+        val src = android.graphics.Bitmap.createBitmap(ow, oh, android.graphics.Bitmap.Config.ARGB_8888)
+        src.setPixels(oriented, 0, ow, 0, 0, ow, oh)
+        val canvas = android.graphics.Bitmap.createBitmap(outW, outH, android.graphics.Bitmap.Config.ARGB_8888)
+        canvas.eraseColor(0xFF000000.toInt())
+        val s = (maxOf(outW.toDouble() / ow, outH.toDouble() / oh) * t.scale / 100.0).toFloat()
+        val m = android.graphics.Matrix()
+        m.postScale(s, s)
+        m.postRotate(rotDeg, ow * s / 2f, oh * s / 2f)
+        val bounds = android.graphics.RectF(0f, 0f, ow.toFloat(), oh.toFloat())
+        m.mapRect(bounds)
+        m.postTranslate(outW / 2f + t.posX - bounds.centerX(), outH / 2f + t.posY - bounds.centerY())
+        val paint = android.graphics.Paint().apply {
+            alpha = (t.opacity * 255 / 100).coerceIn(0, 255)
+            isFilterBitmap = true
+        }
+        android.graphics.Canvas(canvas).drawBitmap(src, m, paint)
+        src.recycle()
+        val out = IntArray(outW * outH)
+        canvas.getPixels(out, 0, outW, 0, 0, outW, outH)
+        canvas.recycle()
+        return out
+    }
+
     private fun centerCrop(src: Bitmap, outW: Int, outH: Int): Bitmap {
         val srcAspect = src.width.toDouble() / src.height
         val dstAspect = outW.toDouble() / outH
@@ -1277,7 +1394,7 @@ class AndroidRenderPort(
                     val endFrame = ((seg.clip.endMs * rate) / 1000).toInt().coerceIn(startFrame, stereo.frames)
                     val atFrame = ((seg.clip.atMs * rate) / 1000).toInt()
                     val gain = seg.clip.volume / 100.0f
-                    mixAudioSlice(mix, frames, stereo, startFrame, endFrame, atFrame, gain, seg.speed)
+                    mixAudioSlice(mix, frames, stereo, startFrame, endFrame, atFrame, gain, seg.speed, seg.clip.keyframes?.takeUnless { it.points("volume").isEmpty() })
                 }
             }
         }
@@ -1297,13 +1414,18 @@ class AndroidRenderPort(
         atFrame: Int,
         gain: Float,
         speed: ClipSpeed?,
+        volKeys: ClipKeyframes? = null,
     ) {
+        fun volGain(outMs: Long): Float =
+            volKeys?.valueAt("volume", outMs)?.div(100f) ?: 1f
+        val stepMs = 1000.0 / stereo.sampleRate
         if (speed == null) {
             var s = startFrame
             var d = atFrame
             while (s < endFrame && d < mixFrames) {
-                mix[d * 2] += stereo.samples[s * 2] * gain
-                mix[d * 2 + 1] += stereo.samples[s * 2 + 1] * gain
+                val g = gain * volGain(((d - atFrame) * stepMs).toLong())
+                mix[d * 2] += stereo.samples[s * 2] * g
+                mix[d * 2 + 1] += stereo.samples[s * 2 + 1] * g
                 s += 1
                 d += 1
             }
@@ -1312,7 +1434,6 @@ class AndroidRenderPort(
         val sliceLen = (endFrame - startFrame).coerceAtLeast(1)
         val outLen = (sliceLen * 100 / speed.rate).coerceAtLeast(1)
         val prof = speed.profile()
-        val stepMs = 1000.0 / stereo.sampleRate
         var srcMs = 0.0
         var o = 0
         var d = atFrame
@@ -1327,8 +1448,9 @@ class AndroidRenderPort(
             val frac = (clamped - i0).toFloat()
             val l = stereo.samples[i0 * 2] * (1 - frac) + stereo.samples[i1 * 2] * frac
             val r = stereo.samples[i0 * 2 + 1] * (1 - frac) + stereo.samples[i1 * 2 + 1] * frac
-            mix[d * 2] += l * gain
-            mix[d * 2 + 1] += r * gain
+            val g = gain * volGain((o * stepMs).toLong())
+            mix[d * 2] += l * g
+            mix[d * 2 + 1] += r * g
             o += 1
             d += 1
         }
