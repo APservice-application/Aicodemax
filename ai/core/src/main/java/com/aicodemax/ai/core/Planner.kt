@@ -630,6 +630,24 @@ class RuleBasedPlanner(
                     )
                 listOf("media.script.video" to mapOf("script" to script))
             }
+            // CP-99 honest defer: lipsync needs a face/voice generative model.
+            IntentType.LIPSYNC -> {
+                return Outcome.Failure(
+                    AppError(
+                        "DEFERRED_LIPSYNC",
+                        "ลิปซิงค์ (ขยับปากตามเสียง) ยังไม่รองรับครับ — ต้องใช้โมเดล AI เฉพาะทางที่ยังไม่มี ตอนนี้ใช้ ซับไตเติล/พากย์เสียง แทนได้",
+                    ),
+                )
+            }
+            // CP-99 honest defer: AI presenter needs avatar generation.
+            IntentType.PRESENTER -> {
+                return Outcome.Failure(
+                    AppError(
+                        "DEFERRED_PRESENTER",
+                        "ผู้ประกาศ AI (อวตารพูด) ยังไม่รองรับครับ — ตอนนี้ใช้ บทเป็นวิดีโอ (เสียงพากย์+ภาพ+ซับ) แทนได้",
+                    ),
+                )
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

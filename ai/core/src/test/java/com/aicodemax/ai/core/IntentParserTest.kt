@@ -257,6 +257,12 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp99LipsyncPresenterIntents() {
+        assertEquals(IntentType.LIPSYNC, IntentParser.parse("ทำลิปซิงค์คลิปที่ 1").type)
+        assertEquals(IntentType.PRESENTER, IntentParser.parse("สร้างผู้ประกาศ AI").type)
+    }
+
+    @Test
     fun cp98SubtitleTranslateIntent() {
         val tr = IntentParser.parse("แปลซับ a.srt เป็นอังกฤษ")
         assertEquals(IntentType.SUBTITLE_TRANSLATE, tr.type)

@@ -240,6 +240,16 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp99DefersHonestly() = runBlocking {
+        val lip = planner.plan(UserIntent(IntentType.LIPSYNC, "t", emptyMap()))
+        assertTrue(lip is Outcome.Failure)
+        assertEquals("DEFERRED_LIPSYNC", (lip as Outcome.Failure).error.code)
+        val pre = planner.plan(UserIntent(IntentType.PRESENTER, "t", emptyMap()))
+        assertTrue(pre is Outcome.Failure)
+        assertEquals("DEFERRED_PRESENTER", (pre as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp98SubtitleTranslatePlans() = runBlocking {
         val tr = (planner.plan(UserIntent(IntentType.SUBTITLE_TRANSLATE, "t", mapOf("path" to "a.srt"))) as Outcome.Success<Plan>).value
         assertEquals("translate", tr.steps[0].action)

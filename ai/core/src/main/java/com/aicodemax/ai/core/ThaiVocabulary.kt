@@ -190,6 +190,8 @@ object ThaiVocabulary {
     val normalizeWords: List<String> = listOf("นอร์มัลไลซ์", "ปรับระดับเสียง", "normalize")
     val aiPlanWords: List<String> = listOf("วางแผนคลิป", "ไอเดียวิดีโอ", "แผนคอนเทนต์", "aiplan")
     val scriptVideoWords: List<String> = listOf("สคริปต์เป็นวิดีโอ", "บทเป็นวิดีโอ", "บทเป็นคลิป", "script to video", "scriptvideo")
+    val lipsyncWords: List<String> = listOf("ลิปซิงค์", "ลิปซิงก์", "ขยับปากตามเสียง", "lipsync", "lip sync")
+    val presenterWords: List<String> = listOf("ผู้ประกาศ", "พิธีกร", "presenter", "avatar พูด", "อวตารพูด")
     val aiModeWords: Map<String, String> = mapOf(
         "โฆษณา" to "commercial", "commercial" to "commercial",
         "เล่าเรื่อง" to "story", "สตอรี่" to "story",

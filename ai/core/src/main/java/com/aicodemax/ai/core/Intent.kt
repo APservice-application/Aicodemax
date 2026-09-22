@@ -116,6 +116,8 @@ enum class IntentType {
     AUDIO_NORMALIZE,
     AI_PLAN,
     SCRIPT_VIDEO,
+    LIPSYNC,
+    PRESENTER,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -717,6 +719,12 @@ object IntentParser {
             for (w in ThaiVocabulary.scriptVideoWords) script = script.replace(w, "")
             script = script.removePrefix(":").trim()
             return UserIntent(IntentType.SCRIPT_VIDEO, text, params("script" to script.ifBlank { null }))
+        }
+        if (containsAny(t, ThaiVocabulary.lipsyncWords)) {
+            return UserIntent(IntentType.LIPSYNC, text, params("clipIndex" to parseClipIndex(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.presenterWords)) {
+            return UserIntent(IntentType.PRESENTER, text, params("clipIndex" to parseClipIndex(t)))
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value
