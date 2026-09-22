@@ -49,6 +49,20 @@ enum class IntentType {
     ASSET_IMPORT,
     PROJECT_VERSION,
     PROJECT_RESTORE,
+    PROJECT_RENAME,
+    PROJECT_DELETE,
+    PROJECT_DUPLICATE,
+    PROJECT_CHECKPOINT,
+    EDIT_UNDO,
+    EDIT_REDO,
+    CLIP_SPLIT,
+    CLIP_TRIM,
+    CLIP_MOVE,
+    CLIP_DELETE,
+    CLIP_DUPLICATE,
+    MARKER_ADD,
+    MARKER_REMOVE,
+    TRACK_FLAGS,
     SUBTITLE_MAKE,
     SUBTITLE_SHIFT,
     SUBTITLE_BURN,
@@ -113,6 +127,31 @@ object IntentParser {
             .sortedByDescending { it.key.length }
             .firstOrNull { text.contains(it.key) }
             ?.value
+
+    /** 1-based clip number after คลิป/คลิปที่. */
+    private fun parseClipIndex(text: String): String? =
+        Regex("คลิป(?:ที่)?\\s*(\\d+)").find(text)?.groupValues?.get(1)
+
+    /**
+     * Thai time expression → ms. "2 นาที 30 วิ" / "นาทีที่ 2" / "90 วิ" /
+     * bare trailing "90" (= sec, chat-friendly; tool-level ms stays exact
+     * for API callers). The clip index ("คลิปที่ 1") is never eaten as time.
+     */
+    private fun parseTimeMs(text: String): Long? {
+        val clean = text.replace(Regex("คลิป(?:ที่)?\\s*\\d+"), "")
+        val minMatch = Regex("(?:(\\d+)\\s*นาที|นาที(?:ที่)?\\s*(\\d+))").find(clean)
+        val min = minMatch?.groupValues?.get(1)?.toLongOrNull()
+            ?: minMatch?.groupValues?.get(2)?.toLongOrNull() ?: 0
+        val secMatch = Regex("(?:(\\d+)\\s*วิ(?:นาที)?|วิ(?:นาที)?(?:ที่)?\\s*(\\d+))").find(clean)
+        val sec = secMatch?.groupValues?.get(1)?.toLongOrNull()
+            ?: secMatch?.groupValues?.get(2)?.toLongOrNull()
+        if (sec != null) return min * 60_000 + sec * 1000
+        if (min > 0) return min * 60_000
+        return Regex("(\\d+)\\s*$").find(clean)?.groupValues?.get(1)?.toLongOrNull()?.times(1000)
+    }
+
+    private fun parseTrackId(text: String): String? =
+        Regex("([VA]\\d+)", RegexOption.IGNORE_CASE).find(text)?.groupValues?.get(1)?.uppercase()
 
     fun parse(text: String): UserIntent {
         val t = clean(text)
@@ -201,6 +240,116 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.assetImportWords)) {
             return UserIntent(IntentType.ASSET_IMPORT, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.markerRemoveWords)) {
+            val id = Regex("(mark_[A-Za-z0-9]+)").find(t)?.groupValues?.get(1)
+            return UserIntent(IntentType.MARKER_REMOVE, text, params("markerId" to id))
+        }
+        if (containsAny(t, ThaiVocabulary.markerAddWords)) {
+            val time = parseTimeMs(t)
+            var label = t
+            for (w in ThaiVocabulary.markerAddWords) label = label.replace(w, "")
+            label = label.replace(Regex("\\d+\\s*(นาที|วิ|วินาที)"), "").replace(Regex("(นาที|วิ|วินาที)(ที่)?\\s*\\d+"), "").trim()
+            return UserIntent(
+                IntentType.MARKER_ADD, text,
+                params("atMs" to time?.toString(), "label" to label.ifBlank { null }),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.trackUnlockWords)) {
+            return UserIntent(
+                IntentType.TRACK_FLAGS, text,
+                params("trackId" to parseTrackId(t), "locked" to "false"),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.trackLockWords)) {
+            return UserIntent(
+                IntentType.TRACK_FLAGS, text,
+                params("trackId" to parseTrackId(t), "locked" to "true"),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.trackMuteWords)) {
+            return UserIntent(
+                IntentType.TRACK_FLAGS, text,
+                params("trackId" to parseTrackId(t), "muted" to "true"),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.trackUnmuteWords)) {
+            return UserIntent(
+                IntentType.TRACK_FLAGS, text,
+                params("trackId" to parseTrackId(t), "muted" to "false"),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.trackHideWords)) {
+            return UserIntent(
+                IntentType.TRACK_FLAGS, text,
+                params("trackId" to parseTrackId(t), "hidden" to "true"),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.trackShowWords)) {
+            return UserIntent(
+                IntentType.TRACK_FLAGS, text,
+                params("trackId" to parseTrackId(t), "hidden" to "false"),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipSplitWords)) {
+            return UserIntent(
+                IntentType.CLIP_SPLIT, text,
+                params("clipIndex" to parseClipIndex(t), "atMs" to parseTimeMs(t)?.toString()),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipTrimWords)) {
+            val startPart = when {
+                t.contains("เริ่ม") -> t.substringAfter("เริ่ม")
+                t.contains("ตั้งแต่") -> t.substringAfter("ตั้งแต่")
+                else -> ""
+            }
+            val endPart = when {
+                t.contains("จบ") -> t.substringAfter("จบ")
+                t.contains("ถึง") -> t.substringAfter("ถึง")
+                else -> ""
+            }
+            return UserIntent(
+                IntentType.CLIP_TRIM, text,
+                params(
+                    "clipIndex" to parseClipIndex(t),
+                    "startMs" to (if (t.contains("เริ่ม") || t.contains("ตั้งแต่")) parseTimeMs(startPart)?.toString() else null),
+                    "endMs" to (if (t.contains("จบ") || t.contains("ถึง")) parseTimeMs(endPart)?.toString() else null),
+                ),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipMoveWords)) {
+            return UserIntent(
+                IntentType.CLIP_MOVE, text,
+                params("clipIndex" to parseClipIndex(t), "toAtMs" to parseTimeMs(t)?.toString()),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipDeleteWords)) {
+            return UserIntent(IntentType.CLIP_DELETE, text, params("clipIndex" to parseClipIndex(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.clipDuplicateWords)) {
+            return UserIntent(
+                IntentType.CLIP_DUPLICATE, text,
+                params("clipIndex" to parseClipIndex(t), "atMs" to parseTimeMs(t)?.toString()),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.projectRenameWords)) {
+            val name = ThaiVocabulary.projectRenameWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
+            return UserIntent(IntentType.PROJECT_RENAME, text, params("name" to name.ifBlank { null }))
+        }
+        if (containsAny(t, ThaiVocabulary.projectDeleteWords)) {
+            return UserIntent(IntentType.PROJECT_DELETE, text)
+        }
+        if (containsAny(t, ThaiVocabulary.projectDuplicateWords)) {
+            return UserIntent(IntentType.PROJECT_DUPLICATE, text)
+        }
+        if (containsAny(t, ThaiVocabulary.checkpointWords)) {
+            return UserIntent(IntentType.PROJECT_CHECKPOINT, text)
+        }
+        if (containsAny(t, ThaiVocabulary.undoWords)) {
+            return UserIntent(IntentType.EDIT_UNDO, text)
+        }
+        if (containsAny(t, ThaiVocabulary.redoWords)) {
+            return UserIntent(IntentType.EDIT_REDO, text)
         }
         if (containsAny(t, ThaiVocabulary.projectListWords)) {
             return UserIntent(IntentType.PROJECT_LIST, text)

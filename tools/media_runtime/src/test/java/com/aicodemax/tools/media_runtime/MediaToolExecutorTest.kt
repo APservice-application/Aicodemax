@@ -47,12 +47,49 @@ class MediaToolExecutorTest {
     }
 
     @Test
+    fun cp71UndoCheckpointMgmtFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("undo-flow") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        assertTrue(run("project.rename", mapOf("projectId" to projectId, "name" to "renamed")).ok)
+        assertTrue(run("edit.undo", mapOf("projectId" to projectId)).output.contains("เปลี่ยนชื่อ"))
+        assertTrue(run("edit.redo", mapOf("projectId" to projectId)).ok)
+        assertTrue(run("checkpoint.save", mapOf("projectId" to projectId, "reason" to "t")).ok)
+        assertTrue(run("checkpoint.list", mapOf("projectId" to projectId)).output.contains("(t)"))
+        assertTrue(run("checkpoint.recover", mapOf("projectId" to projectId)).ok)
+        val history = run("edit.history", mapOf("projectId" to projectId))
+        assertTrue(history.ok && history.output.contains("PROJECT_CREATED"))
+        assertTrue(run("project.duplicate", mapOf("projectId" to projectId)).ok)
+        assertTrue(run("project.backup", mapOf("projectId" to projectId)).ok)
+        assertTrue(run("project.delete", mapOf("projectId" to projectId)).ok)
+        val trash = run("project.trash")
+        assertTrue(trash.ok && trash.output.contains(projectId))
+        val trashId = trash.output.lines().first { it.contains(projectId) }.trim()
+        assertTrue(run("project.restore", mapOf("trashId" to trashId)).ok)
+    }
+
+    @Test
+    fun cp72ClipOpsViaIndex(): Unit = runBlocking {
+        val projectId = (media.createProject("clips") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "a.mp4")).ok)
+        val assetId = run("asset.list", mapOf("projectId" to projectId)).output.substringBefore(" |")
+        assertTrue(run("timeline.addClip", mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0")).ok)
+        assertTrue(run("timeline.splitClip", mapOf("projectId" to projectId, "clipIndex" to "1", "atMs" to "2000")).ok)
+        val got = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(got.output.contains("1. V1") && got.output.contains("2. V1"))
+        assertTrue(run("timeline.trackFlags", mapOf("projectId" to projectId, "trackId" to "V1", "muted" to "เปิด")).output.contains("ปิดเสียง=true"))
+        assertTrue(run("timeline.addMarker", mapOf("projectId" to projectId, "atMs" to "1000", "label" to "hi")).ok)
+        assertTrue(run("timeline.moveClip", mapOf("projectId" to projectId, "clipIndex" to "2", "toAtMs" to "5000")).ok)
+        assertTrue(run("timeline.duplicateClip", mapOf("projectId" to projectId, "clipIndex" to "1")).ok)
+        assertTrue(run("timeline.deleteClip", mapOf("projectId" to projectId, "clipIndex" to "1")).ok)
+        assertTrue(!run("timeline.splitClip", mapOf("projectId" to projectId)).ok)
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         assertTrue(!run("asset.import", emptyMap()).ok)
         assertTrue(!run("timeline.addClip", mapOf("projectId" to "x")).ok)
         assertTrue(!run("version.restore", mapOf("projectId" to "x")).ok)
         val r = run("project.delete", mapOf("projectId" to "x"))
         assertTrue(!r.ok)
-        assertTrue(r.error.contains("unknown action"))
+        assertTrue(r.error.contains("ไม่มีโปรเจกต์"))
     }
 }

@@ -49,11 +49,22 @@ fun RenderScreen(services: ServiceLocator) {
     var presetIndex by remember { mutableStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var historyLine by remember { mutableStateOf("") }
 
     suspend fun refreshJobs() {
         services.render.list().fold(
             onSuccess = { jobs = it },
             onFailure = { message = it.message },
+        )
+    }
+
+    suspend fun refreshHistory() {
+        val project = projects.getOrNull(projectIndex) ?: return
+        services.media.history(project.id).fold(
+            onSuccess = { h ->
+                historyLine = if (h.undoLabels.isEmpty()) "ประวัติ: (ว่าง)" else "เลิกทำได้: " + h.undoLabels.takeLast(3).joinToString(" ← ")
+            },
+            onFailure = { historyLine = "" },
         )
     }
 
@@ -63,6 +74,7 @@ fun RenderScreen(services: ServiceLocator) {
             onFailure = { message = it.message },
         )
         refreshJobs()
+        refreshHistory()
     }
     // Live progress while anything runs.
     LaunchedEffect(jobs.any { it.status == RenderStatus.RUNNING || it.status == RenderStatus.QUEUED }) {
@@ -80,6 +92,7 @@ fun RenderScreen(services: ServiceLocator) {
                 block()
             } finally {
                 refreshJobs()
+                refreshHistory()
                 busy = false
             }
         }
@@ -98,7 +111,7 @@ fun RenderScreen(services: ServiceLocator) {
                     } else {
                         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                             TextButton(
-                                onClick = { projectIndex = (projectIndex + 1) % projects.size },
+                                onClick = { projectIndex = (projectIndex + 1) % projects.size; scope.launch { refreshHistory() } },
                                 enabled = !busy,
                             ) {
                                 Text("โปรเจกต์: ${projects[projectIndex].name} (${projectIndex + 1}/${projects.size})")
@@ -144,6 +157,33 @@ fun RenderScreen(services: ServiceLocator) {
                                 },
                                 enabled = !busy,
                             ) { Text("เข้าคิว") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(
+                                onClick = {
+                                    runCall {
+                                        services.media.undo(projects[projectIndex].id, "HUMAN").fold(
+                                            onSuccess = { message = "เลิกทำแล้ว: $it" },
+                                            onFailure = { message = it.message },
+                                        )
+                                    }
+                                },
+                                enabled = !busy,
+                            ) { Text("เลิกทำ") }
+                            OutlinedButton(
+                                onClick = {
+                                    runCall {
+                                        services.media.redo(projects[projectIndex].id, "HUMAN").fold(
+                                            onSuccess = { message = "ทำซ้ำแล้ว: $it" },
+                                            onFailure = { message = it.message },
+                                        )
+                                    }
+                                },
+                                enabled = !busy,
+                            ) { Text("ทำซ้ำ") }
+                        }
+                        if (historyLine.isNotEmpty()) {
+                            Text(historyLine, style = MaterialTheme.typography.bodySmall)
+                        }
                         }
                     }
                     message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }

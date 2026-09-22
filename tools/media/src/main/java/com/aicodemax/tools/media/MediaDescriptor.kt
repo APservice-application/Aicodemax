@@ -23,6 +23,6 @@ fun mediaDescriptorToday(): ToolDescriptor = ToolDescriptor(
         ),
         LayerCapability(CapabilityLayer.EXECUTION, CapabilityStatus.AVAILABLE, "via ToolGateway"),
         LayerCapability(CapabilityLayer.VERIFICATION, CapabilityStatus.PARTIAL, "timeline validation only"),
-        LayerCapability(CapabilityLayer.RECOVERY, CapabilityStatus.AVAILABLE, "version snapshots"),
+        LayerCapability(CapabilityLayer.RECOVERY, CapabilityStatus.AVAILABLE, "undo/redo + transactions + checkpoints + trash + versions"),
     ),
 )

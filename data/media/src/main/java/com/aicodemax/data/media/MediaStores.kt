@@ -93,15 +93,39 @@ class FileMediaStore(
         }
     }
 
+    /**
+     * Removes an asset. CP-71: the file moves to trash (not delete) so undo
+     * restores bytes too. Purged only when the project is deleted for good.
+     */
     fun remove(projectId: String, assetId: String): Outcome<Unit> = try {
         val all = readAssets(projectId)
         val asset = all.firstOrNull { it.id == assetId }
             ?: return Outcome.Failure(AppError("MEDIA_NO_ASSET", "ไม่มี asset $assetId"))
-        File(File(root, "$projectId/assets"), asset.fileName).delete()
+        val src = File(File(root, "$projectId/assets"), asset.fileName)
+        if (src.isFile) {
+            val trash = File(root, "$projectId/trash-assets").also { it.mkdirs() }
+            src.copyTo(File(trash, asset.fileName), overwrite = true)
+            src.delete()
+        }
         writeAssets(projectId, all.filter { it.id != assetId })
         Outcome.Success(Unit)
     } catch (e: Exception) {
         Outcome.Failure(AppError("MEDIA_REMOVE", "ลบ asset ไม่ได้: ${e.message}"))
+    }
+
+    /** Moves a trashed file back (used by undo of [remove]). */
+    fun restoreFile(projectId: String, fileName: String) {
+        val trashed = File(File(root, "$projectId/trash-assets"), fileName)
+        if (trashed.isFile) {
+            val dir = File(root, "$projectId/assets").also { it.mkdirs() }
+            trashed.copyTo(File(dir, fileName), overwrite = true)
+            trashed.delete()
+        }
+    }
+
+    /** Full replace of the asset registry (used by undo/checkpoint restore). */
+    fun writeAll(projectId: String, assets: List<MediaAsset>) {
+        writeAssets(projectId, assets)
     }
 
     fun assetFile(projectId: String, asset: MediaAsset): File =
@@ -235,9 +259,105 @@ class FileProjectStore(
         }
     }
 
+    fun exists(projectId: String): Boolean = projectFile(projectId).isFile
+
+    fun rename(projectId: String, name: String): Outcome<Project> {
+        return when (val current = open(projectId)) {
+            is Outcome.Failure -> current
+            is Outcome.Success -> try {
+                val clean = name.trim().ifBlank { return Outcome.Failure(AppError("MEDIA_NAME", "ชื่อว่างไม่ได้")) }.take(60)
+                val updated = current.value.copy(name = clean, updatedAt = clock.nowMillis())
+                writeProject(updated)
+                Outcome.Success(updated)
+            } catch (e: Exception) {
+                Outcome.Failure(AppError("MEDIA_RENAME", "เปลี่ยนชื่อไม่ได้: ${e.message}"))
+            }
+        }
+    }
+
+    /** Deep-copies the whole project dir under a new id. */
+    fun duplicate(projectId: String): Outcome<Project> {
+        val src = File(root, projectId)
+        if (!projectFile(projectId).isFile) {
+            return Outcome.Failure(AppError("MEDIA_NO_PROJECT", "ไม่มีโปรเจกต์ $projectId"))
+        }
+        return try {
+            val current = json.decodeFromString<Project>(projectFile(projectId).readText())
+            val copy = current.copy(
+                id = Ids.newId("proj"), name = "${current.name} copy",
+                createdAt = clock.nowMillis(), updatedAt = clock.nowMillis(),
+            )
+            val dst = File(root, copy.id)
+            src.copyRecursively(dst)
+            // A copy starts with a clean undo/redo history and checkpoints.
+            File(dst, "undo").deleteRecursively()
+            File(dst, "redo").deleteRecursively()
+            File(dst, "checkpoints").deleteRecursively()
+            writeProject(copy)
+            Outcome.Success(copy)
+        } catch (e: Exception) {
+            Outcome.Failure(AppError("MEDIA_DUPLICATE", "สำเนาโปรเจกต์ไม่ได้: ${e.message}"))
+        }
+    }
+
+    /** Moves the project dir to trash/ (restorable, keeps bytes). */
+    fun delete(projectId: String): Outcome<String> {
+        val src = File(root, projectId)
+        if (!projectFile(projectId).isFile) {
+            return Outcome.Failure(AppError("MEDIA_NO_PROJECT", "ไม่มีโปรเจกต์ $projectId"))
+        }
+        return try {
+            val trashId = "$projectId@${clock.nowMillis()}"
+            src.copyRecursively(File(root, "trash/$trashId"))
+            src.deleteRecursively()
+            Outcome.Success(trashId)
+        } catch (e: Exception) {
+            Outcome.Failure(AppError("MEDIA_DELETE", "ลบโปรเจกต์ไม่ได้: ${e.message}"))
+        }
+    }
+
+    fun listTrash(): List<String> =
+        File(root, "trash").listFiles { f -> f.isDirectory && File(f, "project.json").isFile }
+            .orEmpty()
+            .map { it.name }
+            .sortedDescending()
+
+    /** Restores a trashed project under a fresh id. */
+    fun restoreTrash(trashId: String): Outcome<Project> {
+        val src = File(root, "trash/$trashId")
+        if (!File(src, "project.json").isFile) {
+            return Outcome.Failure(AppError("MEDIA_NO_TRASH", "ไม่มีโปรเจกต์ที่ลบไว้นี้"))
+        }
+        return try {
+            val stored = json.decodeFromString<Project>(File(src, "project.json").readText())
+            val restored = stored.copy(id = Ids.newId("proj"), updatedAt = clock.nowMillis())
+            src.copyRecursively(File(root, restored.id))
+            writeProject(restored)
+            src.deleteRecursively()
+            Outcome.Success(restored)
+        } catch (e: Exception) {
+            Outcome.Failure(AppError("MEDIA_RESTORE", "กู้โปรเจกต์ไม่ได้: ${e.message}"))
+        }
+    }
+
+    /** Full directory copy under backups/ (manual backup; autosave is built-in). */
+    fun backup(projectId: String): Outcome<String> {
+        if (!projectFile(projectId).isFile) {
+            return Outcome.Failure(AppError("MEDIA_NO_PROJECT", "ไม่มีโปรเจกต์ $projectId"))
+        }
+        return try {
+            val backupId = "$projectId@${clock.nowMillis()}"
+            File(root, projectId).copyRecursively(File(root, "backups/$backupId"))
+            Outcome.Success(backupId)
+        } catch (e: Exception) {
+            Outcome.Failure(AppError("MEDIA_BACKUP", "แบ็คอัพไม่ได้: ${e.message}"))
+        }
+    }
+
     private fun projectFile(projectId: String): File = File(root, "$projectId/project.json")
 
-    private fun writeProject(project: Project) {
+    /** Raw write (used by undo/checkpoint restore). */
+    fun writeProject(project: Project) {
         val file = projectFile(project.id)
         file.parentFile?.mkdirs()
         file.writeText(json.encodeToString(project))
