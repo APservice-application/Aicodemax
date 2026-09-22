@@ -26,7 +26,7 @@ jobs:
           :tools:registry:test :tools:terminal:test :tools:git:test :tools:capability:test
           :tools:runtime:test
           :tools:project:test :tools:tester:test :tools:debug:test
-          :tools:github:test :tools:voice:test :tools:image:test
+          :tools:github:test :tools:voice:test :tools:image:test :tools:audio:test
           :ai:tasks:test
           :data:checkpoint:test :data:audit:test :data:memory:test :data:conversations:test
           :data:backup:test :data:skills:test
@@ -64,6 +64,7 @@ jobs:
           :tools:debug_runtime:testDebugUnitTest :tools:memory_runtime:testDebugUnitTest
           :tools:skill_runtime:testDebugUnitTest :tools:voice_runtime:testDebugUnitTest
           :tools:image_runtime:testDebugUnitTest
+          :tools:audio_runtime:testDebugUnitTest
           :core:resources:testDebugUnitTest
           :data:settings:testDebugUnitTest
           :core:common:test :core:state:test :ai:tasks:test

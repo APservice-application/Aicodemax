@@ -149,6 +149,57 @@ class RuleBasedPlanner(
                 listOf("voice.speak" to mapOf("text" to say))
             }
             IntentType.VOICE_LISTEN -> listOf("voice.listen" to emptyMap())
+            IntentType.AUDIO_INFO -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_AUDIO", "ดูเสียงไฟล์ไหนครับ? เช่น ข้อมูลเสียง song.mp3"),
+                    )
+                listOf("audio.info" to mapOf("path" to path))
+            }
+            IntentType.AUDIO_TRIM -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_AUDIO", "ตัดเสียงไฟล์ไหนครับ? เช่น ตัดเสียง a.wav 0,5000"),
+                    )
+                val start = intent.parameters["startMs"]
+                val end = intent.parameters["endMs"]
+                if (start == null || end == null) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_RANGE", "บอกช่วงเวลาด้วยครับ (มิลลิวินาที) เช่น ตัดเสียง a.wav 0,5000"),
+                    )
+                }
+                listOf("audio.trim" to mapOf("src" to path, "startMs" to start, "endMs" to end))
+            }
+            IntentType.AUDIO_CONCAT -> {
+                val srcs = intent.parameters["srcs"]
+                if (srcs.isNullOrBlank()) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_AUDIO", "ต่อไฟล์ไหนบ้างครับ? เช่น ต่อเสียง a.wav b.wav"),
+                    )
+                }
+                listOf("audio.concat" to mapOf("srcs" to srcs))
+            }
+            IntentType.AUDIO_GAIN -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_AUDIO", "ปรับเสียงไฟล์ไหนครับ? เช่น เร่งเสียง a.wav 6"),
+                    )
+                val db = intent.parameters["db"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_DB", "ปรับกี่ dB ครับ? เช่น เร่งเสียง a.wav 6 (เบาเสียง a.wav 6 = -6)"),
+                    )
+                listOf("audio.gain" to mapOf("src" to path, "db" to db))
+            }
+            IntentType.AUDIO_FADE -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_AUDIO", "เฟดไฟล์ไหนครับ? เช่น เฟดเสียง a.wav 1000,2000"),
+                    )
+                val args = mutableMapOf("src" to path)
+                intent.parameters["inMs"]?.let { args["inMs"] = it }
+                intent.parameters["outMs"]?.let { args["outMs"] = it }
+                listOf("audio.fade" to args)
+            }
             IntentType.IMAGE_INFO -> {
                 val path = intent.parameters["path"]
                     ?: return Outcome.Failure(

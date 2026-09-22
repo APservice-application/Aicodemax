@@ -43,6 +43,8 @@ include(
     ":tools:voice_runtime",
     ":tools:image",
     ":tools:image_runtime",
+    ":tools:audio",
+    ":tools:audio_runtime",
     ":tools:github",
     ":tools:browser",
     ":tools:browser_runtime",
