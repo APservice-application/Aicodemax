@@ -874,6 +874,51 @@ class MediaToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "script.video" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val script = call.args["script"] ?: ""
+                    val beats = try {
+                        com.aicodemax.tools.media.ScriptVideo.parse(script)
+                    } catch (e: IllegalArgumentException) {
+                        return@withContext done(false, error = e.message ?: "บทไม่ถูก")
+                    }
+                    val style = call.args["style"] ?: "dusk"
+                    val lang = call.args["lang"] ?: "th-TH"
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    var cursor = timeline.durationMs
+                    var made = 0
+                    for ((i, beat) in beats.withIndex()) {
+                        val tts = gen.generate(com.aicodemax.tools.media.GenRequest(kind = com.aicodemax.tools.media.GenKinds.TTS, prompt = beat, lang = lang))
+                        if (tts is Outcome.Failure) {
+                            return@withContext done(false, error = "สร้างเสียงช่วงที่ ${i + 1} ไม่ได้: ${tts.error.message}")
+                        }
+                        val ttsPath = (tts as Outcome.Success).value.path
+                        val voiceAsset = (media.importAsset(projectId, ttsPath, call.actor) as? Outcome.Success)?.value
+                            ?: return@withContext done(false, error = "นำเข้าเสียงช่วงที่ ${i + 1} ไม่ได้")
+                        val bg = gen.generate(com.aicodemax.tools.media.GenRequest(kind = com.aicodemax.tools.media.GenKinds.BACKGROUND, style = style))
+                        if (bg is Outcome.Failure) {
+                            return@withContext done(false, error = "สร้างภาพช่วงที่ ${i + 1} ไม่ได้: ${bg.error.message}")
+                        }
+                        val bgAsset = (media.importAsset(projectId, (bg as Outcome.Success).value.path, call.actor) as? Outcome.Success)?.value
+                            ?: return@withContext done(false, error = "นำเข้าภาพช่วงที่ ${i + 1} ไม่ได้")
+                        val durMs = ((audio.info(ttsPath) as? Outcome.Success)?.value?.durationMs?.takeIf { it > 0 }
+                            ?: com.aicodemax.tools.media.ScriptVideo.estimateMs(beat))
+                        media.addClip(projectId, bgAsset.id, 0, durMs, cursor, 100, call.actor)
+                        media.addClip(projectId, voiceAsset.id, 0, durMs, cursor, 100, call.actor)
+                        media.addText(
+                            projectId,
+                            com.aicodemax.data.media.OverlayText(
+                                Ids.newId("txt"), beat.take(120), cursor, cursor + durMs,
+                            ),
+                            call.actor,
+                        )
+                        cursor += durMs
+                        made++
+                    }
+                    done(true, "สร้างวิดีโอจากบทแล้ว $made ช่วง ยาว ${cursor - timeline.durationMs}ms (เลิกทำได้ทีละขั้น: edit.undo)")
+                }
                 "timeline.motion" -> {
                     val projectId = call.args["projectId"] ?: latestProject()
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")

@@ -453,6 +453,18 @@ class MediaToolExecutorTest {
     }
 
     @Test
+    fun scriptVideoFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("sv") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val r = run("script.video", mapOf("projectId" to projectId, "script" to "สวัสดีครับ\n\nวันนี้รีวิวกาแฟ"))
+        assertTrue(r.output.ifBlank { r.error }, r.ok && r.output.contains("2 ช่วง"))
+        val timeline = (media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value
+        assertEquals(2, timeline.texts.size)
+        assertTrue(timeline.durationMs > 0)
+        val bad = run("script.video", mapOf("projectId" to projectId, "script" to "   "))
+        assertTrue(!bad.ok)
+    }
+
+    @Test
     fun aiPlanFlow(): Unit = runBlocking {
         val r = run("text.aiplan", mapOf("mode" to "commercial", "topic" to "สบู่"))
         assertTrue(r.output.ifBlank { r.error }, r.ok && r.output.contains("สบู่"))

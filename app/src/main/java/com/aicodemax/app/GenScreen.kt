@@ -48,6 +48,7 @@ fun GenScreen(services: ServiceLocator) {
     var synthSecs by remember { mutableStateOf("10") }
     var sfxKind by remember { mutableStateOf("impact") }
     var lastDst by remember { mutableStateOf<String?>(null) }
+    var scriptText by remember { mutableStateOf("") }
     var aiMode by remember { mutableStateOf("story") }
     var aiTopic by remember { mutableStateOf("") }
     var photoPath by remember { mutableStateOf("") }
@@ -133,6 +134,26 @@ fun GenScreen(services: ServiceLocator) {
                             busy = false
                         }
                     }, enabled = !busy && project != null) { Text(if (busy) "กำลังสร้าง…" else "สร้าง") }
+                }
+            }
+            item {
+                Text("บท → วิดีโอ", style = MaterialTheme.typography.titleSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    TextField(value = scriptText, onValueChange = { scriptText = it }, label = { Text("บท (เว้นบรรทัดว่างคั่นแต่ละช่วง)") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                    OutlinedButton(onClick = {
+                        val pid = project?.id ?: return@OutlinedButton
+                        busy = true
+                        scope.launch {
+                            services.gateway.call(ToolCall(Ids.newId("ui"), "media", "script.video", mapOf("projectId" to pid, "script" to scriptText.trim()), actor = "HUMAN")).fold(
+                                onSuccess = {
+                                    message = if (it.ok) it.output else it.error
+                                    if (it.ok) scriptText = ""
+                                },
+                                onFailure = { message = it.message },
+                            )
+                            busy = false
+                        }
+                    }, enabled = !busy && project != null && scriptText.isNotBlank()) { Text("สร้างวิดีโอจากบท") }
                 }
             }
             item {

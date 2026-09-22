@@ -615,6 +615,13 @@ class RuleBasedPlanner(
                 intent.parameters["platform"]?.let { args["platform"] = it }
                 listOf("media.text.aiplan" to args)
             }
+            IntentType.SCRIPT_VIDEO -> {
+                val script = intent.parameters["script"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_SCRIPT", "ขอบทด้วยครับ เช่น บทเป็นวิดีโอ: สวัสดีครับ..."),
+                    )
+                listOf("media.script.video" to mapOf("script" to script))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

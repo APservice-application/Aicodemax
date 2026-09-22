@@ -257,6 +257,13 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp97ScriptVideoIntent() {
+        val sv = IntentParser.parse("บทเป็นวิดีโอ: สวัสดีครับ")
+        assertEquals(IntentType.SCRIPT_VIDEO, sv.type)
+        assertTrue(sv.parameters["script"]!!.contains("สวัสดี"))
+    }
+
+    @Test
     fun cp96AiPlanIntent() {
         val p = IntentParser.parse("วางแผนคลิปรีวิวกาแฟดริป")
         assertEquals(IntentType.AI_PLAN, p.type)
