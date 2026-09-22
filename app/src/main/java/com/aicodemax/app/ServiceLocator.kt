@@ -1,14 +1,17 @@
 package com.aicodemax.app
 
 import android.content.Context
+import com.aicodemax.ai.agents.LlmBrain
 import com.aicodemax.ai.agents.LocalAgentRunner
 import com.aicodemax.ai.core.BootstrapOrchestrator
+import com.aicodemax.ai.core.InMemoryQuestionnaireStore
 import com.aicodemax.ai.core.Orchestrator
 import com.aicodemax.ai.core.RuleBasedPlanner
 import com.aicodemax.ai.core.RuleVerifier
 import com.aicodemax.ai.models.FallbackModelRouter
 import com.aicodemax.ai.models.InMemoryModelRegistry
 import com.aicodemax.ai.models.JavaNetModelDownloader
+import com.aicodemax.ai.models.LlmProvider
 import com.aicodemax.ai.models.ModelInstaller
 import com.aicodemax.ai.models.ModelRegistry
 import com.aicodemax.ai.models.ModelRouter
@@ -33,6 +36,7 @@ import com.aicodemax.data.conversations.FileConversationStore
 import com.aicodemax.data.memory.FileMemoryStore
 import com.aicodemax.data.memory.MemoryEngine
 import com.aicodemax.data.memory.memoryDescriptorToday
+import com.aicodemax.data.skills.BuiltinSkills
 import com.aicodemax.data.skills.FileSkillStore
 import com.aicodemax.data.skills.skillDescriptorToday
 import com.aicodemax.data.memory.MemoryStore
@@ -110,6 +114,25 @@ class ServiceLocator(context: Context) {
 
     val tasks: TaskEngine = DefaultTaskEngine(bus)
     val models: ModelRegistry = InMemoryModelRegistry()
+
+    /** CP-59 LLM brain config — memory-only (keys never persisted). */
+    @Volatile var llmProvider: LlmProvider? = null
+    @Volatile var llmModel: String = "gpt-4o-mini"
+
+    fun setLlm(provider: LlmProvider?, model: String) {
+        llmProvider = provider
+        llmModel = model.ifBlank { "default" }
+    }
+
+    private fun llmSystemPrompt(): String {
+        val tools = BuiltinSkills.all.firstOrNull { it.meta.id == "aicode-tools" }?.content.orEmpty()
+        return "You are Aicodemax, a Thai-speaking AI that DOES work with tools. " +
+            "Reply in Thai unless the user writes English.\n\n" + tools + "\n" +
+            "Tool-call format: emit lines `ACTION toolId.action {\"arg\":\"value\"}` " +
+            "(one JSON object per line), then STOP and wait for TOOL_RESULT. " +
+            "Example: ACTION files.read {\"path\":\"notes.txt\"}. " +
+            "Never invent tool results. If no tool fits, answer directly."
+    }
     val router: ModelRouter = FallbackModelRouter(models)
     val installer: ModelInstaller =
         ModelInstaller(models, JavaNetModelDownloader(), File(appContext.filesDir, "models"))
@@ -154,9 +177,12 @@ class ServiceLocator(context: Context) {
         capabilities = StandardCapabilities.overRegistry(toolRegistry)
 
         agent = LocalAgentRunner(gateway)
+        val brain = LlmBrain({ llmProvider }, { llmModel }, gateway, llmSystemPrompt())
         orchestrator = BootstrapOrchestrator(
             tasks, RuleBasedPlanner(capabilities), agent, RuleVerifier(), checkpoints, conversations,
             recovery = RecoveryLadderPolicy(),
+            questionnaires = InMemoryQuestionnaireStore(),
+            brain = brain,
         )
     }
 

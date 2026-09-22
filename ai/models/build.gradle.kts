@@ -24,5 +24,6 @@ dependencies {
     api(project(":core:common"))
     implementation(project(":core:resources"))
     implementation(libs.coroutines.android)
+    implementation(libs.serialization.json)
     testImplementation(libs.junit4)
 }

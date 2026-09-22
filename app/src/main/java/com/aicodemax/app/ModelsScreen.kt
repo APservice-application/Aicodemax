@@ -21,14 +21,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.aicodemax.ai.models.InstallState
+import com.aicodemax.ai.models.JavaNetLlmTransport
+import com.aicodemax.ai.models.LocalEndpointDetector
 import com.aicodemax.ai.models.ModelDescriptor
 import com.aicodemax.ai.models.ModelRequirement
+import com.aicodemax.ai.models.OpenAiCompatProvider
 import com.aicodemax.ai.models.ScoringModelRouter
 import com.aicodemax.core.common.fold
 import com.aicodemax.core.resources.ResourceSnapshot
 import com.aicodemax.ui.designsystem.LocalSpacing
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Models Center (CP-38): registry + install/download/health + scored recommendation. */
 @Composable
@@ -42,6 +48,12 @@ fun ModelsScreen(services: ServiceLocator) {
     var url by remember { mutableStateOf("") }
     var working by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
+    // CP-59 LLM provider (memory-only — key never persisted).
+    var llmUrl by remember { mutableStateOf("https://api.openai.com/v1") }
+    var llmKey by remember { mutableStateOf("") }
+    var llmModel by remember { mutableStateOf("gpt-4o-mini") }
+    var llmStatus by remember { mutableStateOf("ยังไม่เชื่อมต่อ") }
+    var llmBusy by remember { mutableStateOf(false) }
 
     fun refreshModels() {
         models = services.models.all()
@@ -133,6 +145,84 @@ fun ModelsScreen(services: ServiceLocator) {
             }
             Text(
                 "การติดตั้งต้องเลือกโมเดลที่ลงทะเบียนแล้ว — ฟีเจอร์ลงทะเบียนโมเดลใหม่ตามมาในรอบถัดไป",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
+        item(key = "__llm__") {
+            Text("LLM Provider (OpenAI-compatible)", style = MaterialTheme.typography.titleMedium)
+            TextField(
+                value = llmUrl,
+                onValueChange = { llmUrl = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("base URL เช่น https://api.openai.com/v1") },
+            )
+            TextField(
+                value = llmKey,
+                onValueChange = { llmKey = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                placeholder = { Text("API key (ถ้ามี) — อยู่ในหน่วยความจำเท่านั้น") },
+            )
+            TextField(
+                value = llmModel,
+                onValueChange = { llmModel = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("model id") },
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            llmBusy = true
+                            val found = withContext(Dispatchers.IO) {
+                                LocalEndpointDetector.detect(JavaNetLlmTransport())
+                            }
+                            found.fold(
+                                onSuccess = {
+                                    llmUrl = it.substringBefore(" — ")
+                                    llmStatus = "พบ local: $it"
+                                },
+                                onFailure = { llmStatus = it.message },
+                            )
+                            llmBusy = false
+                        }
+                    },
+                    enabled = !llmBusy,
+                ) { Text("ตรวจ localhost") }
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            llmBusy = true
+                            val provider = OpenAiCompatProvider(llmUrl.trim(), { llmKey.ifBlank { null } })
+                            val health = withContext(Dispatchers.IO) { provider.health() }
+                            health.fold(
+                                onSuccess = {
+                                    services.setLlm(provider, llmModel.trim())
+                                    llmStatus = "เชื่อมต่อแล้ว: $it"
+                                },
+                                onFailure = { llmStatus = "ต่อไม่ได้: ${it.message}" },
+                            )
+                            llmBusy = false
+                        }
+                    },
+                    enabled = !llmBusy,
+                ) { Text("เชื่อมต่อ") }
+                TextButton(onClick = {
+                    services.setLlm(null, llmModel)
+                    llmStatus = "ตัดการเชื่อมต่อแล้ว"
+                }) { Text("ตัด") }
+            }
+            Text(
+                "สถานะ: $llmStatus",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            Text(
+                "key ไม่ถูกบันทึก — ปิดแอปแล้วต้องตั้งใหม่ (รองรับ OpenAI / llama-server / Ollama / server ใดก็ได้ที่พูด OpenAI protocol)",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
             )

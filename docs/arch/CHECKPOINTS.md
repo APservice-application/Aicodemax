@@ -97,7 +97,7 @@
 | CP-56 | Old-app media audit (§28–29) | DONE | `docs/arch/MEDIA_AUDIT.md` — ตอบ 28 ข้อ + ตาราง EXISTING..UNNECESSARY |
 | CP-57 | SmartIntent Thai-155 + Dynamic Questionnaire | DONE | ThaiVocabulary 155 คำ + 13 intents + Questionnaire + debug/memory engines ต่อ gateway + เทส (195/195) |
 | CP-58 | SkillManager (skill files → context) | DONE | FileSkillStore (.md/.txt/.zip ≤2MB) + gateway 5 actions + Skills UI + intents + เทส (205/205) |
-| CP-59 | LLM Provider Adapter (OpenAI-compat + vision) | TODO | key memory-only, ไม่ผูก provider เดียว |
+| CP-59 | LLM Provider Adapter (OpenAI-compat + vision) | DONE | OpenAiCompatProvider + LlmBrain ACTION loop + localhost detect + Models UI + เทส (218/218) |
 | CP-60 | Voice (STT input + TTS output, TH/EN) | TODO | — |
 | CP-61 | Image Engine (edit + info, AI tools) | TODO | — |
 | CP-62 | Audio Engine (edit + analysis, AI tools) | TODO | — |
