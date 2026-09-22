@@ -185,4 +185,20 @@ class IntentParserTest {
         assertEquals(IntentType.VIDEO_AUDIO, audio.type)
         assertEquals("a.mp4", audio.parameters["path"])
     }
+
+    @Test
+    fun cp64ProjectIntents() {
+        val create = IntentParser.parse("โปรเจกต์ใหม่ เที่ยวทะเล")
+        assertEquals(IntentType.PROJECT_NEW, create.type)
+        assertEquals("เที่ยวทะเล", create.parameters["name"])
+        assertEquals(IntentType.PROJECT_NEW, IntentParser.parse("สร้างโปรเจกต์").type)
+        assertEquals(IntentType.PROJECT_LIST, IntentParser.parse("ดูโปรเจกต์หน่อย").type)
+        val import = IntentParser.parse("เพิ่มไฟล์ a.mp4")
+        assertEquals(IntentType.ASSET_IMPORT, import.type)
+        assertEquals("a.mp4", import.parameters["path"])
+        assertEquals(IntentType.PROJECT_VERSION, IntentParser.parse("บันทึกเวอร์ชัน").type)
+        val restore = IntentParser.parse("ย้อนเวอร์ชัน 2")
+        assertEquals(IntentType.PROJECT_RESTORE, restore.type)
+        assertEquals("2", restore.parameters["version"])
+    }
 }
