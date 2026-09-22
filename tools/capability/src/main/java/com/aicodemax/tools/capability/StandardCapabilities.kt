@@ -161,6 +161,15 @@ object StandardCapabilities {
             metadata = meta("media", "list เวอร์ชัน", listOf("projectId?"), listOf("versions"), emptyList(), false, "dir read", "re-list")),
         CapabilityBinding("media.version.restore", "media", "version.restore", AdapterKind.NATIVE,
             metadata = meta("media", "ย้อน timeline ไปเวอร์ชัน", listOf("version,projectId?"), listOf("ok"), listOf("fs.write"), false, "timeline match", "re-restore")),
+        // Subtitle engine (native, SRT + burn-in).
+        CapabilityBinding("subtitle.make", "subtitle", "make", AdapterKind.NATIVE,
+            metadata = meta("subtitle", "ทำไฟล์ซับจากข้อความ", listOf("transcript,mediaPath?,durationMs?"), listOf("srt"), listOf("fs.write"), false, "cues > 0", "fix text")),
+        CapabilityBinding("subtitle.parse", "subtitle", "parse", AdapterKind.NATIVE,
+            metadata = meta("subtitle", "ตรวจไฟล์ซับ", listOf("path"), listOf("info"), emptyList(), false, "parse ok", "fix file")),
+        CapabilityBinding("subtitle.shift", "subtitle", "shift", AdapterKind.NATIVE,
+            metadata = meta("subtitle", "เลื่อนเวลาซับ", listOf("src,offsetMs"), listOf("dst"), listOf("fs.write"), false, "times moved", "retry")),
+        CapabilityBinding("subtitle.burn", "subtitle", "burn", AdapterKind.NATIVE,
+            metadata = meta("subtitle", "ฝังซับลงวิดีโอ", listOf("src,srt"), listOf("dst"), listOf("fs.write"), false, "mp4 out", "retry")),
         // Compatibility engine — CLI adapter, LAST resort (§29, CP-32).
         CapabilityBinding("terminal.open", "terminal", "open", AdapterKind.CLI_ADAPTER,
             metadata = meta("terminal", "เปิด terminal session", emptyList(), listOf("sessionId"), listOf("terminal"), false, "session listed", "re-open")),
@@ -184,7 +193,7 @@ object StandardCapabilities {
      */
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
-        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video", "media")) {
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video", "media", "subtitle")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -218,6 +227,7 @@ private fun meta(
         "audio" to ("Audio Engine" to "WAV pipeline + MediaCodec"),
         "video" to ("Video Engine" to "MP4 probe + Muxer"),
         "media" to ("Media Engine" to "project stores"),
+        "subtitle" to ("Subtitle Engine" to "SRT + transcode"),
         "terminal" to ("Compatibility Engine" to "Termux bridge (pending device work)"),
     )
     val (engine, runtime) = engines.getValue(tool)

@@ -171,6 +171,37 @@ class RuleBasedPlanner(
                     )
                 listOf("media.version.restore" to mapOf("version" to version))
             }
+            IntentType.SUBTITLE_MAKE -> {
+                val transcript = intent.parameters["transcript"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_TRANSCRIPT", "ทำซับว่าอะไรครับ? เช่น ทำซับ a.wav: สวัสดีครับทุกคน"),
+                    )
+                val args = mutableMapOf("transcript" to transcript)
+                intent.parameters["path"]?.let { args["mediaPath"] = it }
+                intent.parameters["durationMs"]?.let { args["durationMs"] = it }
+                listOf("subtitle.make" to args)
+            }
+            IntentType.SUBTITLE_SHIFT -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_SUB", "เลื่อนซับไฟล์ไหนครับ? เช่น เลื่อนซับ a.srt 500"),
+                    )
+                val offset = intent.parameters["offsetMs"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_OFFSET", "เลื่อนกี่มิลลิวินาทีครับ? เช่น เลื่อนซับ a.srt 500"),
+                    )
+                listOf("subtitle.shift" to mapOf("src" to path, "offsetMs" to offset))
+            }
+            IntentType.SUBTITLE_BURN -> {
+                val src = intent.parameters["src"]
+                val srt = intent.parameters["srt"]
+                if (src == null || srt == null) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_BURN", "บอกไฟล์วิดีโอกับซับครับ เช่น ฝังซับ a.mp4 a.srt"),
+                    )
+                }
+                listOf("subtitle.burn" to mapOf("src" to src, "srt" to srt))
+            }
             IntentType.VIDEO_INFO -> {
                 val path = intent.parameters["path"]
                     ?: return Outcome.Failure(

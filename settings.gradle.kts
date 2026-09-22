@@ -47,6 +47,8 @@ include(
     ":tools:audio_runtime",
     ":tools:video",
     ":tools:video_runtime",
+    ":tools:subtitle",
+    ":tools:subtitle_runtime",
     ":tools:media",
     ":tools:media_runtime",
     ":tools:github",

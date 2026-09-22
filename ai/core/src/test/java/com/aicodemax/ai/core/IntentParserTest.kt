@@ -201,4 +201,25 @@ class IntentParserTest {
         assertEquals(IntentType.PROJECT_RESTORE, restore.type)
         assertEquals("2", restore.parameters["version"])
     }
+
+    @Test
+    fun cp66SubtitleIntents() {
+        val make = IntentParser.parse("ทำซับ a.wav: สวัสดีครับทุกคน")
+        assertEquals(IntentType.SUBTITLE_MAKE, make.type)
+        assertEquals("a.wav", make.parameters["path"])
+        assertEquals("สวัสดีครับทุกคน", make.parameters["transcript"])
+        val shift = IntentParser.parse("เลื่อนซับ a.srt 500")
+        assertEquals(IntentType.SUBTITLE_SHIFT, shift.type)
+        assertEquals("a.srt", shift.parameters["path"])
+        assertEquals("500", shift.parameters["offsetMs"])
+        val back = IntentParser.parse("เลื่อนซับ a.srt ถอย 500")
+        assertEquals("-500", back.parameters["offsetMs"])
+        val burn = IntentParser.parse("ฝังซับ a.mp4 a.srt")
+        assertEquals(IntentType.SUBTITLE_BURN, burn.type)
+        assertEquals("a.mp4", burn.parameters["src"])
+        assertEquals("a.srt", burn.parameters["srt"])
+        val burnRev = IntentParser.parse("ฝังซับ a.srt ลง a.mp4")
+        assertEquals("a.mp4", burnRev.parameters["src"])
+        assertEquals("a.srt", burnRev.parameters["srt"])
+    }
 }

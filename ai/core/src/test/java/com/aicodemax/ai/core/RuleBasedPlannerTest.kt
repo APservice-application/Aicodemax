@@ -199,4 +199,29 @@ class RuleBasedPlannerTest {
         val noVersion = planner.plan(UserIntent(IntentType.PROJECT_RESTORE, "t"))
         assertEquals("PLAN_NO_VERSION", (noVersion as Outcome.Failure).error.code)
     }
+
+    @Test
+    fun cp66SubtitlePlansRealSteps() = runBlocking {
+        val make = UserIntent(
+            IntentType.SUBTITLE_MAKE, "t",
+            mapOf("transcript" to "hi", "path" to "a.wav"),
+        )
+        val makePlan = (planner.plan(make) as Outcome.Success<Plan>).value
+        assertEquals("subtitle", makePlan.steps[0].toolId)
+        assertEquals("make", makePlan.steps[0].action)
+        assertEquals("a.wav", makePlan.steps[0].args["mediaPath"])
+
+        val shift = UserIntent(IntentType.SUBTITLE_SHIFT, "t", mapOf("path" to "a.srt", "offsetMs" to "500"))
+        val shiftPlan = (planner.plan(shift) as Outcome.Success<Plan>).value
+        assertEquals("shift", shiftPlan.steps[0].action)
+
+        val burn = UserIntent(IntentType.SUBTITLE_BURN, "t", mapOf("src" to "a.mp4", "srt" to "a.srt"))
+        val burnPlan = (planner.plan(burn) as Outcome.Success<Plan>).value
+        assertEquals("burn", burnPlan.steps[0].action)
+
+        val noText = planner.plan(UserIntent(IntentType.SUBTITLE_MAKE, "t", mapOf("path" to "a.wav")))
+        assertEquals("PLAN_NO_TRANSCRIPT", (noText as Outcome.Failure).error.code)
+        val noBurn = planner.plan(UserIntent(IntentType.SUBTITLE_BURN, "t", mapOf("src" to "a.mp4")))
+        assertEquals("PLAN_NO_BURN", (noBurn as Outcome.Failure).error.code)
+    }
 }

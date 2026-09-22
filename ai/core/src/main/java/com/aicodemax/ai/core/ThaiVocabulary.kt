@@ -138,4 +138,9 @@ object ThaiVocabulary {
     val assetImportWords: List<String> = listOf("เพิ่มไฟล์", "import")
     val versionSaveWords: List<String> = listOf("บันทึกเวอร์ชัน", "เซฟเวอร์ชัน")
     val versionRestoreWords: List<String> = listOf("ย้อนเวอร์ชัน", "กลับเวอร์ชัน")
+
+    /** Subtitle verbs (CP-66). */
+    val subtitleMakeWords: List<String> = listOf("ทำซับ", "ซับไตเติล")
+    val subtitleShiftWords: List<String> = listOf("เลื่อนซับ")
+    val subtitleBurnWords: List<String> = listOf("ฝังซับ")
 }
