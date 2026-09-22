@@ -35,6 +35,9 @@ enum class IntentType {
     IMAGE_CROP,
     IMAGE_ROTATE,
     IMAGE_GRAY,
+    IMAGE_ADJUST,
+    IMAGE_UPSCALE,
+    IMAGE_RESTORE,
     AUDIO_INFO,
     AUDIO_TRIM,
     AUDIO_CONCAT,
@@ -246,6 +249,37 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.imageGrayWords)) {
             return UserIntent(IntentType.IMAGE_GRAY, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.imageUpscaleWords)) {
+            val scale = digitsPattern.find(tNoFile)?.value
+            return UserIntent(IntentType.IMAGE_UPSCALE, text, params("path" to file, "scale" to scale))
+        }
+        if (containsAny(t, ThaiVocabulary.imageRestoreWords)) {
+            return UserIntent(IntentType.IMAGE_RESTORE, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.imageAdjustWords)) {
+            fun numAfter(vararg words: String): String? {
+                for (w in words) {
+                    val m = Regex(Regex.escape(w) + "\\s*(-?\\d+)").find(tNoFile)
+                    if (m != null) return m.groupValues[1]
+                }
+                return null
+            }
+            val p = params(
+                "path" to file,
+                "brightness" to (numAfter("สว่าง", "แสง") ?: if (t.contains("สว่างขึ้น")) "20" else null),
+                "contrast" to numAfter("คอนทราสต์"),
+                "saturation" to numAfter("สีสด", "ความอิ่มสี"),
+                "sharpness" to (numAfter("คมชัด", "ความคมชัด") ?: if (t.contains("คมชัด")) "30" else null),
+            ).toMutableMap()
+            if (p.keys == setOf("path")) {
+                // Bare "แต่งภาพ" → gentle auto preset.
+                p["brightness"] = "10"
+                p["contrast"] = "10"
+                p["saturation"] = "10"
+                p["sharpness"] = "20"
+            }
+            return UserIntent(IntentType.IMAGE_ADJUST, text, p)
         }
         if (containsAny(t, ThaiVocabulary.audioInfoWords)) {
             return UserIntent(IntentType.AUDIO_INFO, text, params("path" to file))

@@ -26,6 +26,10 @@ interface ImagePort {
     suspend fun grayscale(src: String, dst: String): Outcome<ImageInfo>
     // CP-78 histogram scopes (§101).
     suspend fun scopes(path: String): Outcome<FrameScopes>
+    // CP-89 photo edit/upscale/restore (§37).
+    suspend fun adjust(src: String, dst: String, brightness: Int, contrast: Int, saturation: Int, sharpness: Int): Outcome<ImageInfo>
+    suspend fun upscale(src: String, dst: String, scale: Int): Outcome<ImageInfo>
+    suspend fun restore(src: String, dst: String, denoise: Boolean, deFade: Boolean, whiteBalance: Boolean): Outcome<ImageInfo>
 }
 
 /**
@@ -62,6 +66,15 @@ class InMemoryImagePort : ImagePort {
 
     override suspend fun grayscale(src: String, dst: String): Outcome<ImageInfo> =
         edit(src, dst, "IMAGE_GRAY") { ImageOps.grayscale(it) }
+
+    override suspend fun adjust(src: String, dst: String, brightness: Int, contrast: Int, saturation: Int, sharpness: Int): Outcome<ImageInfo> =
+        edit(src, dst, "IMAGE_ADJUST") { PhotoOps.adjust(it, brightness, contrast, saturation, sharpness) }
+
+    override suspend fun upscale(src: String, dst: String, scale: Int): Outcome<ImageInfo> =
+        edit(src, dst, "IMAGE_UPSCALE") { PhotoOps.upscale(it, scale) }
+
+    override suspend fun restore(src: String, dst: String, denoise: Boolean, deFade: Boolean, whiteBalance: Boolean): Outcome<ImageInfo> =
+        edit(src, dst, "IMAGE_RESTORE") { PhotoOps.restore(it, denoise, deFade, whiteBalance) }
 
     override suspend fun scopes(path: String): Outcome<FrameScopes> {
         val image = store[path]

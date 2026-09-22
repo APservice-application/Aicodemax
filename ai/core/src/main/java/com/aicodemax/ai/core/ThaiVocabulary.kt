@@ -118,6 +118,9 @@ object ThaiVocabulary {
     val imageCropWords: List<String> = listOf("ครอปรูป", "ตัดรูป")
     val imageRotateWords: List<String> = listOf("หมุนรูป")
     val imageGrayWords: List<String> = listOf("รูปขาวดำ", "ขาวดำ")
+    val imageAdjustWords: List<String> = listOf("แต่งภาพ", "ปรับภาพ", "ปรับแสง", "สว่างขึ้น", "คอนทราสต์", "ความคมชัด")
+    val imageUpscaleWords: List<String> = listOf("ขยายภาพ", "อัปสเกล", "อัพสเกล", "upscale")
+    val imageRestoreWords: List<String> = listOf("ฟื้นฟูภาพ", "ภาพเก่า", "รีสโตร์ภาพ", "restore")
 
     /** Audio verbs (CP-62). */
     val audioInfoWords: List<String> = listOf("ข้อมูลเสียง", "รายละเอียดเสียง")

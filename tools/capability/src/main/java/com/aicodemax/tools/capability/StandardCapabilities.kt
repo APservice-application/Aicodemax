@@ -124,6 +124,12 @@ object StandardCapabilities {
             metadata = meta("image", "ทำรูปขาวดำ", listOf("src"), listOf("dst"), listOf("fs.write"), false, "luma only", "retry")),
         CapabilityBinding("image.scopes", "image", "scopes", AdapterKind.NATIVE,
             metadata = meta("image", "ฮิสโตแกรม+วัดแสงรูป", listOf("path"), listOf("scopes"), emptyList(), false, "verdict shown", "fix file")),
+        CapabilityBinding("image.adjust", "image", "adjust", AdapterKind.NATIVE,
+            metadata = meta("image", "แต่งภาพ (แสง/คอนทราสต์/สี/คม)", listOf("src,brightness?,contrast?,saturation?,sharpness?"), listOf("dst"), listOf("fs.write"), false, "adjusted", "fix file")),
+        CapabilityBinding("image.upscale", "image", "upscale", AdapterKind.NATIVE,
+            metadata = meta("image", "ขยายภาพ 2x/4x bicubic", listOf("src,scale?"), listOf("dst"), listOf("fs.write"), false, "upscaled", "fix file")),
+        CapabilityBinding("image.restore", "image", "restore", AdapterKind.NATIVE,
+            metadata = meta("image", "ฟื้นฟูภาพเก่า", listOf("src"), listOf("dst"), listOf("fs.write"), false, "restored", "fix file")),
         // Audio engine (native, WAV pipeline + MediaCodec decode).
         CapabilityBinding("audio.info", "audio", "info", AdapterKind.NATIVE,
             metadata = meta("audio", "ดูฟอร์แมต+ความยาวเสียง", listOf("path"), listOf("info"), emptyList(), false, "header parsed", "re-probe")),

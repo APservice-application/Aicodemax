@@ -57,6 +57,20 @@ class ImageToolExecutorTest {
     }
 
     @Test
+    fun adjustUpscaleRestoreFlow() {
+        val p = port()
+        val adj = run(p, "adjust", mapOf("src" to "/tmp/a.png", "brightness" to "20"))
+        assertTrue(adj.output.ifBlank { adj.error }, adj.ok)
+        val up = run(p, "upscale", mapOf("src" to "/tmp/a.png", "scale" to "2"))
+        assertTrue(up.output.ifBlank { up.error }, up.ok && up.output.contains("2x"))
+        assertEquals(p.get("/tmp/a.png")!!.width * 2, p.get("/tmp/a-big.png")!!.width)
+        val re = run(p, "restore", mapOf("src" to "/tmp/a.png"))
+        assertTrue(re.output.ifBlank { re.error }, re.ok)
+        val bad = run(p, "upscale", mapOf("src" to "/tmp/a.png", "scale" to "3"))
+        assertTrue(!bad.ok)
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         val p = port()
         assertTrue(!run(p, "info", emptyMap()).ok)

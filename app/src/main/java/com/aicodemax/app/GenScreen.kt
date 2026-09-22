@@ -48,6 +48,8 @@ fun GenScreen(services: ServiceLocator) {
     var synthSecs by remember { mutableStateOf("10") }
     var sfxKind by remember { mutableStateOf("impact") }
     var lastDst by remember { mutableStateOf<String?>(null) }
+    var photoPath by remember { mutableStateOf("") }
+    var photoScale by remember { mutableStateOf("2") }
 
     val project = projects.getOrNull(projectIndex)
 
@@ -200,6 +202,48 @@ fun GenScreen(services: ServiceLocator) {
                                 )
                             }
                         }, enabled = !busy) { Text("นำเข้าโปรเจกต์") }
+                    }
+                }
+            }
+            item {
+                Text("ภาพถ่าย: แต่ง / ขยาย / ฟื้นฟู", style = MaterialTheme.typography.titleSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    TextField(value = photoPath, onValueChange = { photoPath = it }, label = { Text("พาธรูปต้นฉบับ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        OutlinedButton(onClick = {
+                            busy = true
+                            scope.launch {
+                                val dst = services.workspaceDir.path + "/gen-photo/adj-" + System.currentTimeMillis() + ".png"
+                                services.gateway.call(ToolCall(Ids.newId("ui"), "image", "adjust", mapOf("src" to photoPath.trim(), "dst" to dst, "brightness" to "10", "contrast" to "10", "saturation" to "10", "sharpness" to "20"), actor = "HUMAN")).fold(
+                                    onSuccess = { message = if (it.ok) it.output else it.error },
+                                    onFailure = { message = it.message },
+                                )
+                                busy = false
+                            }
+                        }, enabled = !busy && photoPath.isNotBlank()) { Text("แต่งภาพ") }
+                        TextField(value = photoScale, onValueChange = { photoScale = it }, label = { Text("x") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.2f))
+                        OutlinedButton(onClick = {
+                            busy = true
+                            scope.launch {
+                                val dst = services.workspaceDir.path + "/gen-photo/big-" + System.currentTimeMillis() + ".png"
+                                services.gateway.call(ToolCall(Ids.newId("ui"), "image", "upscale", mapOf("src" to photoPath.trim(), "dst" to dst, "scale" to photoScale.trim()), actor = "HUMAN")).fold(
+                                    onSuccess = { message = if (it.ok) it.output else it.error },
+                                    onFailure = { message = it.message },
+                                )
+                                busy = false
+                            }
+                        }, enabled = !busy && photoPath.isNotBlank()) { Text("ขยายภาพ") }
+                        OutlinedButton(onClick = {
+                            busy = true
+                            scope.launch {
+                                val dst = services.workspaceDir.path + "/gen-photo/fixed-" + System.currentTimeMillis() + ".png"
+                                services.gateway.call(ToolCall(Ids.newId("ui"), "image", "restore", mapOf("src" to photoPath.trim(), "dst" to dst), actor = "HUMAN")).fold(
+                                    onSuccess = { message = if (it.ok) it.output else it.error },
+                                    onFailure = { message = it.message },
+                                )
+                                busy = false
+                            }
+                        }, enabled = !busy && photoPath.isNotBlank()) { Text("ฟื้นฟู") }
                     }
                 }
             }

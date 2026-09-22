@@ -781,6 +781,33 @@ class RuleBasedPlanner(
                     )
                 listOf("image.grayscale" to mapOf("src" to path))
             }
+            IntentType.IMAGE_ADJUST -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_IMAGE", "แต่งรูปไหนครับ? เช่น แต่งภาพ a.png สว่าง 20"),
+                    )
+                val args = mutableMapOf("src" to path)
+                for (k in listOf("brightness", "contrast", "saturation", "sharpness")) {
+                    intent.parameters[k]?.let { args[k] = it }
+                }
+                listOf("image.adjust" to args)
+            }
+            IntentType.IMAGE_UPSCALE -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_IMAGE", "ขยายรูปไหนครับ? เช่น ขยายภาพ a.png 2"),
+                    )
+                val args = mutableMapOf("src" to path)
+                intent.parameters["scale"]?.let { args["scale"] = it }
+                listOf("image.upscale" to args)
+            }
+            IntentType.IMAGE_RESTORE -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_IMAGE", "ฟื้นฟูรูปไหนครับ? เช่น ฟื้นฟูภาพเก่า a.png"),
+                    )
+                listOf("image.restore" to mapOf("src" to path))
+            }
             IntentType.SKILL_LIST -> listOf("skill.list" to emptyMap())
             IntentType.SKILL_GET -> {
                 val id = intent.parameters["id"]?.trim().orEmpty()

@@ -257,6 +257,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp89PhotoIntents() {
+        val adj = IntentParser.parse("แต่งภาพ /tmp/a.png สว่าง 20")
+        assertEquals(IntentType.IMAGE_ADJUST, adj.type)
+        assertEquals("20", adj.parameters["brightness"])
+        val up = IntentParser.parse("ขยายภาพ /tmp/a.png 4")
+        assertEquals(IntentType.IMAGE_UPSCALE, up.type)
+        assertEquals("4", up.parameters["scale"])
+        val re = IntentParser.parse("ฟื้นฟูภาพเก่า /tmp/a.png")
+        assertEquals(IntentType.IMAGE_RESTORE, re.type)
+    }
+
+    @Test
     fun cp88ReframeCanvasIntents() {
         val re = IntentParser.parse("รีเฟรมคลิปที่ 1 เป็นแนวตั้ง")
         assertEquals(IntentType.REFRAME, re.type)

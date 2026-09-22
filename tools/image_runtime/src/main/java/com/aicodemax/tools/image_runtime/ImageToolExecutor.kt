@@ -78,7 +78,46 @@ class ImageToolExecutor(private val images: ImagePort = InMemoryImagePort()) : T
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/resize/crop/rotate/grayscale/scopes)")
+                "adjust" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    val dst = call.args["dst"] ?: defaultDst(src, "adj")
+                    images.adjust(
+                        src, dst,
+                        call.args["brightness"]?.toIntOrNull() ?: 0,
+                        call.args["contrast"]?.toIntOrNull() ?: 0,
+                        call.args["saturation"]?.toIntOrNull() ?: 0,
+                        call.args["sharpness"]?.toIntOrNull() ?: 0,
+                    ).fold(
+                        onSuccess = { done(true, "แต่งภาพแล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "upscale" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    val dst = call.args["dst"] ?: defaultDst(src, "big")
+                    val scale = call.args["scale"]?.toIntOrNull() ?: 2
+                    images.upscale(src, dst, scale).fold(
+                        onSuccess = { done(true, "ขยายภาพ ${scale}x แล้ว ${it.path}: ${it.summary} (bicubic — ไม่ใช่ AI super-resolution)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "restore" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    val dst = call.args["dst"] ?: defaultDst(src, "fixed")
+                    images.restore(
+                        src, dst,
+                        call.args["denoise"]?.toBooleanStrictOrNull() ?: true,
+                        call.args["deFade"]?.toBooleanStrictOrNull() ?: true,
+                        call.args["whiteBalance"]?.toBooleanStrictOrNull() ?: true,
+                    ).fold(
+                        onSuccess = { done(true, "ฟื้นฟูภาพแล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/resize/crop/rotate/grayscale/scopes/adjust/upscale/restore)")
             }
         }
 

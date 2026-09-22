@@ -240,6 +240,16 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp89PhotoPlansRealSteps() = runBlocking {
+        val adj = (planner.plan(UserIntent(IntentType.IMAGE_ADJUST, "t", mapOf("path" to "a.png", "brightness" to "20"))) as Outcome.Success<Plan>).value
+        assertEquals("adjust", adj.steps[0].action)
+        val up = (planner.plan(UserIntent(IntentType.IMAGE_UPSCALE, "t", mapOf("path" to "a.png"))) as Outcome.Success<Plan>).value
+        assertEquals("upscale", up.steps[0].action)
+        val re = (planner.plan(UserIntent(IntentType.IMAGE_RESTORE, "t", mapOf("path" to "a.png"))) as Outcome.Success<Plan>).value
+        assertEquals("restore", re.steps[0].action)
+    }
+
+    @Test
     fun cp88ReframeCanvasPlansRealSteps() = runBlocking {
         val re = (planner.plan(UserIntent(IntentType.REFRAME, "t", mapOf("clipIndex" to "1", "aspect" to "9:16"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.reframe", re.steps[0].action)

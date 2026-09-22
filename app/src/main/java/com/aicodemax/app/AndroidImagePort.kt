@@ -44,6 +44,15 @@ class AndroidImagePort : ImagePort {
     override suspend fun grayscale(src: String, dst: String): Outcome<ImageInfo> =
         edit(src, dst, "IMAGE_GRAY") { ImageOps.grayscale(it) }
 
+    override suspend fun adjust(src: String, dst: String, brightness: Int, contrast: Int, saturation: Int, sharpness: Int): Outcome<ImageInfo> =
+        edit(src, dst, "IMAGE_ADJUST") { PhotoOps.adjust(it, brightness, contrast, saturation, sharpness) }
+
+    override suspend fun upscale(src: String, dst: String, scale: Int): Outcome<ImageInfo> =
+        edit(src, dst, "IMAGE_UPSCALE") { PhotoOps.upscale(it, scale) }
+
+    override suspend fun restore(src: String, dst: String, denoise: Boolean, deFade: Boolean, whiteBalance: Boolean): Outcome<ImageInfo> =
+        edit(src, dst, "IMAGE_RESTORE") { PhotoOps.restore(it, denoise, deFade, whiteBalance) }
+
     override suspend fun scopes(path: String): Outcome<FrameScopes> =
         withContext(Dispatchers.IO) {
             val opts = BitmapFactory.Options().apply { inSampleSize = sampleFor(path) }
