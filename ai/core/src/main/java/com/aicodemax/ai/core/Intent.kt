@@ -74,6 +74,9 @@ enum class IntentType {
     CLIP_FX,
     CLIP_COLOR,
     IMAGE_SCOPES,
+    CLIP_MASK,
+    CLIP_CHROMA,
+    BG_SET,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -435,6 +438,40 @@ object IntentParser {
                     "vignette" to (value.takeIf { t.contains("วิกเน็ต") }),
                     "grain" to (value.takeIf { t.contains("เกรน") }),
                 ),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipMaskWords)) {
+            val shape = if (t.contains("วงรี") || t.contains("วงกลม")) "ellipse" else "rect"
+            return UserIntent(
+                IntentType.CLIP_MASK, text,
+                params("clipIndex" to parseClipIndex(t), "shape" to shape),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipChromaWords)) {
+            val off = t.contains("ปิด")
+            val hue = if (t.contains("ฟ้า") || t.contains("น้ำเงิน")) "240" else null
+            return UserIntent(
+                IntentType.CLIP_CHROMA, text,
+                params("clipIndex" to parseClipIndex(t), "hue" to hue, "off" to (if (off) "true" else null)),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.bgWords)) {
+            val mode = when {
+                t.contains("เบลอ") -> "blur"
+                t.contains("รูป") -> "image"
+                t.contains("ดำ") -> "black"
+                else -> "color"
+            }
+            val color = when {
+                t.contains("แดง") -> "FF0000"
+                t.contains("เขียว") -> "00AA00"
+                t.contains("น้ำเงิน") || t.contains("ฟ้า") -> "0044FF"
+                t.contains("ขาว") -> "FFFFFF"
+                else -> null
+            }
+            return UserIntent(
+                IntentType.BG_SET, text,
+                params("mode" to mode, "color" to color),
             )
         }
         if (containsAny(t, ThaiVocabulary.imageScopesWords)) {

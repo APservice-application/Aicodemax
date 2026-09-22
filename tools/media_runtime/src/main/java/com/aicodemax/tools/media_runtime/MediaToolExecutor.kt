@@ -9,6 +9,9 @@ import com.aicodemax.data.media.ClipSpeed
 import com.aicodemax.data.media.ClipKeyframes
 import com.aicodemax.data.media.ClipFx
 import com.aicodemax.data.media.ClipColor
+import com.aicodemax.data.media.ClipMask
+import com.aicodemax.data.media.ClipChroma
+import com.aicodemax.data.media.ClipBackground
 import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.SpeedPoint
 import com.aicodemax.core.common.Ids
@@ -75,7 +78,9 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                                     (clip.transitionIn?.let { " {IN:${it.summary()}}" } ?: "") +
                                     (clip.transitionOut?.let { " {OUT:${it.summary()}}" } ?: "") +
                                     (clip.fx?.takeUnless { it.isIdentity }?.let { " {FX:${it.summary()}}" } ?: "") +
-                                    (clip.color?.takeUnless { it.isIdentity }?.let { " {C:${it.summary()}}" } ?: "")
+                                    (clip.color?.takeUnless { it.isIdentity }?.let { " {C:${it.summary()}}" } ?: "") +
+                                    (clip.mask?.takeUnless { it.isIdentity }?.let { " {M:${it.summary()}}" } ?: "") +
+                                    (clip.chroma?.let { " {CH:${it.summary()}}" } ?: "")
                             }
                             val flags = timeline.tracks.joinToString(" ") { track ->
                                 buildString {
@@ -89,7 +94,8 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                             else timeline.markers.joinToString(", ") { "${it.label.ifBlank { "มาร์ก" }}@${it.atMs} [${it.id}]" }
                             val texts = if (timeline.texts.isEmpty()) "ไม่มีข้อความ"
                             else timeline.texts.mapIndexed { i, t -> "T${i + 1}. ${t.summary()} [${t.id}]" }.joinToString("\n")
-                            done(true, "timeline ${timeline.durationMs}ms, ${lines.size} คลิป\nแทร็ก: $flags\n" + lines.joinToString("\n") + "\n$markers\n$texts")
+                            val bgLine = timeline.background?.takeUnless { it.isIdentity }?.let { "พื้นหลัง: ${it.summary()}\n" } ?: ""
+                            done(true, "timeline ${timeline.durationMs}ms, ${lines.size} คลิป\nแทร็ก: $flags\n" + bgLine + lines.joinToString("\n") + "\n$markers\n$texts")
                         },
                         onFailure = { done(false, error = it.message) },
                     )
@@ -546,6 +552,82 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                     )
                     media.setClipColor(projectId, clipId, next, call.actor).fold(
                         onSuccess = { done(true, "แก้สีแล้ว (${next.summary().ifBlank { "ปกติ" }}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.setMask" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val base = timeline.findClip(clipId)?.second?.mask ?: ClipMask()
+                    val rectOnly = call.args["x"] == null && call.args["y"] == null &&
+                        call.args["w"] == null && call.args["h"] == null
+                    val seed = if (rectOnly && base.isIdentity && (call.args["shape"] ?: base.shape) == "rect") {
+                        base.copy(x = 20, y = 20, w = 60, h = 60)
+                    } else {
+                        base
+                    }
+                    val next = seed.copy(
+                        shape = call.args["shape"] ?: seed.shape,
+                        x = call.args["x"]?.toIntOrNull() ?: seed.x,
+                        y = call.args["y"]?.toIntOrNull() ?: seed.y,
+                        w = call.args["w"]?.toIntOrNull() ?: seed.w,
+                        h = call.args["h"]?.toIntOrNull() ?: seed.h,
+                        feather = call.args["feather"]?.toIntOrNull() ?: seed.feather,
+                        invert = parseFlag(call.args["invert"]) ?: seed.invert,
+                    )
+                    media.setClipMask(projectId, clipId, next, call.actor).fold(
+                        onSuccess = { done(true, "ตั้งมาสก์แล้ว (${next.summary()}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.setChroma" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    if (parseFlag(call.args["off"]) == true) {
+                        return@withContext media.setClipChroma(projectId, clipId, null, call.actor).fold(
+                            onSuccess = { done(true, "ปิด chroma แล้ว (เลิกทำได้: edit.undo)") },
+                            onFailure = { done(false, error = it.message) },
+                        )
+                    }
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val base = timeline.findClip(clipId)?.second?.chroma ?: ClipChroma()
+                    val next = base.copy(
+                        hue = call.args["hue"]?.toIntOrNull() ?: base.hue,
+                        tolerance = call.args["tolerance"]?.toIntOrNull() ?: base.tolerance,
+                        softness = call.args["softness"]?.toIntOrNull() ?: base.softness,
+                        despill = call.args["despill"]?.toIntOrNull() ?: base.despill,
+                    )
+                    media.setClipChroma(projectId, clipId, next, call.actor).fold(
+                        onSuccess = { done(true, "ตั้ง chroma แล้ว (${next.summary()}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.setBackground" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val mode = call.args["mode"] ?: "black"
+                    val base = timeline.background ?: ClipBackground()
+                    val next = if (mode == "black" || mode == "off") {
+                        null
+                    } else {
+                        base.copy(
+                            mode = mode,
+                            color = call.args["color"] ?: base.color,
+                            blur = call.args["blur"]?.toIntOrNull() ?: base.blur,
+                            assetId = call.args["assetId"] ?: base.assetId,
+                        )
+                    }
+                    media.setBackground(projectId, next, call.actor).fold(
+                        onSuccess = { done(true, "ตั้งพื้นหลังแล้ว (${next?.summary() ?: "black"}) (เลิกทำได้: edit.undo)") },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

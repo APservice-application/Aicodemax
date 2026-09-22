@@ -607,6 +607,95 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }
                             }, enabled = !busy) { Text("สด+") }
                         }
+                        // CP-79 mask + chroma (§17/§18).
+                        val mk = clip.mask ?: com.aicodemax.data.media.ClipMask()
+                        Text(
+                            "มาสก์: ${(clip.mask?.takeUnless { it.isIdentity }?.summary() ?: "ปิด")}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(onClick = {
+                                val has = clip.mask?.takeUnless { it.isIdentity } != null
+                                keyCall { projectId, clipId ->
+                                    val next = if (has) com.aicodemax.data.media.ClipMask()
+                                    else com.aicodemax.data.media.ClipMask(shape = "ellipse", feather = 20)
+                                    services.media.setClipMask(projectId, clipId, next, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text(if (clip.mask?.takeUnless { it.isIdentity } != null) "มาสก์:เปิด" else "มาสก์") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val next = mk.copy(shape = if (mk.shape == "ellipse") "rect" else "ellipse", x = 20, y = 20, w = 60, h = 60)
+                                    services.media.setClipMask(projectId, clipId, next, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text(mk.shape) }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val next = (if (mk.isIdentity) mk.copy(x = 20, y = 20, w = 60, h = 60) else mk).copy(feather = (mk.feather + 20) % 120)
+                                    services.media.setClipMask(projectId, clipId, next, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ขน:${mk.feather}") }
+                        }
+                        Text(
+                            "chroma: ${(clip.chroma?.summary() ?: "ปิด")}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            val ch = clip.chroma ?: com.aicodemax.data.media.ClipChroma()
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val next = if (clip.chroma == null) com.aicodemax.data.media.ClipChroma() else null
+                                    services.media.setClipChroma(projectId, clipId, next, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text(if (clip.chroma == null) "กรีนสกรีน" else "กรีน:เปิด") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipChroma(projectId, clipId, ch.copy(hue = if (ch.hue == 120) 240 else 120), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text(if (ch.hue == 240) "ฟ้า" else "เขียว") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipChroma(projectId, clipId, ch.copy(tolerance = (ch.tolerance + 10).coerceAtMost(100)), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ทน:${ch.tolerance}") }
+                        }
+                        // CP-79 background (§19).
+                        Text(
+                            "พื้นหลัง: ${(timeline?.background?.summary() ?: "black")}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            val modes = listOf("black", "color", "blur")
+                            OutlinedButton(onClick = {
+                                val cur = timeline?.background?.mode ?: "black"
+                                val next = modes[(modes.indexOf(cur).coerceAtLeast(0) + 1) % modes.size]
+                                runCall { projectId ->
+                                    val bg = if (next == "black") null
+                                    else (timeline?.background ?: com.aicodemax.data.media.ClipBackground()).copy(mode = next, color = "1A2B4A")
+                                    services.media.setBackground(projectId, bg, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("โหมด:${timeline?.background?.mode ?: "black"}") }
+                        }
                     }
                 }
             }

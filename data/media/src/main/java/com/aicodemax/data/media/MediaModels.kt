@@ -476,6 +476,10 @@ data class Clip(
     val fx: ClipFx? = null,
     /** CP-78 color correction (null/identity = off). */
     val color: ClipColor? = null,
+    /** CP-79 shape mask (null/identity = off). */
+    val mask: ClipMask? = null,
+    /** CP-79 chroma key (null = off). */
+    val chroma: ClipChroma? = null,
 ) {
     val durationMs: Long get() = endMs - startMs
 
@@ -579,11 +583,105 @@ data class OverlayText(
     }
 }
 
+/** CP-79 per-clip shape mask (§17). Rect/ellipse v0; pen-path later. Percent units. */
+@Serializable
+data class ClipMask(
+    val shape: String = "rect",
+    val x: Int = 0,
+    val y: Int = 0,
+    val w: Int = 100,
+    val h: Int = 100,
+    val feather: Int = 0,
+    val invert: Boolean = false,
+) {
+    /** Full-frame non-inverted mask = identity (nothing cut). */
+    val isIdentity: Boolean get() =
+        shape != "ellipse" && x <= 0 && y <= 0 && w >= 100 && h >= 100 && !invert
+
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (shape != "rect" && shape != "ellipse") errors.add("mask shape ต้องเป็น rect/ellipse (ได้ $shape)")
+        if (x !in 0..100 || y !in 0..100) errors.add("mask x/y ต้องอยู่ 0..100")
+        if (w !in 1..100 || h !in 1..100) errors.add("mask w/h ต้องอยู่ 1..100")
+        if (feather !in 0..100) errors.add("mask feather ต้องอยู่ 0..100 (ได้ $feather)")
+        return errors
+    }
+
+    fun summary(): String =
+        "$shape $x,$y ${w}x$h" + (if (feather > 0) " f$feather" else "") + (if (invert) " inv" else "")
+}
+
+/** CP-79 green/blue-screen key (§18). Greenness-distance key + despill. */
+@Serializable
+data class ClipChroma(
+    /** Target hue in degrees (120 = green, 240 = blue). */
+    val hue: Int = 120,
+    /** 0..100 key threshold. */
+    val tolerance: Int = 30,
+    /** 0..100 edge softness. */
+    val softness: Int = 10,
+    /** 0..100 spill suppression on kept pixels. */
+    val despill: Int = 50,
+) {
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (hue !in 0..360) errors.add("chroma hue ต้องอยู่ 0..360 (ได้ $hue)")
+        if (tolerance !in 0..100) errors.add("chroma tolerance ต้องอยู่ 0..100 (ได้ $tolerance)")
+        if (softness !in 0..100) errors.add("chroma softness ต้องอยู่ 0..100 (ได้ $softness)")
+        if (despill !in 0..100) errors.add("chroma despill ต้องอยู่ 0..100 (ได้ $despill)")
+        return errors
+    }
+
+    fun summary(): String = "h$hue t$tolerance" +
+        (if (softness != 10) " s$softness" else "") + (if (despill != 50) " d$despill" else "")
+}
+
+/**
+ * CP-79 timeline background (§19). v0 shows through only where a clip's
+ * mask/chroma cuts holes (no fit-mode yet, so the frame stays fill).
+ */
+@Serializable
+data class ClipBackground(
+    val mode: String = "black",
+    /** RGB hex "RRGGBB" when mode=color. */
+    val color: String = "000000",
+    /** Blur radius 1..10 when mode=blur. */
+    val blur: Int = 8,
+    /** Asset id when mode=image. */
+    val assetId: String? = null,
+) {
+    val isIdentity: Boolean get() = mode == "black"
+
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (mode !in MODES) errors.add("background mode ต้องเป็น ${MODES.joinToString("/")} (ได้ $mode)")
+        if (mode == "color" && !color.matches(Regex("[0-9a-fA-F]{6}"))) {
+            errors.add("background color ต้องเป็น hex RRGGBB (ได้ $color)")
+        }
+        if (mode == "blur" && blur !in 1..10) errors.add("background blur ต้องอยู่ 1..10 (ได้ $blur)")
+        if (mode == "image" && assetId.isNullOrBlank()) errors.add("background image ต้องระบุ assetId")
+        return errors
+    }
+
+    fun summary(): String = when (mode) {
+        "color" -> "color#$color"
+        "blur" -> "blur$blur"
+        "image" -> "image:${assetId ?: "?"}"
+        else -> "black"
+    }
+
+    companion object {
+        val MODES = listOf("black", "color", "blur", "image")
+    }
+}
+
 @Serializable
 data class Timeline(
     val tracks: List<Track> = emptyList(),
     val markers: List<TimelineMarker> = emptyList(),
     val texts: List<OverlayText> = emptyList(),
+    /** CP-79 timeline background (§19). */
+    val background: ClipBackground? = null,
 ) {
     val durationMs: Long get() = tracks.flatMap { it.clips }.maxOfOrNull { it.atMs + it.outputDurationMs() } ?: 0
 
@@ -619,6 +717,8 @@ data class Timeline(
                 clip.transitionOut?.validate("out")?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.fx?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.color?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.mask?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.chroma?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 for (tr in listOfNotNull(clip.transitionIn, clip.transitionOut)) {
                     if (tr.kind != "cut" && tr.durationMs > clip.outputDurationMs()) {
                         errors.add("คลิป ${clip.id}: ทรานซิชันยาวกว่าคลิป")
@@ -633,6 +733,12 @@ data class Timeline(
         }
         for (overlay in texts) {
             overlay.validate().forEach { errors.add("ข้อความ ${overlay.id}: $it") }
+        }
+        background?.let { bg ->
+            bg.validate().forEach { errors.add("พื้นหลัง: $it") }
+            if (bg.mode == "image" && bg.assetId != null && bg.assetId !in assets) {
+                errors.add("พื้นหลังอ้าง asset ที่ไม่มี (${bg.assetId})")
+            }
         }
         return errors
     }

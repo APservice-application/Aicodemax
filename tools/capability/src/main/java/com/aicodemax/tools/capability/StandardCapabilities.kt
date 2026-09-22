@@ -229,6 +229,12 @@ object StandardCapabilities {
             metadata = meta("media", "เอฟเฟกต์ภาพคลิป", listOf("clipIndex,blur?,vignette?,grain?"), listOf("ok"), listOf("fs.write"), false, "fx shown", "0..10/100", true, "edit.undo")),
         CapabilityBinding("media.timeline.setColor", "media", "timeline.setColor", AdapterKind.NATIVE,
             metadata = meta("media", "แก้สีคลิป", listOf("clipIndex,preset?,brightness?,contrast?,saturation?,temperature?,tint?,highlights?,shadows?,hueShift?,lightness?"), listOf("ok"), listOf("fs.write"), false, "color shown", "fix range", true, "edit.undo")),
+        CapabilityBinding("media.timeline.setMask", "media", "timeline.setMask", AdapterKind.NATIVE,
+            metadata = meta("media", "มาสก์คลิป", listOf("clipIndex,shape?,x?,y?,w?,h?,feather?,invert?"), listOf("ok"), listOf("fs.write"), false, "mask shown", "fix rect", true, "edit.undo")),
+        CapabilityBinding("media.timeline.setChroma", "media", "timeline.setChroma", AdapterKind.NATIVE,
+            metadata = meta("media", "chroma คลิป", listOf("clipIndex,hue?,tolerance?,softness?,despill?,off?"), listOf("ok"), listOf("fs.write"), false, "chroma shown", "0..360", true, "edit.undo")),
+        CapabilityBinding("media.timeline.setBackground", "media", "timeline.setBackground", AdapterKind.NATIVE,
+            metadata = meta("media", "พื้นหลังไทม์ไลน์", listOf("mode,color?,blur?,assetId?"), listOf("ok"), listOf("fs.write"), false, "bg shown", "fix mode", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

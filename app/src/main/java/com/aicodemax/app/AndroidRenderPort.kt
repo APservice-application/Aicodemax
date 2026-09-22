@@ -22,6 +22,9 @@ import com.aicodemax.data.media.ClipKeyframes
 import com.aicodemax.data.media.ClipTransition
 import com.aicodemax.data.media.ClipFx
 import com.aicodemax.data.media.ClipColor
+import com.aicodemax.data.media.ClipMask
+import com.aicodemax.data.media.ClipChroma
+import com.aicodemax.data.media.ClipBackground
 import com.aicodemax.tools.image.RenderScopes
 import com.aicodemax.tools.image.FrameScopes
 import com.aicodemax.data.media.OverlayText
@@ -236,6 +239,7 @@ class AndroidRenderPort(
         val wantAudio: Boolean,
         val fast: Boolean,
         val texts: List<OverlayText> = emptyList(),
+        val bgFile: File? = null,
     )
 
     private suspend fun planRender(project: Project, assets: List<MediaAsset>, job: RenderJob): RenderPlan? {
@@ -272,6 +276,13 @@ class AndroidRenderPort(
         val singleKeys = single?.clip?.keyframes
         val singleFx = single?.clip?.fx
         val singleColor = single?.clip?.color
+        val singleMask = single?.clip?.mask
+        val bg = timeline.background
+        val bgAsset = bg?.takeUnless { it.isIdentity }?.takeIf { it.mode == "image" }?.assetId
+        val bgFile = bgAsset?.let { id ->
+            val asset = byId[id]
+            asset?.let { File(File(mediaRoot, "${project.id}/assets"), it.fileName).takeIf { f -> f.isFile } }
+        }
         val fast = single != null && single.kind == MediaKind.VIDEO &&
             audioSegs.isEmpty() && single.clip.volume == 100 &&
             single.clip.atMs == 0L &&
@@ -283,7 +294,10 @@ class AndroidRenderPort(
             single?.clip?.transitionIn == null &&
             single?.clip?.transitionOut == null &&
             (singleFx == null || singleFx.isIdentity) &&
-            (singleColor == null || singleColor.isIdentity)
+            (singleColor == null || singleColor.isIdentity) &&
+            (singleMask == null || singleMask.isIdentity) &&
+            single?.clip?.chroma == null &&
+            (bg == null || bg.isIdentity)
         return RenderPlan(
             timeline = timeline,
             segments = probed.sortedBy { it.clip.atMs },
@@ -291,6 +305,7 @@ class AndroidRenderPort(
             wantAudio = audioSegs.isNotEmpty(),
             fast = fast,
             texts = timeline.texts,
+            bgFile = bgFile,
         )
     }
 
@@ -460,6 +475,7 @@ class AndroidRenderPort(
                     ptsUs += frameStepUs
                 }
                 val total = plan.segments.size
+                val bg = prepareBg(plan, outW, outH)
                 val tails = mutableMapOf<String, IntArray>()
                 val needTail = mutableSetOf<String>()
                 plan.segments.groupBy { it.trackId }.values.forEach { group ->
@@ -473,9 +489,9 @@ class AndroidRenderPort(
                     val prev = tails[seg.trackId]
                     val wantTail = seg.clip.id in needTail
                     val last = if (seg.kind == MediaKind.IMAGE) {
-                        feedStill(seg, outW, outH, planar, plan.texts, prev, wantTail, scopes, feed)
+                        feedStill(seg, outW, outH, planar, plan.texts, prev, wantTail, scopes, bg, feed)
                     } else {
-                        decodeSegment(seg, outW, outH, planar, seg.transform, plan.texts, seg.speed, prev, wantTail, scopes, feed)
+                        decodeSegment(seg, outW, outH, planar, seg.transform, plan.texts, seg.speed, prev, wantTail, scopes, bg, feed)
                     }
                     if (last != null) tails[seg.trackId] = last
                     progress(5 + 70 * (index + 1) / total.coerceAtLeast(1))
@@ -543,11 +559,12 @@ class AndroidRenderPort(
         prevTail: IntArray?,
         wantTail: Boolean,
         scopes: RenderScopes?,
+        bg: BgSource?,
         feed: (ByteArray) -> Unit,
     ): IntArray? {
         val active = transform?.takeUnless { it.isIdentity }
         if (speed?.reverse == true) {
-            return decodeReversed(seg, outW, outH, planar, active, texts, speed, prevTail, wantTail, scopes, feed)
+            return decodeReversed(seg, outW, outH, planar, active, texts, speed, prevTail, wantTail, scopes, bg, feed)
         }
         val srcLen = seg.clip.endMs - seg.clip.startMs
         val outLen = seg.clip.outputDurationMs()
@@ -562,7 +579,9 @@ class AndroidRenderPort(
         val trOut = seg.clip.transitionOut
         val fx = seg.clip.fx?.takeUnless { it.isIdentity }
         val cc = seg.clip.color?.takeUnless { it.isIdentity }
-        val plainOk = active == null && keys == null && trIn == null && trOut == null && fx == null && cc == null
+        val mask = seg.clip.mask?.takeUnless { it.isIdentity }
+        val chroma = seg.clip.chroma
+        val plainOk = active == null && keys == null && trIn == null && trOut == null && fx == null && cc == null && mask == null && chroma == null
         fun emit(image: android.media.Image, j: Int) {
             val offMs = j * 1000L / 30
             val timelineMs = seg.clip.atMs + offMs
@@ -580,6 +599,11 @@ class AndroidRenderPort(
                 }
                 frame = applyFx(frame, outW, outH, fx, timelineMs)
                 frame = applyColor(frame, cc)
+                if (mask != null || chroma != null) {
+                    frame = applyMask(frame, outW, outH, mask)
+                    frame = applyChroma(frame, chroma)
+                    frame = compositeOver(frame, bgPixelsFor(bg, frame, outW, outH))
+                }
                 frame = applyTransitionIn(frame, outW, outH, trIn, prevTail, offMs)
                 frame = applyTransitionOut(frame, trOut, offMs, outLen)
                 if (j % 30 == 0) scopes?.add(frame)
@@ -689,6 +713,7 @@ class AndroidRenderPort(
         prevTail: IntArray?,
         wantTail: Boolean,
         scopes: RenderScopes?,
+        bg: BgSource?,
         feed: (ByteArray) -> Unit,
     ): IntArray? {
         val srcLen = seg.clip.endMs - seg.clip.startMs
@@ -797,6 +822,8 @@ class AndroidRenderPort(
             var lastArgb: IntArray? = null
             val fx = seg.clip.fx?.takeUnless { it.isIdentity }
             val cc = seg.clip.color?.takeUnless { it.isIdentity }
+            val mask = seg.clip.mask?.takeUnless { it.isIdentity }
+            val chroma = seg.clip.chroma
             for (j in 0 until totalOut) {
                 val want = srcAt(j)
                 var best = 0
@@ -823,6 +850,11 @@ class AndroidRenderPort(
                 val timelineMs = seg.clip.atMs + offMs
                 var done = applyFx(frame, outW, outH, fx, timelineMs)
                 done = applyColor(done, cc)
+                if (mask != null || chroma != null) {
+                    done = applyMask(done, outW, outH, mask)
+                    done = applyChroma(done, chroma)
+                    done = compositeOver(done, bgPixelsFor(bg, done, outW, outH))
+                }
                 done = applyTransitionIn(done, outW, outH, seg.clip.transitionIn, prevTail, offMs)
                 done = applyTransitionOut(done, seg.clip.transitionOut, offMs, outLen)
                 if (j % 30 == 0) scopes?.add(done)
@@ -831,7 +863,7 @@ class AndroidRenderPort(
                 if (live.isNotEmpty()) drawTexts(done, outW, outH, live, timelineMs)
                 feed(if (planar) Yuv.toI420(done, outW, outH) else Yuv.toNV12(done, outW, outH))
             }
-            if (!wantTail && fx == null && cc == null && seg.clip.transitionIn == null && seg.clip.transitionOut == null) {
+            if (!wantTail && fx == null && cc == null && mask == null && chroma == null && seg.clip.transitionIn == null && seg.clip.transitionOut == null) {
                 lastArgb = null
             }
             return lastArgb
@@ -849,6 +881,7 @@ class AndroidRenderPort(
         prevTail: IntArray?,
         wantTail: Boolean,
         scopes: RenderScopes?,
+        bg: BgSource?,
         feed: (ByteArray) -> Unit,
     ): IntArray? {
         val raw = BitmapFactory.decodeFile(seg.file.path) ?: return null
@@ -858,10 +891,11 @@ class AndroidRenderPort(
         val live = texts.filter { it.startMs < stillEnd && it.endMs > seg.clip.atMs }
         val fxStill = seg.clip.fx?.takeUnless { it.isIdentity }
         val ccStill = seg.clip.color?.takeUnless { it.isIdentity }
+        val cutStill = seg.clip.mask?.takeUnless { it.isIdentity } != null || seg.clip.chroma != null
         if (active != null || live.isNotEmpty() || keys != null || wantTail ||
-            seg.clip.transitionIn != null || seg.clip.transitionOut != null || fxStill != null || ccStill != null
+            seg.clip.transitionIn != null || seg.clip.transitionOut != null || fxStill != null || ccStill != null || cutStill
         ) {
-            return feedStillComposed(raw, active, live, seg, outW, outH, planar, prevTail, scopes, feed)
+            return feedStillComposed(raw, active, live, seg, outW, outH, planar, prevTail, scopes, bg, feed)
         }
         val scaled = centerCrop(raw, outW, outH)
         val pixels = IntArray(outW * outH)
@@ -898,6 +932,7 @@ class AndroidRenderPort(
         planar: Boolean,
         prevTail: IntArray?,
         scopes: RenderScopes?,
+        bg: BgSource?,
         feed: (ByteArray) -> Unit,
     ): IntArray? {
         val pixels = IntArray(raw.width * raw.height)
@@ -909,6 +944,8 @@ class AndroidRenderPort(
         val trOut = seg.clip.transitionOut
         val fx = seg.clip.fx?.takeUnless { it.isIdentity }
         val cc = seg.clip.color?.takeUnless { it.isIdentity }
+        val mask = seg.clip.mask?.takeUnless { it.isIdentity }
+        val chroma = seg.clip.chroma
         var lastArgb: IntArray? = null
         if (keys != null) {
             repeat(frames) { i ->
@@ -917,6 +954,11 @@ class AndroidRenderPort(
                 var frame = composeLook(pixels, raw.width, raw.height, frameLook(t, keys, offMs), outW, outH)
                 frame = applyFx(frame, outW, outH, fx, timelineMs)
                 frame = applyColor(frame, cc)
+                if (mask != null || chroma != null) {
+                    frame = applyMask(frame, outW, outH, mask)
+                    frame = applyChroma(frame, chroma)
+                    frame = compositeOver(frame, bgPixelsFor(bg, frame, outW, outH))
+                }
                 frame = applyTransitionIn(frame, outW, outH, trIn, prevTail, offMs)
                 frame = applyTransitionOut(frame, trOut, offMs, outLen)
                 if (i % 30 == 0) scopes?.add(frame)
@@ -933,6 +975,11 @@ class AndroidRenderPort(
         }
         base = applyFx(base, outW, outH, fx, seg.clip.atMs)
         base = applyColor(base, cc)
+        if (mask != null || chroma != null) {
+            base = applyMask(base, outW, outH, mask)
+            base = applyChroma(base, chroma)
+            base = compositeOver(base, bgPixelsFor(bg, base, outW, outH))
+        }
         scopes?.add(base)
         lastArgb = base
         if (live.isEmpty() && trIn == null && trOut == null) {
@@ -1186,6 +1233,171 @@ class AndroidRenderPort(
             }
         }
         return Triple(out, ow, oh)
+    }
+
+    // ---- CP-79 mask + chroma + background (§17/§18/§19) ----
+
+    private data class BgSource(
+        val mode: String,
+        val solid: IntArray?,
+        val image: IntArray?,
+        val blurR: Int,
+    )
+
+    private fun prepareBg(plan: RenderPlan, outW: Int, outH: Int): BgSource? {
+        val b = plan.timeline.background ?: return null
+        if (b.isIdentity) return null
+        return when (b.mode) {
+            "color" -> {
+                val rgb = b.color.toIntOrNull(16) ?: 0
+                BgSource("color", IntArray(outW * outH) { 0xFF000000.toInt() or rgb }, null, 0)
+            }
+            "image" -> {
+                val file = plan.bgFile ?: return null
+                val bmp = try {
+                    android.graphics.BitmapFactory.decodeFile(file.path)
+                } catch (_: Exception) {
+                    null
+                } ?: return null
+                val bw = bmp.width.coerceAtLeast(1)
+                val bh = bmp.height.coerceAtLeast(1)
+                val pixels = IntArray(bw * bh)
+                bmp.getPixels(pixels, 0, bw, 0, 0, bw, bh)
+                bmp.recycle()
+                val fitted = scaleArgb(centerCropPixels(pixels, bw, bh, outW, outH), outW, outH, outW, outH)
+                BgSource("image", null, fitted, 0)
+            }
+            "blur" -> BgSource("blur", null, null, b.blur.coerceIn(1, 10))
+            else -> null
+        }
+    }
+
+    private fun bgPixelsFor(bg: BgSource?, frame: IntArray, w: Int, h: Int): IntArray? {
+        if (bg == null) return null
+        return when (bg.mode) {
+            "color" -> bg.solid
+            "image" -> bg.image
+            "blur" -> blurFill(frame, w, h, bg.blurR)
+            else -> null
+        }
+    }
+
+    /** Classic blurred-fill background: downscale → blur → upscale. */
+    private fun blurFill(frame: IntArray, w: Int, h: Int, r: Int): IntArray {
+        val sw = 64.coerceAtMost(w)
+        val sh = (64f * h / w).toInt().coerceIn(1, h)
+        val small = IntArray(sw * sh)
+        for (y in 0 until sh) {
+            val sy = (y * h / sh).coerceIn(0, h - 1)
+            for (x in 0 until sw) {
+                small[y * sw + x] = frame[sy * w + (x * w / sw).coerceIn(0, w - 1)]
+            }
+        }
+        return scaleArgb(boxBlur(small, sw, sh, r.coerceIn(1, 10)), sw, sh, w, h)
+    }
+
+    /** Shape mask → alpha channel (mutates [px]). */
+    private fun applyMask(px: IntArray, w: Int, h: Int, m: ClipMask?): IntArray {
+        if (m == null || m.isIdentity) return px
+        val x0 = w * m.x / 100f
+        val y0 = h * m.y / 100f
+        val mw = (w * m.w / 100f).coerceAtLeast(1f)
+        val mh = (h * m.h / 100f).coerceAtLeast(1f)
+        val featherPx = (m.feather / 100f * minOf(mw, mh) / 2f).coerceAtLeast(0f)
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val insidePx = if (m.shape == "ellipse") {
+                    val nx = (x + 0.5f - (x0 + mw / 2f)) / (mw / 2f)
+                    val ny = (y + 0.5f - (y0 + mh / 2f)) / (mh / 2f)
+                    (1f - kotlin.math.sqrt(nx * nx + ny * ny)) * minOf(mw, mh) / 2f
+                } else {
+                    val dx = minOf(x + 0.5f - x0, x0 + mw - (x + 0.5f))
+                    val dy = minOf(y + 0.5f - y0, y0 + mh - (y + 0.5f))
+                    minOf(dx, dy)
+                }
+                var a = if (featherPx > 0f) {
+                    (insidePx / featherPx * 0.5f + 0.5f).coerceIn(0f, 1f)
+                } else if (insidePx > 0f) {
+                    1f
+                } else {
+                    0f
+                }
+                if (m.invert) a = 1f - a
+                val i = y * w + x
+                px[i] = (px[i] and 0x00FFFFFF) or (((a * 255).toInt().coerceIn(0, 255)) shl 24)
+            }
+        }
+        return px
+    }
+
+    /** Chroma key → alpha channel + despill (mutates [px]). */
+    private fun applyChroma(px: IntArray, ch: ClipChroma?): IntArray {
+        if (ch == null) return px
+        val target = hslToRgb(ch.hue / 360f, 1f, 0.5f)
+        val tSum = target[0] + target[1] + target[2] + 1e-6f
+        val tr = target[0] / tSum
+        val tg = target[1] / tSum
+        val tb = target[2] / tSum
+        val tolDist = ch.tolerance / 100f * 0.5f
+        val softDist = 0.02f + ch.softness / 100f * 0.2f
+        val despillF = ch.despill / 100f
+        val dom = when (maxOf(target[0], target[1], target[2])) {
+            target[0] -> 0
+            target[1] -> 1
+            else -> 2
+        }
+        for (i in px.indices) {
+            val c = px[i]
+            val r = ((c shr 16) and 0xFF) / 255f
+            val g = ((c shr 8) and 0xFF) / 255f
+            val b = (c and 0xFF) / 255f
+            val sum = r + g + b + 1e-6f
+            val dr = r / sum - tr
+            val dg = g / sum - tg
+            val db = b / sum - tb
+            val d = kotlin.math.sqrt(dr * dr + dg * dg + db * db)
+            val key = 1f - ((d - tolDist) / softDist).coerceIn(0f, 1f)
+            val oldA = ((c ushr 24) and 0xFF) / 255f
+            val newA = (oldA * (1f - key)).coerceIn(0f, 1f)
+            var rr = r
+            var gg = g
+            var bb = b
+            if (despillF > 0f && key < 1f) {
+                val others = when (dom) {
+                    0 -> maxOf(gg, bb)
+                    1 -> maxOf(rr, bb)
+                    else -> maxOf(rr, gg)
+                }
+                when (dom) {
+                    0 -> rr = minOf(rr, others + (1f - despillF) * (rr - others).coerceAtLeast(0f))
+                    1 -> gg = minOf(gg, others + (1f - despillF) * (gg - others).coerceAtLeast(0f))
+                    else -> bb = minOf(bb, others + (1f - despillF) * (bb - others).coerceAtLeast(0f))
+                }
+            }
+            px[i] = (((newA * 255).toInt().coerceIn(0, 255)) shl 24) or
+                (((rr * 255f).toInt().coerceIn(0, 255)) shl 16) or
+                (((gg * 255f).toInt().coerceIn(0, 255)) shl 8) or
+                (bb * 255f).toInt().coerceIn(0, 255)
+        }
+        return px
+    }
+
+    /** Flattens alpha over [bg] (or black when null). Output is opaque. */
+    private fun compositeOver(px: IntArray, bg: IntArray?): IntArray {
+        for (i in px.indices) {
+            val c = px[i]
+            val a = ((c ushr 24) and 0xFF) / 255f
+            if (a >= 1f) {
+                px[i] = c or 0xFF000000.toInt()
+                continue
+            }
+            val bc = if (bg != null && bg.size == px.size) bg[i] else 0xFF000000.toInt()
+            val r = ((((c shr 16) and 0xFF) * a + ((bc shr 16) and 0xFF) * (1f - a))).toInt()
+            val g = ((((c shr 8) and 0xFF) * a + ((bc shr 8) and 0xFF) * (1f - a))).toInt()
+            val b = (((c and 0xFF) * a + (bc and 0xFF) * (1f - a))).toInt()
+            px[i] = 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
+        }
+        return px
     }
 
     // ---- CP-78 color correction (§42) ----

@@ -24,6 +24,9 @@ import com.aicodemax.data.media.TimelineMarker
 import com.aicodemax.data.media.ClipSpeed
 import com.aicodemax.data.media.ClipFx
 import com.aicodemax.data.media.ClipColor
+import com.aicodemax.data.media.ClipMask
+import com.aicodemax.data.media.ClipChroma
+import com.aicodemax.data.media.ClipBackground
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.TimelineOps
 import com.aicodemax.data.media.Track
@@ -135,6 +138,24 @@ interface MediaProjectPort {
         projectId: String,
         clipId: String,
         fx: ClipFx,
+        actor: String = "AI",
+    ): Outcome<Project>
+    // CP-79 mask + chroma + background (§17/§18/§19).
+    suspend fun setClipMask(
+        projectId: String,
+        clipId: String,
+        mask: ClipMask,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun setClipChroma(
+        projectId: String,
+        clipId: String,
+        chroma: ClipChroma?,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun setBackground(
+        projectId: String,
+        background: ClipBackground?,
         actor: String = "AI",
     ): Outcome<Project>
     // CP-78 color correction (§42).
@@ -546,6 +567,32 @@ class FileMediaProject(
     ): Outcome<Project> = editTimeline(
         projectId, "แก้สีคลิป $clipId", ProjectEventTypes.CLIP_COLOR, actor,
     ) { TimelineOps.color(it, clipId, color) }
+
+    override suspend fun setClipMask(
+        projectId: String,
+        clipId: String,
+        mask: ClipMask,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "มาสก์คลิป $clipId", ProjectEventTypes.CLIP_MASK, actor,
+    ) { TimelineOps.mask(it, clipId, mask) }
+
+    override suspend fun setClipChroma(
+        projectId: String,
+        clipId: String,
+        chroma: ClipChroma?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "chroma คลิป $clipId", ProjectEventTypes.CLIP_CHROMA, actor,
+    ) { TimelineOps.chroma(it, clipId, chroma) }
+
+    override suspend fun setBackground(
+        projectId: String,
+        background: ClipBackground?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "พื้นหลังไทม์ไลน์", ProjectEventTypes.TIMELINE_BG, actor,
+    ) { TimelineOps.background(it, background) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(
@@ -1170,6 +1217,32 @@ class InMemoryMediaProject : MediaProjectPort {
     ): Outcome<Project> = editTimeline(
         projectId, "แก้สีคลิป $clipId", ProjectEventTypes.CLIP_COLOR, actor,
     ) { TimelineOps.color(it, clipId, color) }
+
+    override suspend fun setClipMask(
+        projectId: String,
+        clipId: String,
+        mask: ClipMask,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "มาสก์คลิป $clipId", ProjectEventTypes.CLIP_MASK, actor,
+    ) { TimelineOps.mask(it, clipId, mask) }
+
+    override suspend fun setClipChroma(
+        projectId: String,
+        clipId: String,
+        chroma: ClipChroma?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "chroma คลิป $clipId", ProjectEventTypes.CLIP_CHROMA, actor,
+    ) { TimelineOps.chroma(it, clipId, chroma) }
+
+    override suspend fun setBackground(
+        projectId: String,
+        background: ClipBackground?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "พื้นหลังไทม์ไลน์", ProjectEventTypes.TIMELINE_BG, actor,
+    ) { TimelineOps.background(it, background) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(projectId, "บันทึกเวอร์ชัน", ProjectEventTypes.VERSION_SAVED, actor) {

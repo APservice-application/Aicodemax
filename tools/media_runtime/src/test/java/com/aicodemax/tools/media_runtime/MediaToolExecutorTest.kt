@@ -210,4 +210,27 @@ class MediaToolExecutorTest {
         val badRange = run("timeline.setColor", mapOf("projectId" to projectId, "clipIndex" to "1", "brightness" to "500"))
         assertTrue(!badRange.ok)
     }
+
+    @Test
+    fun maskChromaBgFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("mc") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val imported = run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4"))
+        assertTrue(imported.ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        val clip = run(
+            "timeline.addClip",
+            mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0"),
+        )
+        assertTrue(clip.ok)
+        val mask = run("timeline.setMask", mapOf("projectId" to projectId, "clipIndex" to "1", "shape" to "ellipse"))
+        assertTrue(mask.output, mask.ok)
+        val chroma = run("timeline.setChroma", mapOf("projectId" to projectId, "clipIndex" to "1"))
+        assertTrue(chroma.output, chroma.ok)
+        val bg = run("timeline.setBackground", mapOf("projectId" to projectId, "mode" to "color", "color" to "1A2B4A"))
+        assertTrue(bg.output, bg.ok)
+        val listed = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed.output, listed.ok && listed.output.contains("{M:ellipse") && listed.output.contains("{CH:h120") && listed.output.contains("พื้นหลัง: color#1A2B4A"))
+        val bad = run("timeline.setMask", mapOf("projectId" to projectId, "clipIndex" to "1", "shape" to "star"))
+        assertTrue(!bad.ok)
+    }
 }

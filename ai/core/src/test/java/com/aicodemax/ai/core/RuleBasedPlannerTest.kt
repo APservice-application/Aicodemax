@@ -240,6 +240,19 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp79MaskChromaBgPlansRealSteps() = runBlocking {
+        val mask = (planner.plan(UserIntent(IntentType.CLIP_MASK, "t", mapOf("clipIndex" to "1", "shape" to "ellipse"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setMask", mask.steps[0].action)
+        val chroma = (planner.plan(UserIntent(IntentType.CLIP_CHROMA, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setChroma", chroma.steps[0].action)
+        val bg = (planner.plan(UserIntent(IntentType.BG_SET, "t", mapOf("mode" to "blur"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setBackground", bg.steps[0].action)
+        assertEquals("blur", bg.steps[0].args["mode"])
+        val missing = planner.plan(UserIntent(IntentType.CLIP_MASK, "t"))
+        assertEquals("PLAN_NO_CLIP", (missing as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp78ColorScopesPlansRealSteps() = runBlocking {
         val color = (planner.plan(UserIntent(IntentType.CLIP_COLOR, "t", mapOf("clipIndex" to "1", "preset" to "bw"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.setColor", color.steps[0].action)
