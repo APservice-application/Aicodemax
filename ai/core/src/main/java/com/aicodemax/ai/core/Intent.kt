@@ -49,6 +49,9 @@ enum class IntentType {
     ASSET_IMPORT,
     PROJECT_VERSION,
     PROJECT_RESTORE,
+    SUBTITLE_MAKE,
+    SUBTITLE_SHIFT,
+    SUBTITLE_BURN,
     UNKNOWN,
 }
 
@@ -197,6 +200,31 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.projectListWords)) {
             return UserIntent(IntentType.PROJECT_LIST, text)
+        }
+        if (containsAny(t, ThaiVocabulary.subtitleMakeWords)) {
+            val after = t.substringAfter(":", "").trim()
+            val transcript = if (after.isNotEmpty()) {
+                after
+            } else {
+                ThaiVocabulary.subtitleMakeWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
+            }
+            val digits = digitsPattern.find(tNoFile)?.value
+            return UserIntent(
+                IntentType.SUBTITLE_MAKE, text,
+                params("path" to file, "transcript" to transcript.ifBlank { null }, "durationMs" to digits),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.subtitleShiftWords)) {
+            val digits = digitsPattern.find(tNoFile)?.value
+            val negative = t.contains("ถอย")
+            val offset = digits?.let { if (negative) "-$it" else it }
+            return UserIntent(IntentType.SUBTITLE_SHIFT, text, params("path" to file, "offsetMs" to offset))
+        }
+        if (containsAny(t, ThaiVocabulary.subtitleBurnWords)) {
+            val files = fileNamePattern.findAll(t).map { it.value }.toList()
+            val srt = files.firstOrNull { it.lowercase().endsWith(".srt") }
+            val src = files.firstOrNull { it != srt }
+            return UserIntent(IntentType.SUBTITLE_BURN, text, params("src" to src, "srt" to srt))
         }
         if (containsAny(t, ThaiVocabulary.videoInfoWords)) {
             return UserIntent(IntentType.VIDEO_INFO, text, params("path" to file))

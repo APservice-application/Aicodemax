@@ -78,6 +78,9 @@ import com.aicodemax.tools.media.FileMediaProject
 import com.aicodemax.tools.media.MediaProjectPort
 import com.aicodemax.tools.media.mediaDescriptorToday
 import com.aicodemax.tools.media_runtime.MediaToolExecutor
+import com.aicodemax.tools.subtitle.SubtitlePort
+import com.aicodemax.tools.subtitle.subtitleDescriptorToday
+import com.aicodemax.tools.subtitle_runtime.SubtitleToolExecutor
 import com.aicodemax.tools.video.VideoPort
 import com.aicodemax.tools.video.videoDescriptorToday
 import com.aicodemax.tools.video_runtime.VideoToolExecutor
@@ -117,6 +120,7 @@ class ServiceLocator(context: Context) {
     val images: ImagePort = AndroidImagePort()
     val audio: AudioPort = AndroidAudioPort()
     val video: VideoPort = AndroidVideoPort()
+    val subtitles: SubtitlePort = AndroidSubtitlePort(audio, video)
     val media: MediaProjectPort =
         FileMediaProject(File(appContext.filesDir, "media"), images, audio, video)
     val settings: SettingsRepository = DataStoreSettingsRepository(appContext)
@@ -184,6 +188,7 @@ class ServiceLocator(context: Context) {
         toolRegistry.register(imageDescriptorToday())
         toolRegistry.register(audioDescriptorToday())
         toolRegistry.register(videoDescriptorToday())
+        toolRegistry.register(subtitleDescriptorToday())
         toolRegistry.register(mediaDescriptorToday())
 
         gateway = DefaultToolGateway(
@@ -205,6 +210,7 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(ImageToolExecutor(images))
         gateway.registerExecutor(AudioToolExecutor(audio))
         gateway.registerExecutor(VideoToolExecutor(video))
+        gateway.registerExecutor(SubtitleToolExecutor(subtitles))
         gateway.registerExecutor(MediaToolExecutor(media))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry)

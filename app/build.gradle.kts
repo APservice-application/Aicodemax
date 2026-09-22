@@ -71,6 +71,8 @@ dependencies {
     implementation(project(":tools:audio_runtime"))
     implementation(project(":tools:video"))
     implementation(project(":tools:video_runtime"))
+    implementation(project(":tools:subtitle"))
+    implementation(project(":tools:subtitle_runtime"))
     implementation(project(":data:media"))
     implementation(project(":tools:media"))
     implementation(project(":tools:media_runtime"))
