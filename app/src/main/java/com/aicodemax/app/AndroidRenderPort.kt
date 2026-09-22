@@ -399,7 +399,7 @@ class AndroidRenderPort(
             val planar = colorFormat == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar
             val videoTemp = File.createTempFile("render-v-", ".mp4", outDir)
             try {
-                encodeVideo(plan, videoTemp.path, outW, outH, preset, colorFormat, planar, progress).fold(
+                encodeVideo(plan, videoTemp.path, outW, outH, preset, colorFormat, planar, progress, scopes).fold(
                     onSuccess = { Unit },
                     onFailure = { return@withContext Outcome.Failure(it) },
                 )
@@ -437,6 +437,7 @@ class AndroidRenderPort(
         colorFormat: Int,
         planar: Boolean,
         progress: (Int) -> Unit,
+        scopes: RenderScopes,
     ): Outcome<Unit> {
         val totalMs = plan.timeline.durationMs.coerceAtLeast(1)
         val frameStepUs = 1_000_000L / 30
