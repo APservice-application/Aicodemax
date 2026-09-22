@@ -189,4 +189,25 @@ class MediaToolExecutorTest {
         val bad = run("timeline.setFx", mapOf("projectId" to projectId, "clipIndex" to "1", "blur" to "99"))
         assertTrue(!bad.ok)
     }
+
+    @Test
+    fun colorFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("cc") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val imported = run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4"))
+        assertTrue(imported.ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        val clip = run(
+            "timeline.addClip",
+            mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0"),
+        )
+        assertTrue(clip.ok)
+        val graded = run("timeline.setColor", mapOf("projectId" to projectId, "clipIndex" to "1", "preset" to "bw"))
+        assertTrue(graded.output, graded.ok)
+        val listed = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed.output, listed.ok && listed.output.contains("{C:st-100}"))
+        val badPreset = run("timeline.setColor", mapOf("projectId" to projectId, "clipIndex" to "1", "preset" to "nope"))
+        assertTrue(!badPreset.ok)
+        val badRange = run("timeline.setColor", mapOf("projectId" to projectId, "clipIndex" to "1", "brightness" to "500"))
+        assertTrue(!badRange.ok)
+    }
 }

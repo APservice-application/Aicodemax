@@ -360,6 +360,20 @@ object TimelineOps {
         return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(fx = next) else it })
     }
 
+    /** CP-78: replaces the clip's color correction (§42). Identity clears to null. */
+    fun color(timeline: Timeline, clipId: String, color: ClipColor): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (track.kind == MediaKind.AUDIO) {
+            throw IllegalArgumentException("คลิปเสียงใช้แก้สีไม่ได้")
+        }
+        val problems = color.validate()
+        if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        val next = if (color.isIdentity) null else color
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(color = next) else it })
+    }
+
     private fun checkUnlocked(track: Track) {
         if (track.locked) throw IllegalArgumentException("แทร็ก ${track.id} ล็อกอยู่")
     }

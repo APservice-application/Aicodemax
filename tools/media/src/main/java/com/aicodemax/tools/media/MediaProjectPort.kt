@@ -23,6 +23,7 @@ import com.aicodemax.data.media.Timeline
 import com.aicodemax.data.media.TimelineMarker
 import com.aicodemax.data.media.ClipSpeed
 import com.aicodemax.data.media.ClipFx
+import com.aicodemax.data.media.ClipColor
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.TimelineOps
 import com.aicodemax.data.media.Track
@@ -134,6 +135,13 @@ interface MediaProjectPort {
         projectId: String,
         clipId: String,
         fx: ClipFx,
+        actor: String = "AI",
+    ): Outcome<Project>
+    // CP-78 color correction (§42).
+    suspend fun setClipColor(
+        projectId: String,
+        clipId: String,
+        color: ClipColor,
         actor: String = "AI",
     ): Outcome<Project>
     suspend fun addMarker(projectId: String, atMs: Long, label: String = "", actor: String = "AI"): Outcome<TimelineMarker>
@@ -529,6 +537,15 @@ class FileMediaProject(
     ): Outcome<Project> = editTimeline(
         projectId, "เอฟเฟกต์คลิป $clipId", ProjectEventTypes.CLIP_FX, actor,
     ) { TimelineOps.fx(it, clipId, fx) }
+
+    override suspend fun setClipColor(
+        projectId: String,
+        clipId: String,
+        color: ClipColor,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "แก้สีคลิป $clipId", ProjectEventTypes.CLIP_COLOR, actor,
+    ) { TimelineOps.color(it, clipId, color) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(
@@ -1144,6 +1161,15 @@ class InMemoryMediaProject : MediaProjectPort {
     ): Outcome<Project> = editTimeline(
         projectId, "เอฟเฟกต์คลิป $clipId", ProjectEventTypes.CLIP_FX, actor,
     ) { TimelineOps.fx(it, clipId, fx) }
+
+    override suspend fun setClipColor(
+        projectId: String,
+        clipId: String,
+        color: ClipColor,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "แก้สีคลิป $clipId", ProjectEventTypes.CLIP_COLOR, actor,
+    ) { TimelineOps.color(it, clipId, color) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(projectId, "บันทึกเวอร์ชัน", ProjectEventTypes.VERSION_SAVED, actor) {

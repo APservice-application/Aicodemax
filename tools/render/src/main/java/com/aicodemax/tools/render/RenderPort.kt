@@ -2,6 +2,7 @@ package com.aicodemax.tools.render
 
 import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
+import com.aicodemax.tools.image.FrameScopes
 import com.aicodemax.tools.video.VideoPort
 import java.io.File
 
@@ -36,6 +37,7 @@ object Qc {
         outputPath: String,
         maxHeight: Int,
         video: VideoPort,
+        scopes: FrameScopes? = null,
     ): QcReport {
         val checks = mutableListOf<QcCheck>()
         val file = File(outputPath)
@@ -61,6 +63,10 @@ object Qc {
                     if (wantAudio) v.hasAudio else true,
                     if (wantAudio) "ต้องมีเสียง: ${v.hasAudio}" else "ไม่มีคลิปเสียง",
                 )
+                if (scopes != null && scopes.pixels > 0) {
+                    val broken = scopes.darkPct >= 95.0 || scopes.brightPct >= 95.0
+                    checks += QcCheck("exposure", !broken, scopes.summary())
+                }
             }
         }
         return QcReport(checks.all { it.ok }, checks)

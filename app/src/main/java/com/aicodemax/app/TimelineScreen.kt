@@ -564,6 +564,49 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }
                             }, enabled = !busy) { Text("เกรน:${fx.grain}") }
                         }
+                        // CP-78 color (§42).
+                        val cc = clip.color ?: com.aicodemax.data.media.ClipColor()
+                        val presets = listOf("none", "cinema", "warm", "cool", "vivid", "bw")
+                        Text(
+                            "สี: ${(clip.color?.summary()?.ifBlank { null } ?: "ปกติ")}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(onClick = {
+                                val cur = presets.firstOrNull { com.aicodemax.data.media.ClipColor.preset(it) == cc } ?: "none"
+                                val next = presets[(presets.indexOf(cur) + 1) % presets.size]
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipColor(projectId, clipId, com.aicodemax.data.media.ClipColor.preset(next), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("โทน") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipColor(projectId, clipId, cc.copy(brightness = (cc.brightness - 10).coerceAtLeast(-100)), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("มืด") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipColor(projectId, clipId, cc.copy(brightness = (cc.brightness + 10).coerceAtMost(100)), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("สว่าง") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipColor(projectId, clipId, cc.copy(saturation = (cc.saturation + 15).coerceAtMost(100)), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("สด+") }
+                        }
                     }
                 }
             }

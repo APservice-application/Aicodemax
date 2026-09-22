@@ -338,6 +338,29 @@ class RuleBasedPlanner(
                 }
                 listOf("media.timeline.setFx" to args)
             }
+            IntentType.IMAGE_SCOPES -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_PATH", "เช็คแสงรูปไหนครับ? เช่น เช็คแสง รูปทะเล.jpg"),
+                    )
+                listOf("image.scopes" to mapOf("path" to path))
+            }
+            IntentType.CLIP_COLOR -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "แก้สีคลิปที่เท่าไหร่ครับ? เช่น สีคลิปที่ 1 โทนอุ่น"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                for (k in listOf("preset", "brightness", "contrast", "saturation", "temperature", "tint", "highlights", "shadows", "hueShift", "lightness")) {
+                    intent.parameters[k]?.let { args[k] = it }
+                }
+                if (args.size < 2) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_COLOR", "ปรับสีอะไรครับ? โทนอุ่น/โทนเย็น/ขาวดำ/ซีนีม่า หรือ สว่าง/คอนทราสต์/อิ่มสี + ตัวเลข"),
+                    )
+                }
+                listOf("media.timeline.setColor" to args)
+            }
             IntentType.KEYFRAME_SET -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

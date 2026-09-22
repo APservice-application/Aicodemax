@@ -24,6 +24,8 @@ interface ImagePort {
     suspend fun crop(src: String, dst: String, x: Int, y: Int, w: Int, h: Int): Outcome<ImageInfo>
     suspend fun rotate(src: String, dst: String, degrees: Int): Outcome<ImageInfo>
     suspend fun grayscale(src: String, dst: String): Outcome<ImageInfo>
+    // CP-78 histogram scopes (§101).
+    suspend fun scopes(path: String): Outcome<FrameScopes>
 }
 
 /**
@@ -60,6 +62,12 @@ class InMemoryImagePort : ImagePort {
 
     override suspend fun grayscale(src: String, dst: String): Outcome<ImageInfo> =
         edit(src, dst, "IMAGE_GRAY") { ImageOps.grayscale(it) }
+
+    override suspend fun scopes(path: String): Outcome<FrameScopes> {
+        val image = store[path]
+            ?: return Outcome.Failure(AppError("IMAGE_SCOPES", "ไม่พบรูป $path (fake นี้ต้อง put() ก่อน)"))
+        return Outcome.Success(ColorScopes.analyze(image))
+    }
 
     private inline fun edit(src: String, dst: String, code: String, op: (PixelImage) -> PixelImage): Outcome<ImageInfo> {
         val image = store[src]

@@ -1,6 +1,7 @@
 package com.aicodemax.ai.core
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class IntentParserTest {
@@ -253,6 +254,19 @@ class IntentParserTest {
         assertEquals("50", slow.parameters["rate"])
         val rev = IntentParser.parse("ย้อนคลิปที่ 1")
         assertEquals(IntentType.CLIP_REVERSE, rev.type)
+    }
+
+    @Test
+    fun cp78ColorScopesIntents() {
+        val warm = IntentParser.parse("สีคลิปที่ 1 โทนอุ่น")
+        assertEquals(IntentType.CLIP_COLOR, warm.type)
+        assertEquals("1", warm.parameters["clipIndex"])
+        assertEquals("warm", warm.parameters["preset"])
+        val bright = IntentParser.parse("ความสว่างคลิปที่ 2 20")
+        assertEquals("20", bright.parameters["brightness"])
+        val scopes = IntentParser.parse("เช็คแสง beach.jpg")
+        assertEquals(IntentType.IMAGE_SCOPES, scopes.type)
+        assertEquals("beach.jpg", scopes.parameters["path"])
     }
 
     @Test
