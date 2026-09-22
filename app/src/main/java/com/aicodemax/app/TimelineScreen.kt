@@ -726,6 +726,41 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }
                             }, enabled = !busy && slideAssets.isNotBlank()) { Text("สไลด์โชว์") }
                         }
+                        // CP-85 mixer-lite + beats (§31/§102).
+                        Text(
+                            "เสียง: ${clip.volume}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipVolume(projectId, clipId, (clip.volume - 10).coerceAtLeast(0), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("เบา") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipVolume(projectId, clipId, (clip.volume + 10).coerceAtMost(100), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ดัง") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    val call = com.aicodemax.tools.gateway.ToolCall(
+                                        com.aicodemax.core.common.Ids.newId("ui"), "media", "timeline.beatsToMarkers",
+                                        mapOf("projectId" to projectId, "clipId" to clipId), actor = "HUMAN",
+                                    )
+                                    services.gateway.call(call).fold(
+                                        onSuccess = { message = if (it.ok) it.output else it.error },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("จังหวะ→มาร์ก") }
+                        }
                         // CP-79 mask + chroma (§17/§18).
                         val mk = clip.mask ?: com.aicodemax.data.media.ClipMask()
                         Text(

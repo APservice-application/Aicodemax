@@ -441,6 +441,29 @@ class RuleBasedPlanner(
                     )
                 listOf("media.timeline.slideshow" to mapOf("assetIds" to assets))
             }
+            IntentType.BEATS -> {
+                val clip = intent.parameters["clipIndex"]
+                if (clip != null) {
+                    listOf("media.timeline.beatsToMarkers" to mapOf("clipIndex" to clip))
+                } else {
+                    val path = intent.parameters["path"]
+                        ?: return Outcome.Failure(
+                            AppError("PLAN_NO_FILE", "จับจังหวะไฟล์ไหนครับ? (เช่น จับจังหวะเพลง song.wav หรือ จับจังหวะคลิปที่ 1)"),
+                        )
+                    listOf("audio.beats" to mapOf("src" to path))
+                }
+            }
+            IntentType.CLIP_VOLUME -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ตั้งเสียงคลิปที่เท่าไหร่ครับ? เช่น เสียงคลิปที่ 1 80"),
+                    )
+                val volume = intent.parameters["volume"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_VALUE", "เสียงเท่าไหร่ครับ (0-100)? เช่น เสียงคลิปที่ 1 80"),
+                    )
+                listOf("media.timeline.volume" to mapOf("clipIndex" to clip, "volume" to volume))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

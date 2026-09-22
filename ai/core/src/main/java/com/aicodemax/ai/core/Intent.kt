@@ -91,6 +91,8 @@ enum class IntentType {
     GEN_LIST,
     CLIP_MOTION,
     SLIDESHOW,
+    BEATS,
+    CLIP_VOLUME,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -257,6 +259,12 @@ object IntentParser {
             val negative = t.contains("เบาเสียง")
             val db = digits?.let { if (negative) "-$it" else it }
             return UserIntent(IntentType.AUDIO_GAIN, text, params("path" to file, "db" to db))
+        }
+        if (containsAny(lower, ThaiVocabulary.beatWords)) {
+            return UserIntent(
+                IntentType.BEATS, text,
+                params("clipIndex" to parseClipIndex(t), "path" to file),
+            )
         }
         if (containsAny(t, ThaiVocabulary.projectNewWords)) {
             val name = ThaiVocabulary.projectNewWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
@@ -537,6 +545,14 @@ object IntentParser {
             return UserIntent(
                 IntentType.CLIP_MOTION, text,
                 params("clipIndex" to parseClipIndex(t), "dir" to dir, "off" to (if (off) "true" else null)),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipVolumeWords)) {
+            val noClip = t.replace(Regex("คลิป(?:ที่)?\\s*\\d+"), "")
+            val value = Regex("(\\d+)").find(noClip)?.groupValues?.get(1)
+            return UserIntent(
+                IntentType.CLIP_VOLUME, text,
+                params("clipIndex" to parseClipIndex(t), "volume" to value),
             )
         }
         if (containsAny(lower, ThaiVocabulary.templateWords)) {

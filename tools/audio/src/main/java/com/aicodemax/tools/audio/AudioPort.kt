@@ -28,6 +28,9 @@ interface AudioPort {
     suspend fun concat(srcs: List<String>, dst: String): Outcome<AudioInfo>
     suspend fun gain(src: String, dst: String, db: Double): Outcome<AudioInfo>
     suspend fun fade(src: String, dst: String, fadeInMs: Long, fadeOutMs: Long): Outcome<AudioInfo>
+
+    /** CP-85 §31: detect tempo + beat grid (offline, no ML). */
+    suspend fun beats(path: String): Outcome<BeatAnalysis>
 }
 
 /**
@@ -90,5 +93,11 @@ class InMemoryAudioPort : AudioPort {
         } catch (e: IllegalArgumentException) {
             Outcome.Failure(AppError(code, e.message ?: "bad args"))
         }
+    }
+
+    override suspend fun beats(path: String): Outcome<BeatAnalysis> {
+        val clip = store[path]
+            ?: return Outcome.Failure(com.aicodemax.core.common.AppError("AUDIO_MISSING", "ไม่มีเสียง $path (put ก่อน)"))
+        return Outcome.Success(Beats.analyze(clip))
     }
 }

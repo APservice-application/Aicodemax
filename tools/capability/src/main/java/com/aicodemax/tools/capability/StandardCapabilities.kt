@@ -135,6 +135,8 @@ object StandardCapabilities {
             metadata = meta("audio", "เร่ง/เบาเสียง", listOf("src,db"), listOf("dst"), listOf("fs.write"), false, "peak changed", "retry")),
         CapabilityBinding("audio.fade", "audio", "fade", AdapterKind.NATIVE,
             metadata = meta("audio", "เฟดหัว/ท้ายเสียง", listOf("src,inMs?,outMs?"), listOf("dst"), listOf("fs.write"), false, "ramps ok", "retry")),
+        CapabilityBinding("audio.beats", "audio", "beats", AdapterKind.NATIVE,
+            metadata = meta("audio", "จับจังหวะเพลง (BPM)", listOf("src"), listOf("bpm"), emptyList(), false, "bpm shown", "retry")),
         // Video engine (native, MP4 probe + stream-copy ops).
         CapabilityBinding("video.info", "video", "info", AdapterKind.NATIVE,
             metadata = meta("video", "ดูฟอร์แมต+ขนาด+ความยาววิดีโอ", listOf("path"), listOf("info"), emptyList(), false, "header parsed", "re-probe")),
@@ -269,6 +271,10 @@ object StandardCapabilities {
             metadata = meta("media", "โมชัน Ken Burns ของคลิป", listOf("clipIndex,dir?,zoom?,off?"), listOf("ok"), listOf("fs.write"), false, "motion shown", "fix dir", true, "edit.undo")),
         CapabilityBinding("media.timeline.slideshow", "media", "timeline.slideshow", AdapterKind.NATIVE,
             metadata = meta("media", "ทำสไลด์โชว์จากรูป", listOf("assetIds,stillMs?,fadeMs?"), listOf("ok"), listOf("fs.write"), false, "slideshow added", "fix assets", true, "edit.undo")),
+        CapabilityBinding("media.timeline.volume", "media", "timeline.volume", AdapterKind.NATIVE,
+            metadata = meta("media", "ตั้งเสียงคลิป", listOf("clipIndex,volume"), listOf("ok"), listOf("fs.write"), false, "volume shown", "0..100", true, "edit.undo")),
+        CapabilityBinding("media.timeline.beatsToMarkers", "media", "timeline.beatsToMarkers", AdapterKind.NATIVE,
+            metadata = meta("media", "จับจังหวะคลิปเป็นมาร์กเกอร์", listOf("clipIndex"), listOf("ok"), listOf("fs.write"), false, "markers added", "fix audio", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

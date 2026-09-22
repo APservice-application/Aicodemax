@@ -72,7 +72,18 @@ class AudioToolExecutor(private val audio: AudioPort = InMemoryAudioPort()) : To
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade)")
+                "beats" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    audio.beats(src).fold(
+                        onSuccess = {
+                            if (it.bpm <= 0) done(true, "จับจังหวะไม่ได้ (สัญญาณไม่มีพัลส์ชัด)")
+                            else done(true, "จังหวะ %.0f BPM มั่นใจ %d%% บีต %d จุด".format(it.bpm, (it.confidence * 100).toInt(), it.beatsMs.size))
+                        },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade/beats)")
             }
         }
 

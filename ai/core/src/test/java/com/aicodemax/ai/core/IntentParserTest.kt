@@ -257,6 +257,19 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp85BeatVolumeIntents() {
+        val clip = IntentParser.parse("จับจังหวะคลิปที่ 1")
+        assertEquals(IntentType.BEATS, clip.type)
+        assertEquals("1", clip.parameters["clipIndex"])
+        val file = IntentParser.parse("จับจังหวะเพลง song.wav")
+        assertEquals(IntentType.BEATS, file.type)
+        assertEquals("song.wav", file.parameters["path"])
+        val vol = IntentParser.parse("เสียงคลิปที่ 2 80")
+        assertEquals(IntentType.CLIP_VOLUME, vol.type)
+        assertEquals("80", vol.parameters["volume"])
+    }
+
+    @Test
     fun cp84MotionSlideIntents() {
         val motion = IntentParser.parse("โมชันคลิปที่ 1 ซูมเข้า")
         assertEquals(IntentType.CLIP_MOTION, motion.type)

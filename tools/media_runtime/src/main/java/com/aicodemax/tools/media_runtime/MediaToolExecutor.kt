@@ -37,6 +37,8 @@ import com.aicodemax.tools.media.MediaProjectPort
 import com.aicodemax.tools.media.StabRequest
 import com.aicodemax.tools.media.TrackRequest
 import com.aicodemax.tools.media.TrackingPort
+import com.aicodemax.tools.audio.AudioPort
+import com.aicodemax.tools.audio.InMemoryAudioPort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -46,6 +48,7 @@ class MediaToolExecutor(
     private val tracking: TrackingPort = InMemoryTrackingPort(),
     private val color: ColorPort = InMemoryColorPort(),
     private val gen: GenPort = InMemoryGenPort(),
+    private val audio: AudioPort = InMemoryAudioPort(),
 ) : ToolExecutor {
     override val toolId: String = "media"
 
@@ -821,6 +824,50 @@ class MediaToolExecutor(
                     val fadeMs = call.args["fadeMs"]?.toLongOrNull() ?: 400L
                     media.slideshow(projectId, ids, stillMs, fadeMs, call.actor).fold(
                         onSuccess = { done(true, "ทำสไลด์โชว์แล้ว (${ids.size} รูป ต่อรูป ${stillMs}ms) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.volume" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val volume = call.args["volume"]?.toIntOrNull()
+                        ?: return@withContext done(false, error = "missing arg: volume (0..100)")
+                    media.setClipVolume(projectId, clipId, volume, call.actor).fold(
+                        onSuccess = { done(true, "ตั้งเสียงแล้ว ($volume) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.beatsToMarkers" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val clip = timeline.findClip(clipId)?.second
+                        ?: return@withContext done(false, error = "ไม่มีคลิป $clipId")
+                    val assetPath = (media.assetPath(projectId, clip.assetId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "หาไฟล์ต้นฉบับของคลิปไม่เจอ")
+                    val beats = audio.beats(assetPath)
+                    if (beats is Outcome.Failure) {
+                        return@withContext done(false, error = beats.error.message)
+                    }
+                    val analysis = (beats as Outcome.Success).value
+                    if (analysis.bpm <= 0 || analysis.beatsMs.isEmpty()) {
+                        return@withContext done(true, "จับจังหวะไม่ได้ (สัญญาณไม่มีพัลส์ชัด)")
+                    }
+                    val markers = analysis.beatsMs.filter { it in clip.startMs until clip.endMs }.take(200).mapIndexed { i, ms ->
+                        com.aicodemax.data.media.TimelineMarker(
+                            Ids.newId("mark"), clip.atMs + clip.sourceToOutput(ms - clip.startMs), "บีต${i + 1}",
+                        )
+                    }
+                    if (markers.isEmpty()) {
+                        return@withContext done(true, "%.0f BPM แต่บีตอยู่นอกช่วงคลิป".format(analysis.bpm))
+                    }
+                    media.addMarkers(projectId, markers, call.actor).fold(
+                        onSuccess = { done(true, "%.0f BPM วางมาร์กเกอร์แล้ว ${markers.size} จุด (เลิกทำได้: edit.undo)".format(analysis.bpm)) },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

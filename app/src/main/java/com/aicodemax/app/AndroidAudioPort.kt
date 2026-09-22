@@ -67,6 +67,14 @@ class AndroidAudioPort : AudioPort {
     override suspend fun fade(src: String, dst: String, fadeInMs: Long, fadeOutMs: Long): Outcome<AudioInfo> =
         editOne(src, dst, "AUDIO_FADE") { clip -> AudioOps.fade(clip, fadeInMs, fadeOutMs) }
 
+    override suspend fun beats(path: String): Outcome<com.aicodemax.tools.audio.BeatAnalysis> =
+        withContext(Dispatchers.IO) {
+            when (val decoded = decode(path)) {
+                is Outcome.Failure -> decoded
+                is Outcome.Success -> Outcome.Success(com.aicodemax.tools.audio.Beats.analyze(decoded.value))
+            }
+        }
+
     private suspend fun editOne(
         src: String,
         dst: String,

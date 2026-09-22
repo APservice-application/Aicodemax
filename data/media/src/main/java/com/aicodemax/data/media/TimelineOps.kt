@@ -492,6 +492,25 @@ object TimelineOps {
         return timeline.copy(tracks = tracks)
     }
 
+    /** CP-85 §102: sets clip volume 0..100 (audio + video clips). */
+    fun volume(timeline: Timeline, clipId: String, volume: Int): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (volume !in 0..100) throw IllegalArgumentException("เสียงต้องอยู่ 0..100 (ได้ $volume)")
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(volume = volume) else it })
+    }
+
+    /** CP-85 §31: adds many markers in one edit (beat grids). */
+    fun addMarkers(timeline: Timeline, markers: List<TimelineMarker>): Timeline {
+        if (markers.isEmpty()) throw IllegalArgumentException("ไม่มีมาร์กเกอร์ให้เพิ่ม")
+        if (markers.size > 200) throw IllegalArgumentException("มาร์กเกอร์มากสุด 200 จุดต่อครั้ง (ได้ ${markers.size})")
+        for (m in markers) {
+            if (m.atMs < 0) throw IllegalArgumentException("มาร์กเกอร์เวลาติดลบไม่ได้")
+        }
+        return timeline.copy(markers = timeline.markers + markers)
+    }
+
     /** CP-79: replaces the timeline background (§19). Null/identity clears. */
     fun background(timeline: Timeline, background: ClipBackground?): Timeline {
         if (background != null) {

@@ -67,6 +67,7 @@ object ProjectEventTypes {
     const val TEMPLATE_APPLIED = "TEMPLATE_APPLIED"
     const val CLIP_MOTION = "CLIP_MOTION"
     const val SLIDESHOW_MADE = "SLIDESHOW_MADE"
+    const val CLIP_VOLUME = "CLIP_VOLUME"
     const val CLIP_CHROMA = "CLIP_CHROMA"
     const val TIMELINE_BG = "TIMELINE_BG"
     const val TRACK_APPLIED = "TRACK_APPLIED"

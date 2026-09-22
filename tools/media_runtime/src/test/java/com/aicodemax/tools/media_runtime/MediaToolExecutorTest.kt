@@ -344,4 +344,33 @@ class MediaToolExecutorTest {
         val bad = run("timeline.motion", mapOf("projectId" to projectId, "clipIndex" to "1", "dir" to "nope"))
         assertTrue(!bad.ok)
     }
+
+    @Test
+    fun volumeBeatsFlow(): Unit = runBlocking {
+        val audioPort = com.aicodemax.tools.audio.InMemoryAudioPort()
+        val exec2 = MediaToolExecutor(media, audio = audioPort)
+        fun run2(action: String, args: Map<String, String>): com.aicodemax.tools.gateway.ToolResult =
+            runBlocking {
+                (exec2.execute(ToolCall(id = "c1", toolId = "media", action = action, args = args)) as Outcome.Success<com.aicodemax.tools.gateway.ToolResult>).value
+            }
+        val projectId = (media.createProject("vb") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "b.wav")).ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        val assetPath = ((media.assetPath(projectId, assetId) as Outcome.Success<String>).value)
+        val sr = 8000
+        val samples = FloatArray(sr * 4) { 0f }
+        var i = 0
+        while (i < samples.size) {
+            samples[i] = 1.0f
+            i += (sr / 2)
+        }
+        audioPort.put(assetPath, com.aicodemax.tools.audio.PcmAudio(sr, 1, samples))
+        assertTrue(run("timeline.addClip", mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0")).ok)
+        val vol = run("timeline.volume", mapOf("projectId" to projectId, "clipIndex" to "1", "volume" to "60"))
+        assertTrue(vol.output, vol.ok)
+        val beats = run2("timeline.beatsToMarkers", mapOf("projectId" to projectId, "clipIndex" to "1"))
+        assertTrue(beats.output.ifBlank { beats.error }, beats.ok && beats.output.contains("BPM"))
+        val timeline = (media.getTimeline(projectId) as Outcome.Success<com.aicodemax.data.media.Timeline>).value
+        assertTrue(timeline.markers.size in 4..10)
+    }
 }

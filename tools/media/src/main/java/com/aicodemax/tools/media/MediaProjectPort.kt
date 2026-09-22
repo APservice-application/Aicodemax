@@ -219,6 +219,9 @@ interface MediaProjectPort {
         fadeMs: Long = 400,
         actor: String = "AI",
     ): Outcome<Project>
+    // CP-85 mixer + beat markers (§31/§102).
+    suspend fun setClipVolume(projectId: String, clipId: String, volume: Int, actor: String = "AI"): Outcome<Project>
+    suspend fun addMarkers(projectId: String, markers: List<TimelineMarker>, actor: String = "AI"): Outcome<Project>
     // CP-78 color correction (§42).
     suspend fun setClipColor(
         projectId: String,
@@ -761,6 +764,11 @@ class FileMediaProject(
             Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "ทำสไลด์โชว์ไม่ได้"))
         }
     }
+    override suspend fun setClipVolume(projectId: String, clipId: String, volume: Int, actor: String): Outcome<Project> =
+        editTimeline(projectId, "เสียงคลิป $clipId", ProjectEventTypes.CLIP_VOLUME, actor) { TimelineOps.volume(it, clipId, volume) }
+
+    override suspend fun addMarkers(projectId: String, markers: List<TimelineMarker>, actor: String): Outcome<Project> =
+        editTimeline(projectId, "มาร์กเกอร์ ${markers.size} จุด", ProjectEventTypes.MARKER_ADDED, actor) { TimelineOps.addMarkers(it, markers) }
     override suspend fun setClipLut(
         projectId: String,
         clipId: String,
@@ -1545,6 +1553,11 @@ class InMemoryMediaProject : MediaProjectPort {
             Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "ทำสไลด์โชว์ไม่ได้"))
         }
     }
+    override suspend fun setClipVolume(projectId: String, clipId: String, volume: Int, actor: String): Outcome<Project> =
+        editTimeline(projectId, "เสียงคลิป $clipId", ProjectEventTypes.CLIP_VOLUME, actor) { TimelineOps.volume(it, clipId, volume) }
+
+    override suspend fun addMarkers(projectId: String, markers: List<TimelineMarker>, actor: String): Outcome<Project> =
+        editTimeline(projectId, "มาร์กเกอร์ ${markers.size} จุด", ProjectEventTypes.MARKER_ADDED, actor) { TimelineOps.addMarkers(it, markers) }
     override suspend fun setClipLut(
         projectId: String,
         clipId: String,

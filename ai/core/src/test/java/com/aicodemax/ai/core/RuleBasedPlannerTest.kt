@@ -240,6 +240,19 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp85BeatVolumePlansRealSteps() = runBlocking {
+        val clip = (planner.plan(UserIntent(IntentType.BEATS, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.beatsToMarkers", clip.steps[0].action)
+        val file = (planner.plan(UserIntent(IntentType.BEATS, "t", mapOf("path" to "s.wav"))) as Outcome.Success<Plan>).value
+        assertEquals("beats", file.steps[0].action)
+        assertEquals("audio", file.steps[0].toolId)
+        val vol = (planner.plan(UserIntent(IntentType.CLIP_VOLUME, "t", mapOf("clipIndex" to "1", "volume" to "70"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.volume", vol.steps[0].action)
+        val noval = planner.plan(UserIntent(IntentType.CLIP_VOLUME, "t", mapOf("clipIndex" to "1")))
+        assertEquals("PLAN_NO_VALUE", (noval as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp84MotionSlidePlansRealSteps() = runBlocking {
         val motion = (planner.plan(UserIntent(IntentType.CLIP_MOTION, "t", mapOf("clipIndex" to "1", "dir" to "in"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.motion", motion.steps[0].action)
