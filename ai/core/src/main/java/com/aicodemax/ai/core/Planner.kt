@@ -379,6 +379,33 @@ class RuleBasedPlanner(
                     )
                 listOf("media.timeline.lutClear" to mapOf("clipIndex" to clip))
             }
+            IntentType.TEMPLATE_SAVE -> {
+                val name = intent.parameters["name"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_NAME", "ตั้งชื่อเทมเพลตว่าอะไรครับ? เช่น บันทึกเทมเพลต \"เปิดคลิป\""),
+                    )
+                listOf("media.template.save" to mapOf("name" to name))
+            }
+            IntentType.TEMPLATE_APPLY -> {
+                val name = intent.parameters["name"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_NAME", "ใช้เทมเพลตไหนครับ? เช่น ใช้เทมเพลต \"Social Hook\""),
+                    )
+                listOf("media.template.apply" to mapOf("name" to name))
+            }
+            IntentType.TEMPLATE_LIST -> listOf("media.template.list" to emptyMap())
+            IntentType.TEMPLATE_DELETE -> {
+                val name = intent.parameters["name"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_NAME", "ลบเทมเพลตไหนครับ? (ดูชื่อจาก: ดูเทมเพลต)"),
+                    )
+                listOf("media.template.delete" to mapOf("templateId" to name))
+            }
+            IntentType.LIB_SEARCH -> {
+                val q = intent.parameters["query"]
+                if (q == null) listOf("media.library.list" to emptyMap())
+                else listOf("media.library.search" to mapOf("query" to q))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

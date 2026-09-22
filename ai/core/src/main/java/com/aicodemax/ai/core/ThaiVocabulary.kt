@@ -161,6 +161,8 @@ object ThaiVocabulary {
     val clipColorWords: List<String> = listOf("สีคลิป", "แก้สี", "โทนอุ่น", "โทนเย็น", "ขาวดำคลิป", "ซีนีม่า", "ความสว่างคลิป", "คอนทราสต์คลิป", "อิ่มสี", "เอ็กซ์โพเชอร์", "รับแสง", "ไฮไลต์", "แชโดว์", "จุดขาว", "จุดดำ", "ทินต์", "ไวท์", "แบล็ก")
     val colorAutoWords: List<String> = listOf("ออโต้สี", "ปรับสีอัตโนมัติ", "สีอัตโนมัติ", "ออโต้คัลเลอร์")
     val lutWords: List<String> = listOf("lut", "ลุต", "ลัท")
+    val templateWords: List<String> = listOf("เทมเพลต", "เทมเพลท", "template")
+    val libraryWords: List<String> = listOf("คลัง", "ไลบรารี", "library")
     val imageScopesWords: List<String> = listOf("สโคป", "ฮิสโตแกรม", "เช็คแสง", "วัดแสง")
     val clipMaskWords: List<String> = listOf("มาสก์คลิป", "maskคลิป")
     val clipChromaWords: List<String> = listOf("กรีนสกรีน", "ลบฉากเขียว", "ฉากเขียว", "chroma")

@@ -82,6 +82,11 @@ enum class IntentType {
     COLOR_AUTO,
     LUT_SET,
     LUT_CLEAR,
+    TEMPLATE_SAVE,
+    TEMPLATE_APPLY,
+    TEMPLATE_LIST,
+    TEMPLATE_DELETE,
+    LIB_SEARCH,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -491,6 +496,22 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.imageScopesWords)) {
             return UserIntent(IntentType.IMAGE_SCOPES, text, params("path" to file))
+        }
+        if (containsAny(lower, ThaiVocabulary.templateWords)) {
+            val name = Regex("[\"']([^\"']+)[\"']").find(text)?.groupValues?.get(1)
+            return when {
+                t.contains("บันทึก") || t.contains("เซฟ") ->
+                    UserIntent(IntentType.TEMPLATE_SAVE, text, params("name" to name))
+                t.contains("ใช้") || t.contains("เอา") ->
+                    UserIntent(IntentType.TEMPLATE_APPLY, text, params("name" to name))
+                t.contains("ลบ") ->
+                    UserIntent(IntentType.TEMPLATE_DELETE, text, params("name" to name))
+                else -> UserIntent(IntentType.TEMPLATE_LIST, text, params())
+            }
+        }
+        if (containsAny(lower, ThaiVocabulary.libraryWords)) {
+            val q = text.replace(Regex("(?i)ค้นหา|คลัง|ไลบรารี|library"), "").trim()
+            return UserIntent(IntentType.LIB_SEARCH, text, params("query" to q.ifBlank { null }))
         }
         if (containsAny(lower, ThaiVocabulary.lutWords)) {
             if (t.contains("ล้าง") || t.contains("ลบ") || t.contains("ถอด")) {

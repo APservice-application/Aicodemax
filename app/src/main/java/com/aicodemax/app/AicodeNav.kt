@@ -52,6 +52,7 @@ object Routes {
     const val SKILLS = "skills"
     const val RENDER = "render"
     const val TIMELINE = "timeline"
+    const val TEMPLATES = "templates"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -80,6 +81,7 @@ private fun titleFor(route: String): String = when (route) {
     Routes.SKILLS -> "Skills"
     Routes.RENDER -> "เรนเดอร์"
     Routes.TIMELINE -> "ไทม์ไลน์"
+    Routes.TEMPLATES -> "เทมเพลต"
     else -> "Aicodemax"
 }
 
@@ -171,6 +173,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
             composable(Routes.SKILLS) { SkillsScreen(services) }
             composable(Routes.RENDER) { RenderScreen(services) }
             composable(Routes.TIMELINE) { TimelineScreen(services) }
+            composable(Routes.TEMPLATES) { TemplatesScreen(services) }
         }
     }
 }

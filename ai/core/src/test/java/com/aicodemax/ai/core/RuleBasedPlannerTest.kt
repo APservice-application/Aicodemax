@@ -240,6 +240,24 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp82TemplateLibPlansRealSteps() = runBlocking {
+        val save = (planner.plan(UserIntent(IntentType.TEMPLATE_SAVE, "t", mapOf("name" to "X"))) as Outcome.Success<Plan>).value
+        assertEquals("template.save", save.steps[0].action)
+        val apply = (planner.plan(UserIntent(IntentType.TEMPLATE_APPLY, "t", mapOf("name" to "X"))) as Outcome.Success<Plan>).value
+        assertEquals("template.apply", apply.steps[0].action)
+        val list = (planner.plan(UserIntent(IntentType.TEMPLATE_LIST, "t")) as Outcome.Success<Plan>).value
+        assertEquals("template.list", list.steps[0].action)
+        val del = (planner.plan(UserIntent(IntentType.TEMPLATE_DELETE, "t", mapOf("name" to "X"))) as Outcome.Success<Plan>).value
+        assertEquals("template.delete", del.steps[0].action)
+        val search = (planner.plan(UserIntent(IntentType.LIB_SEARCH, "t", mapOf("query" to "lut"))) as Outcome.Success<Plan>).value
+        assertEquals("library.search", search.steps[0].action)
+        val all = (planner.plan(UserIntent(IntentType.LIB_SEARCH, "t")) as Outcome.Success<Plan>).value
+        assertEquals("library.list", all.steps[0].action)
+        val noname = planner.plan(UserIntent(IntentType.TEMPLATE_SAVE, "t"))
+        assertEquals("PLAN_NO_NAME", (noname as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp81ColorLutPlansRealSteps() = runBlocking {
         val auto = (planner.plan(UserIntent(IntentType.COLOR_AUTO, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.colorAuto", auto.steps[0].action)

@@ -257,6 +257,23 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp82TemplateLibIntents() {
+        val save = IntentParser.parse("บันทึกเทมเพลต \"เปิดคลิป\"")
+        assertEquals(IntentType.TEMPLATE_SAVE, save.type)
+        assertEquals("เปิดคลิป", save.parameters["name"])
+        val apply = IntentParser.parse("ใช้เทมเพลต \"Social Hook\"")
+        assertEquals(IntentType.TEMPLATE_APPLY, apply.type)
+        assertEquals("Social Hook", apply.parameters["name"])
+        val list = IntentParser.parse("ดูเทมเพลต")
+        assertEquals(IntentType.TEMPLATE_LIST, list.type)
+        val del = IntentParser.parse("ลบเทมเพลต \"เก่า\"")
+        assertEquals(IntentType.TEMPLATE_DELETE, del.type)
+        val search = IntentParser.parse("ค้นหาคลัง lut")
+        assertEquals(IntentType.LIB_SEARCH, search.type)
+        assertEquals("lut", search.parameters["query"])
+    }
+
+    @Test
     fun cp81ColorLutIntents() {
         val auto = IntentParser.parse("ออโต้สีคลิปที่ 1")
         assertEquals(IntentType.COLOR_AUTO, auto.type)

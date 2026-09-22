@@ -643,6 +643,100 @@ class MediaToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "template.save" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val name = call.args["name"]?.trim()
+                        ?: return@withContext done(false, error = "missing arg: name (ชื่อเทมเพลต)")
+                    val category = call.args["category"] ?: "custom"
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val allClips = timeline.tracks.flatMap { it.clips }
+                    val slots = parsePairs(call.args["slots"]).mapNotNull { (slot, ref) ->
+                        val clipId = allClips.find { it.id == ref }?.id
+                            ?: ref.toIntOrNull()?.let { n -> allClips.getOrNull(n - 1)?.id }
+                        if (clipId == null) null else slot to clipId
+                    }.toMap()
+                    if (parsePairs(call.args["slots"]).isNotEmpty() && slots.size < parsePairs(call.args["slots"]).size) {
+                        return@withContext done(false, error = "slot อ้างคลิปที่ไม่มี (ใช้ clipId หรือเลขคลิปจาก timeline.get)")
+                    }
+                    media.saveTemplate(name, category, projectId, slots, call.args["description"] ?: "").fold(
+                        onSuccess = { done(true, "บันทึกเทมเพลตแล้ว (${it.summary()})") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "template.list" -> {
+                    media.listTemplates(call.args["category"]).fold(
+                        onSuccess = { list ->
+                            if (list.isEmpty()) done(true, "ยังไม่มีเทมเพลต")
+                            else done(true, list.joinToString("\n") { "- ${it.id}: ${it.summary()}" })
+                        },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "template.apply" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val ref = call.args["templateId"] ?: call.args["name"]
+                        ?: return@withContext done(false, error = "missing arg: templateId (ดูจาก template.list)")
+                    val templates = (media.listTemplates(null) as? Outcome.Success)?.value.orEmpty()
+                    val tpl = templates.find { it.id == ref } ?: templates.find { it.name == ref }
+                        ?: return@withContext done(false, error = "ไม่มีเทมเพลต $ref")
+                    val replacements = parsePairs(call.args["replacements"])
+                    media.applyTemplate(projectId, tpl.id, replacements, call.actor).fold(
+                        onSuccess = { done(true, "ใช้เทมเพลต ${tpl.name} แล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "template.delete" -> {
+                    val ref = call.args["templateId"] ?: call.args["name"]
+                        ?: return@withContext done(false, error = "missing arg: templateId (ดูจาก template.list)")
+                    val templates = (media.listTemplates(null) as? Outcome.Success)?.value.orEmpty()
+                    val id = templates.find { it.id == ref }?.id ?: templates.find { it.name == ref }?.id ?: ref
+                    media.deleteTemplate(id).fold(
+                        onSuccess = { done(true, "ลบเทมเพลตแล้ว") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "library.add" -> {
+                    val kind = call.args["kind"]
+                        ?: return@withContext done(false, error = "missing arg: kind (effect/filter/transition/...)")
+                    val name = call.args["name"]
+                        ?: return@withContext done(false, error = "missing arg: name")
+                    val tags = call.args["tags"]?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+                    media.libraryAdd(kind, name, tags, call.args["ref"] ?: "").fold(
+                        onSuccess = { done(true, "เพิ่มเข้าคลังแล้ว (${it.summary()})") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "library.list" -> {
+                    media.libraryList(call.args["kind"]).fold(
+                        onSuccess = { list ->
+                            if (list.isEmpty()) done(true, "คลังยังว่าง")
+                            else done(true, list.joinToString("\n") { "- ${it.id}: ${it.summary()}" })
+                        },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "library.search" -> {
+                    val q = call.args["query"] ?: call.args["q"]
+                        ?: return@withContext done(false, error = "missing arg: query")
+                    media.librarySearch(q).fold(
+                        onSuccess = { list ->
+                            if (list.isEmpty()) done(true, "ไม่เจอ \"$q\" ในคลัง")
+                            else done(true, list.joinToString("\n") { "- ${it.id}: ${it.summary()}" })
+                        },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "library.remove" -> {
+                    val id = call.args["itemId"]
+                        ?: return@withContext done(false, error = "missing arg: itemId")
+                    media.libraryRemove(id).fold(
+                        onSuccess = { done(true, "ลบออกจากคลังแล้ว") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
                 "timeline.setMask" -> {
                     val projectId = call.args["projectId"] ?: latestProject()
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
@@ -943,6 +1037,14 @@ class MediaToolExecutor(
     }
 
     /** Latest project (by update time) for chat flows that omit projectId. */
+    private fun parsePairs(raw: String?): Map<String, String> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        return raw.split(",").mapNotNull { part ->
+            val kv = part.split(Regex("[=:]"), limit = 2)
+            if (kv.size < 2 || kv[0].isBlank() || kv[1].isBlank()) null else kv[0].trim() to kv[1].trim()
+        }.toMap()
+    }
+
     private suspend fun latestProject(): String? = when (val list = media.listProjects()) {
         is Outcome.Failure -> null
         is Outcome.Success -> list.value.firstOrNull()?.id

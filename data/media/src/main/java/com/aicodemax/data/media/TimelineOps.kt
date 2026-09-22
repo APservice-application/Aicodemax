@@ -418,6 +418,31 @@ object TimelineOps {
         return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(lut = lut) else it })
     }
 
+    /** CP-82 §51: instantiates a template timeline, filling slots with real asset ids. */
+    fun fromTemplate(template: ProjectTemplate, replacements: Map<String, String>): Timeline {
+        val problems = template.validate()
+        if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        val missing = template.slots.map { it.id }.filter { it !in replacements }
+        if (missing.isNotEmpty()) {
+            throw IllegalArgumentException("ขาดมีเดียช่อง: ${missing.joinToString(", ")} (เช่น main=<assetId>)")
+        }
+        for ((slot, asset) in replacements) {
+            if (template.slots.none { it.id == slot }) throw IllegalArgumentException("ไม่มีช่อง $slot ในเทมเพลต")
+            if (asset.isBlank()) throw IllegalArgumentException("asset ของช่อง $slot ว่างไม่ได้")
+        }
+        val slotByClip = template.slots.associate { it.clipId to it.id }
+        return template.timeline.copy(
+            tracks = template.timeline.tracks.map { track ->
+                track.copy(
+                    clips = track.clips.map { clip ->
+                        val slot = slotByClip[clip.id]
+                        if (slot != null) clip.copy(assetId = replacements.getValue(slot)) else clip
+                    },
+                )
+            },
+        )
+    }
+
     /** CP-79: replaces the timeline background (§19). Null/identity clears. */
     fun background(timeline: Timeline, background: ClipBackground?): Timeline {
         if (background != null) {

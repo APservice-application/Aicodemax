@@ -64,6 +64,7 @@ object ProjectEventTypes {
     const val CLIP_COLOR = "CLIP_COLOR"
     const val CLIP_MASK = "CLIP_MASK"
     const val CLIP_LUT = "CLIP_LUT"
+    const val TEMPLATE_APPLIED = "TEMPLATE_APPLIED"
     const val CLIP_CHROMA = "CLIP_CHROMA"
     const val TIMELINE_BG = "TIMELINE_BG"
     const val TRACK_APPLIED = "TRACK_APPLIED"

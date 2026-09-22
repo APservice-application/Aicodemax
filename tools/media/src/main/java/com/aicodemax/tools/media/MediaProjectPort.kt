@@ -28,6 +28,9 @@ import com.aicodemax.data.media.ClipMask
 import com.aicodemax.data.media.ClipLut
 import com.aicodemax.data.media.ClipChroma
 import com.aicodemax.data.media.ClipBackground
+import com.aicodemax.data.media.LibraryItem
+import com.aicodemax.data.media.ProjectTemplate
+import com.aicodemax.data.media.TemplateSlot
 import com.aicodemax.data.media.KeyPoint
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.TimelineOps
@@ -180,6 +183,27 @@ interface MediaProjectPort {
         lut: ClipLut?,
         actor: String = "AI",
     ): Outcome<Project>
+    // CP-82 templates (§51/§52) + asset library (§53).
+    suspend fun saveTemplate(
+        name: String,
+        category: String,
+        projectId: String,
+        slots: Map<String, String>,
+        description: String = "",
+    ): Outcome<ProjectTemplate>
+    suspend fun listTemplates(category: String? = null): Outcome<List<ProjectTemplate>>
+    suspend fun getTemplate(templateId: String): Outcome<ProjectTemplate>
+    suspend fun deleteTemplate(templateId: String): Outcome<Unit>
+    suspend fun applyTemplate(
+        projectId: String,
+        templateId: String,
+        replacements: Map<String, String>,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun libraryAdd(kind: String, name: String, tags: List<String>, ref: String): Outcome<LibraryItem>
+    suspend fun libraryList(kind: String? = null): Outcome<List<LibraryItem>>
+    suspend fun librarySearch(query: String): Outcome<List<LibraryItem>>
+    suspend fun libraryRemove(itemId: String): Outcome<Unit>
     // CP-78 color correction (§42).
     suspend fun setClipColor(
         projectId: String,
@@ -233,6 +257,35 @@ data class ProjectHistory(
 )
 
 /** File-backed projects with probe facts from the media engines. */
+/** CP-82: builds a portable template from a project timeline (slot clips → slot: markers). */
+private fun buildTemplate(
+    name: String,
+    category: String,
+    timeline: Timeline,
+    slots: Map<String, String>,
+    description: String,
+): ProjectTemplate? {
+    val byClip = timeline.tracks.flatMap { track -> track.clips.map { it.id to track.kind } }.toMap()
+    for (clipId in slots.values) {
+        if (clipId !in byClip) return null
+    }
+    val slotByClip = slots.entries.associate { (slot, clip) -> clip to slot }
+    val rewritten = timeline.copy(
+        tracks = timeline.tracks.map { track ->
+            track.copy(
+                clips = track.clips.map { clip ->
+                    val slot = slotByClip[clip.id]
+                    if (slot != null) clip.copy(assetId = ProjectTemplate.placeholderAsset(slot)) else clip
+                },
+            )
+        },
+    )
+    val slotObjs = slots.map { (slot, clip) ->
+        TemplateSlot(slot, clip, byClip.getValue(clip), slot)
+    }
+    return ProjectTemplate("", name.trim().ifBlank { "Untitled" }, category, description, rewritten, slotObjs)
+}
+
 class FileMediaProject(
     root: File,
     private val images: com.aicodemax.tools.image.ImagePort,
@@ -246,6 +299,8 @@ class FileMediaProject(
     private val events = FileEventLog(root)
     private val undoStore = FileUndoStore(root)
     private val checkpoints = FileCheckpointStore(root)
+    private val templates = FileTemplateStore(root, clock)
+    private val library = FileLibraryStore(root, clock)
     private val txDepth = mutableMapOf<String, Int>()
 
     override suspend fun createProject(name: String, actor: String): Outcome<Project> {
@@ -596,6 +651,63 @@ class FileMediaProject(
         projectId, "เอฟเฟกต์คลิป $clipId", ProjectEventTypes.CLIP_FX, actor,
     ) { TimelineOps.fx(it, clipId, fx) }
 
+    override suspend fun saveTemplate(
+        name: String,
+        category: String,
+        projectId: String,
+        slots: Map<String, String>,
+        description: String,
+    ): Outcome<ProjectTemplate> {
+        val timeline = (getTimeline(projectId) as? Outcome.Success)?.value
+            ?: return Outcome.Failure(AppError("MEDIA_NO_PROJECT", "ไม่มีโปรเจกต์ $projectId"))
+        return buildTemplate(name, category, timeline, slots, description)?.let { templates.save(it) }
+            ?: Outcome.Failure(AppError("TEMPLATE_SLOTS", "slot อ้างคลิปที่ไม่มี"))
+    }
+
+    override suspend fun listTemplates(category: String?): Outcome<List<ProjectTemplate>> =
+        when (val all = templates.list()) {
+            is Outcome.Failure -> all
+            is Outcome.Success -> Outcome.Success(if (category == null) all.value else all.value.filter { it.category == category })
+        }
+
+    override suspend fun getTemplate(templateId: String): Outcome<ProjectTemplate> = templates.get(templateId)
+
+    override suspend fun deleteTemplate(templateId: String): Outcome<Unit> = templates.delete(templateId)
+
+    override suspend fun applyTemplate(
+        projectId: String,
+        templateId: String,
+        replacements: Map<String, String>,
+        actor: String,
+    ): Outcome<Project> {
+        val tpl = (templates.get(templateId) as? Outcome.Success)?.value
+            ?: return Outcome.Failure(AppError("TEMPLATE_MISSING", "ไม่มีเทมเพลต $templateId"))
+        val assetIds = ((listAssets(projectId) as? Outcome.Success)?.value.orEmpty().map { it.id }.toSet())
+        val dangling = replacements.values.filter { it !in assetIds }
+        if (dangling.isNotEmpty()) {
+            return Outcome.Failure(AppError("TEMPLATE_ASSETS", "asset ไม่มีในโปรเจกต์: ${dangling.joinToString(", ")}"))
+        }
+        return editTimeline(
+            projectId, "ใช้เทมเพลต ${tpl.name}", ProjectEventTypes.TEMPLATE_APPLIED, actor,
+        ) { TimelineOps.fromTemplate(tpl, replacements) }
+    }
+
+    override suspend fun libraryAdd(kind: String, name: String, tags: List<String>, ref: String): Outcome<LibraryItem> =
+        library.add(LibraryItem("", kind, name, tags, ref))
+
+    override suspend fun libraryList(kind: String?): Outcome<List<LibraryItem>> =
+        when (val all = library.list()) {
+            is Outcome.Failure -> all
+            is Outcome.Success -> Outcome.Success(if (kind == null) all.value else all.value.filter { it.kind == kind })
+        }
+
+    override suspend fun librarySearch(query: String): Outcome<List<LibraryItem>> =
+        when (val all = library.list()) {
+            is Outcome.Failure -> all
+            is Outcome.Success -> Outcome.Success(all.value.filter { it.matches(query) })
+        }
+
+    override suspend fun libraryRemove(itemId: String): Outcome<Unit> = library.remove(itemId)
     override suspend fun setClipLut(
         projectId: String,
         clipId: String,
@@ -968,6 +1080,9 @@ class InMemoryMediaProject : MediaProjectPort {
     private val eventLog = mutableMapOf<String, MutableList<ProjectEvent>>()
     private val checkpointLog = mutableMapOf<String, MutableList<Pair<CheckpointMeta, ProjectSnapshot>>>()
     private val trashBin = mutableMapOf<String, Pair<String, ProjectSnapshot>>()
+    private val memTemplates = BuiltinTemplates.list().associateBy { it.id }.toMutableMap()
+    private val memLibrary = mutableMapOf<String, LibraryItem>()
+    private fun nowMs(): Long = System.currentTimeMillis()
     private var txDepth = 0
 
     override suspend fun createProject(name: String, actor: String): Outcome<Project> {
@@ -1274,6 +1389,76 @@ class InMemoryMediaProject : MediaProjectPort {
         projectId, "เอฟเฟกต์คลิป $clipId", ProjectEventTypes.CLIP_FX, actor,
     ) { TimelineOps.fx(it, clipId, fx) }
 
+    override suspend fun saveTemplate(
+        name: String,
+        category: String,
+        projectId: String,
+        slots: Map<String, String>,
+        description: String,
+    ): Outcome<ProjectTemplate> {
+        val timeline = (getTimeline(projectId) as? Outcome.Success)?.value
+            ?: return Outcome.Failure(AppError("MEDIA_NO_PROJECT", "ไม่มีโปรเจกต์ $projectId"))
+        return buildTemplate(name, category, timeline, slots, description)?.let { run { val saved = it.copy(id = it.id.ifBlank { Ids.newId("tpl") }, createdAt = nowMs(), updatedAt = nowMs()); memTemplates[saved.id] = saved; Outcome.Success(saved) } }
+            ?: Outcome.Failure(AppError("TEMPLATE_SLOTS", "slot อ้างคลิปที่ไม่มี"))
+    }
+
+    override suspend fun listTemplates(category: String?): Outcome<List<ProjectTemplate>> =
+        Outcome.Success(
+            memTemplates.values.sortedByDescending { it.updatedAt }
+                .let { if (category == null) it else it.filter { t -> t.category == category } },
+        )
+
+    override suspend fun getTemplate(templateId: String): Outcome<ProjectTemplate> =
+        memTemplates[templateId]?.let { Outcome.Success(it) }
+            ?: Outcome.Failure(AppError("TEMPLATE_MISSING", "ไม่มีเทมเพลต $templateId"))
+
+    override suspend fun deleteTemplate(templateId: String): Outcome<Unit> {
+        if (templateId.startsWith("builtin-")) {
+            return Outcome.Failure(AppError("TEMPLATE_BUILTIN", "เทมเพลตตั้งต้นลบไม่ได้"))
+        }
+        return if (memTemplates.remove(templateId) != null) Outcome.Success(Unit)
+        else Outcome.Failure(AppError("TEMPLATE_MISSING", "ไม่มีเทมเพลต $templateId"))
+    }
+
+    override suspend fun applyTemplate(
+        projectId: String,
+        templateId: String,
+        replacements: Map<String, String>,
+        actor: String,
+    ): Outcome<Project> {
+        val tpl = memTemplates[templateId]
+            ?: return Outcome.Failure(AppError("TEMPLATE_MISSING", "ไม่มีเทมเพลต $templateId"))
+        val assetIds = ((listAssets(projectId) as? Outcome.Success)?.value.orEmpty().map { it.id }.toSet())
+        val dangling = replacements.values.filter { it !in assetIds }
+        if (dangling.isNotEmpty()) {
+            return Outcome.Failure(AppError("TEMPLATE_ASSETS", "asset ไม่มีในโปรเจกต์: ${dangling.joinToString(", ")}"))
+        }
+        return editTimeline(
+            projectId, "ใช้เทมเพลต ${tpl.name}", ProjectEventTypes.TEMPLATE_APPLIED, actor,
+        ) { TimelineOps.fromTemplate(tpl, replacements) }
+    }
+
+    override suspend fun libraryAdd(kind: String, name: String, tags: List<String>, ref: String): Outcome<LibraryItem> =
+        LibraryItem("", kind, name, tags, ref).let {
+            val problems = it.validate()
+            if (problems.isNotEmpty()) return Outcome.Failure(AppError("LIB_INVALID", problems.joinToString("; ")))
+            val stamped = it.copy(id = Ids.newId("lib"), createdAt = nowMs())
+            memLibrary[stamped.id] = stamped
+            Outcome.Success(stamped)
+        }
+
+    override suspend fun libraryList(kind: String?): Outcome<List<LibraryItem>> =
+        Outcome.Success(
+            memLibrary.values.sortedByDescending { it.createdAt }
+                .let { if (kind == null) it else it.filter { item -> item.kind == kind } },
+        )
+
+    override suspend fun librarySearch(query: String): Outcome<List<LibraryItem>> =
+        Outcome.Success(memLibrary.values.filter { it.matches(query) }.sortedByDescending { it.createdAt })
+
+    override suspend fun libraryRemove(itemId: String): Outcome<Unit> =
+        if (memLibrary.remove(itemId) != null) Outcome.Success(Unit)
+        else Outcome.Failure(AppError("LIB_MISSING", "ไม่มี asset $itemId"))
     override suspend fun setClipLut(
         projectId: String,
         clipId: String,

@@ -283,4 +283,28 @@ class MediaToolExecutorTest {
         val listed2 = run("timeline.get", mapOf("projectId" to projectId))
         assertTrue(listed2.output, listed2.output.contains("tp5"))
     }
+
+    @Test
+    fun templateLibraryFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("tpl") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4")).ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        assertTrue(run("timeline.addClip", mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0")).ok)
+        val saved = run("template.save", mapOf("projectId" to projectId, "name" to "My T", "category" to "vlog", "slots" to "main:1"))
+        assertTrue(saved.output, saved.ok)
+        val listed = run("template.list", emptyMap())
+        assertTrue(listed.output, listed.ok && listed.output.contains("Social Hook"))
+        val applied = run("template.apply", mapOf("projectId" to projectId, "name" to "Social Hook", "replacements" to "main:$assetId"))
+        assertTrue(applied.output, applied.ok)
+        val missing = run("template.apply", mapOf("projectId" to projectId, "name" to "My T"))
+        assertTrue(!missing.ok)
+        val deleted = run("template.delete", mapOf("name" to "My T"))
+        assertTrue(deleted.ok)
+        val added = run("library.add", mapOf("kind" to "lut", "name" to "Warm", "tags" to "อุ่น,หนัง", "ref" to "/w.cube"))
+        assertTrue(added.output, added.ok)
+        val found = run("library.search", mapOf("query" to "หนัง"))
+        assertTrue(found.output, found.ok && found.output.contains("Warm"))
+        val itemId = (media.libraryList(null) as Outcome.Success<List<com.aicodemax.data.media.LibraryItem>>).value[0].id
+        assertTrue(run("library.remove", mapOf("itemId" to itemId)).ok)
+    }
 }
