@@ -197,7 +197,7 @@ fun ModelsScreen(services: ServiceLocator) {
                     onClick = {
                         scope.launch {
                             llmBusy = true
-                            val provider = OpenAiCompatProvider(llmUrl.trim(), { llmKey.ifBlank { null } })
+                            val provider = OpenAiCompatProvider(llmUrl.trim(), { llmKey.takeIf { it.isNotBlank() } })
                             val health = withContext(Dispatchers.IO) { provider.health() }
                             health.fold(
                                 onSuccess = {
