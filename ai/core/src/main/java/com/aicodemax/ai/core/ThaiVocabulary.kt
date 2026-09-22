@@ -131,4 +131,11 @@ object ThaiVocabulary {
     val videoTrimWords: List<String> = listOf("ตัดวิดีโอ")
     val videoThumbWords: List<String> = listOf("ภาพปก", "แคปวิดีโอ")
     val videoAudioWords: List<String> = listOf("ดึงเสียง")
+
+    /** Media project verbs (CP-64). */
+    val projectNewWords: List<String> = listOf("โปรเจกต์ใหม่", "สร้างโปรเจกต์")
+    val projectListWords: List<String> = listOf("โปรเจกต์")
+    val assetImportWords: List<String> = listOf("เพิ่มไฟล์", "import")
+    val versionSaveWords: List<String> = listOf("บันทึกเวอร์ชัน", "เซฟเวอร์ชัน")
+    val versionRestoreWords: List<String> = listOf("ย้อนเวอร์ชัน", "กลับเวอร์ชัน")
 }

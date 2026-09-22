@@ -149,6 +149,27 @@ class RuleBasedPlanner(
                 listOf("voice.speak" to mapOf("text" to say))
             }
             IntentType.VOICE_LISTEN -> listOf("voice.listen" to emptyMap())
+            IntentType.PROJECT_NEW -> {
+                val args = mutableMapOf<String, String>()
+                intent.parameters["name"]?.let { args["name"] = it }
+                listOf("media.project.create" to args)
+            }
+            IntentType.PROJECT_LIST -> listOf("media.project.list" to emptyMap())
+            IntentType.ASSET_IMPORT -> {
+                val path = intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_MEDIA_FILE", "เพิ่มไฟล์ไหนครับ? เช่น เพิ่มไฟล์ a.mp4"),
+                    )
+                listOf("media.asset.import" to mapOf("path" to path))
+            }
+            IntentType.PROJECT_VERSION -> listOf("media.version.save" to emptyMap())
+            IntentType.PROJECT_RESTORE -> {
+                val version = intent.parameters["version"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_VERSION", "ย้อนไปเวอร์ชันไหนครับ? เช่น ย้อนเวอร์ชัน 1"),
+                    )
+                listOf("media.version.restore" to mapOf("version" to version))
+            }
             IntentType.VIDEO_INFO -> {
                 val path = intent.parameters["path"]
                     ?: return Outcome.Failure(

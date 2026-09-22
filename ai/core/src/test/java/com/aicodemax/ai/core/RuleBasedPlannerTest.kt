@@ -174,4 +174,29 @@ class RuleBasedPlannerTest {
         val noPath = planner.plan(UserIntent(IntentType.VIDEO_AUDIO, "t"))
         assertEquals("PLAN_NO_VIDEO", (noPath as Outcome.Failure).error.code)
     }
+
+    @Test
+    fun cp64ProjectPlansRealSteps() = runBlocking {
+        val create = UserIntent(IntentType.PROJECT_NEW, "t", mapOf("name" to "demo"))
+        val createPlan = (planner.plan(create) as Outcome.Success<Plan>).value
+        assertEquals("media", createPlan.steps[0].toolId)
+        assertEquals("project.create", createPlan.steps[0].action)
+
+        val list = UserIntent(IntentType.PROJECT_LIST, "t")
+        val listPlan = (planner.plan(list) as Outcome.Success<Plan>).value
+        assertEquals("project.list", listPlan.steps[0].action)
+
+        val import = UserIntent(IntentType.ASSET_IMPORT, "t", mapOf("path" to "a.mp4"))
+        val importPlan = (planner.plan(import) as Outcome.Success<Plan>).value
+        assertEquals("asset.import", importPlan.steps[0].action)
+
+        val restore = UserIntent(IntentType.PROJECT_RESTORE, "t", mapOf("version" to "2"))
+        val restorePlan = (planner.plan(restore) as Outcome.Success<Plan>).value
+        assertEquals("version.restore", restorePlan.steps[0].action)
+
+        val noFile = planner.plan(UserIntent(IntentType.ASSET_IMPORT, "t"))
+        assertEquals("PLAN_NO_MEDIA_FILE", (noFile as Outcome.Failure).error.code)
+        val noVersion = planner.plan(UserIntent(IntentType.PROJECT_RESTORE, "t"))
+        assertEquals("PLAN_NO_VERSION", (noVersion as Outcome.Failure).error.code)
+    }
 }

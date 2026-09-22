@@ -44,6 +44,11 @@ enum class IntentType {
     VIDEO_TRIM,
     VIDEO_THUMB,
     VIDEO_AUDIO,
+    PROJECT_NEW,
+    PROJECT_LIST,
+    ASSET_IMPORT,
+    PROJECT_VERSION,
+    PROJECT_RESTORE,
     UNKNOWN,
 }
 
@@ -175,6 +180,23 @@ object IntentParser {
             val negative = t.contains("เบาเสียง")
             val db = digits?.let { if (negative) "-$it" else it }
             return UserIntent(IntentType.AUDIO_GAIN, text, params("path" to file, "db" to db))
+        }
+        if (containsAny(t, ThaiVocabulary.projectNewWords)) {
+            val name = ThaiVocabulary.projectNewWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
+            return UserIntent(IntentType.PROJECT_NEW, text, params("name" to name.ifBlank { null }))
+        }
+        if (containsAny(t, ThaiVocabulary.versionSaveWords)) {
+            return UserIntent(IntentType.PROJECT_VERSION, text)
+        }
+        if (containsAny(t, ThaiVocabulary.versionRestoreWords)) {
+            val version = digitsPattern.find(tNoFile)?.value
+            return UserIntent(IntentType.PROJECT_RESTORE, text, params("version" to version))
+        }
+        if (containsAny(t, ThaiVocabulary.assetImportWords)) {
+            return UserIntent(IntentType.ASSET_IMPORT, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.projectListWords)) {
+            return UserIntent(IntentType.PROJECT_LIST, text)
         }
         if (containsAny(t, ThaiVocabulary.videoInfoWords)) {
             return UserIntent(IntentType.VIDEO_INFO, text, params("path" to file))

@@ -142,6 +142,25 @@ object StandardCapabilities {
             metadata = meta("video", "ตัดวิดีโอตามช่วงเวลา (ไม่ re-encode)", listOf("src,startMs,endMs"), listOf("dst"), listOf("fs.write"), false, "duration match", "fix range")),
         CapabilityBinding("video.extractAudio", "video", "extractAudio", AdapterKind.NATIVE,
             metadata = meta("video", "ดึงแทร็กเสียงจากวิดีโอ", listOf("src"), listOf("dst"), listOf("fs.write"), false, "audio track out", "retry")),
+        // Media projects (native, file stores).
+        CapabilityBinding("media.project.create", "media", "project.create", AdapterKind.NATIVE,
+            metadata = meta("media", "สร้างโปรเจกต์ใหม่", listOf("name?"), listOf("project"), emptyList(), false, "id listed", "retry")),
+        CapabilityBinding("media.project.list", "media", "project.list", AdapterKind.NATIVE,
+            metadata = meta("media", "list โปรเจกต์", emptyList(), listOf("projects"), emptyList(), false, "dir read", "re-list")),
+        CapabilityBinding("media.asset.import", "media", "asset.import", AdapterKind.NATIVE,
+            metadata = meta("media", "import ไฟล์เข้าโปรเจกต์", listOf("path,projectId?"), listOf("asset"), listOf("fs.write"), false, "asset listed", "fix file")),
+        CapabilityBinding("media.asset.list", "media", "asset.list", AdapterKind.NATIVE,
+            metadata = meta("media", "list asset ในโปรเจกต์", listOf("projectId?"), listOf("assets"), emptyList(), false, "index read", "re-list")),
+        CapabilityBinding("media.timeline.get", "media", "timeline.get", AdapterKind.NATIVE,
+            metadata = meta("media", "อ่าน timeline", listOf("projectId?"), listOf("timeline"), emptyList(), false, "json read", "re-get")),
+        CapabilityBinding("media.timeline.addClip", "media", "timeline.addClip", AdapterKind.NATIVE,
+            metadata = meta("media", "วางคลิปบน timeline", listOf("assetId,startMs,endMs,atMs"), listOf("ok"), listOf("fs.write"), false, "clip listed", "fix args")),
+        CapabilityBinding("media.version.save", "media", "version.save", AdapterKind.NATIVE,
+            metadata = meta("media", "บันทึกเวอร์ชัน timeline", listOf("projectId?"), listOf("version"), listOf("fs.write"), false, "snap written", "retry")),
+        CapabilityBinding("media.version.list", "media", "version.list", AdapterKind.NATIVE,
+            metadata = meta("media", "list เวอร์ชัน", listOf("projectId?"), listOf("versions"), emptyList(), false, "dir read", "re-list")),
+        CapabilityBinding("media.version.restore", "media", "version.restore", AdapterKind.NATIVE,
+            metadata = meta("media", "ย้อน timeline ไปเวอร์ชัน", listOf("version,projectId?"), listOf("ok"), listOf("fs.write"), false, "timeline match", "re-restore")),
         // Compatibility engine — CLI adapter, LAST resort (§29, CP-32).
         CapabilityBinding("terminal.open", "terminal", "open", AdapterKind.CLI_ADAPTER,
             metadata = meta("terminal", "เปิด terminal session", emptyList(), listOf("sessionId"), listOf("terminal"), false, "session listed", "re-open")),
@@ -165,7 +184,7 @@ object StandardCapabilities {
      */
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
-        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video")) {
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video", "media")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -198,6 +217,7 @@ private fun meta(
         "image" to ("Image Engine" to "header probe + pixel ops"),
         "audio" to ("Audio Engine" to "WAV pipeline + MediaCodec"),
         "video" to ("Video Engine" to "MP4 probe + Muxer"),
+        "media" to ("Media Engine" to "project stores"),
         "terminal" to ("Compatibility Engine" to "Termux bridge (pending device work)"),
     )
     val (engine, runtime) = engines.getValue(tool)
