@@ -12,7 +12,6 @@ import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.os.Build
 import android.provider.MediaStore
-import android.view.Surface
 import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
 import com.aicodemax.core.common.fold
@@ -499,7 +498,7 @@ class AndroidRenderPort(
             ext.getTrackFormat(trackIndex).getString(MediaFormat.KEY_MIME)!!,
         )
         try {
-            decoder.configure(ext.getTrackFormat(trackIndex), Surface(reader.surface), null, 0)
+            decoder.configure(ext.getTrackFormat(trackIndex), reader.surface, null, 0)
             decoder.start()
             val decInfo = android.media.MediaCodec.BufferInfo()
             var sawInputEos = false
