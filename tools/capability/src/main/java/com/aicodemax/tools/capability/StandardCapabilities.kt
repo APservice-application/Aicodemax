@@ -265,6 +265,10 @@ object StandardCapabilities {
             metadata = meta("media", "list ตัวสร้างมีเดีย", emptyList(), listOf("providers"), emptyList(), false, "providers listed", "—")),
         CapabilityBinding("media.gen.make", "media", "gen.make", AdapterKind.NATIVE,
             metadata = meta("media", "สร้างมีเดีย (โปสเตอร์/พื้นหลัง/แต่งรูป/เสียงพูด)", listOf("kind,prompt?,path?,style?,w?,h?,lang?"), listOf("assetId"), listOf("fs.write"), false, "asset imported", "fix kind", true, "edit.undo")),
+        CapabilityBinding("media.timeline.motion", "media", "timeline.motion", AdapterKind.NATIVE,
+            metadata = meta("media", "โมชัน Ken Burns ของคลิป", listOf("clipIndex,dir?,zoom?,off?"), listOf("ok"), listOf("fs.write"), false, "motion shown", "fix dir", true, "edit.undo")),
+        CapabilityBinding("media.timeline.slideshow", "media", "timeline.slideshow", AdapterKind.NATIVE,
+            metadata = meta("media", "ทำสไลด์โชว์จากรูป", listOf("assetIds,stillMs?,fadeMs?"), listOf("ok"), listOf("fs.write"), false, "slideshow added", "fix assets", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

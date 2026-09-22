@@ -593,7 +593,7 @@ class AndroidRenderPort(
             } else {
                 val argb = yuv420888ToArgb(image)
                 var frame = if (keys != null) {
-                    composeLook(argb, image.width, image.height, frameLook(active, keys, offMs), outW, outH)
+                    composeLook(argb, image.width, image.height, withMotion(frameLook(active, keys, offMs), seg.clip.motion, offMs.toFloat() / outLen.coerceAtLeast(1), outW, outH), outW, outH)
                 } else if (active != null) {
                     composeFrame(argb, image.width, image.height, active, outW, outH)
                 } else {
@@ -839,7 +839,7 @@ class AndroidRenderPort(
                 if (keys != null) {
                     val raw = IntArray(bmp.width * bmp.height)
                     bmp.getPixels(raw, 0, bmp.width, 0, 0, bmp.width, bmp.height)
-                    val composed = composeLook(raw, bmp.width, bmp.height, frameLook(active, keys, j * 1000L / 30), outW, outH)
+                    val composed = composeLook(raw, bmp.width, bmp.height, withMotion(frameLook(active, keys, j * 1000L / 30), seg.clip.motion, j.toFloat() / totalOut.coerceAtLeast(1), outW, outH), outW, outH)
                     composed.copyInto(frame)
                 } else if (bmp.width == outW && bmp.height == outH) {
                     bmp.getPixels(frame, 0, outW, 0, 0, outW, outH)
@@ -894,7 +894,7 @@ class AndroidRenderPort(
         val live = texts.filter { it.startMs < stillEnd && it.endMs > seg.clip.atMs }
         val fxStill = seg.clip.fx?.takeUnless { it.isIdentity }
         val ccStill = seg.clip.color?.takeUnless { it.isIdentity }
-        val cutStill = seg.clip.mask?.takeUnless { it.isIdentity } != null || seg.clip.chroma != null || seg.clip.lut != null
+        val cutStill = seg.clip.mask?.takeUnless { it.isIdentity } != null || seg.clip.chroma != null || seg.clip.lut != null || seg.clip.motion != null
         if (active != null || live.isNotEmpty() || keys != null || wantTail ||
             seg.clip.transitionIn != null || seg.clip.transitionOut != null || fxStill != null || ccStill != null || cutStill
         ) {
@@ -951,11 +951,12 @@ class AndroidRenderPort(
         val mask = seg.clip.mask?.takeUnless { it.isIdentity }
         val chroma = seg.clip.chroma
         var lastArgb: IntArray? = null
-        if (keys != null) {
+        val motion = seg.clip.motion?.takeUnless { it.isIdentity }
+        if (keys != null || motion != null) {
             repeat(frames) { i ->
                 val offMs = i * 1000L / 30
                 val timelineMs = seg.clip.atMs + offMs
-                var frame = composeLook(pixels, raw.width, raw.height, frameLook(t, keys, offMs), outW, outH)
+                var frame = composeLook(pixels, raw.width, raw.height, withMotion(frameLook(t, keys, offMs), motion, offMs.toFloat() / outLen.coerceAtLeast(1), outW, outH), outW, outH)
                 frame = applyFx(frame, outW, outH, fx, timelineMs)
                 frame = applyLut(applyColor(frame, cc), lut)
                 if (mask != null || chroma != null) {
@@ -1721,6 +1722,28 @@ class AndroidRenderPort(
             cropH = keys.valueAt("cropH", offsetMs)?.toInt() ?: b.cropH,
         )
         return FrameLook(t.takeUnless { it.isIdentity && isStep90(rot) }, rot)
+    }
+
+    /** CP-84 §45: Ken Burns — interpolates zoom/pan over clip progress 0..1. */
+    private fun withMotion(look: FrameLook, motion: com.aicodemax.data.media.ClipMotion?, progress: Float, outW: Int, outH: Int): FrameLook {
+        if (motion == null || motion.isIdentity) return look
+        val pr = progress.coerceIn(0f, 1f)
+        val b = look.transform ?: ClipTransform()
+        val z = motion.zoom.toFloat()
+        return when (motion.direction) {
+            "in" -> look.copy(transform = b.copy(scale = (b.scale + z * pr).toInt()))
+            "out" -> look.copy(transform = b.copy(scale = (b.scale + z * (1f - pr)).toInt()))
+            else -> {
+                val span = z / 100f * minOf(outW, outH) * 0.25f * (pr - 0.5f) * 2f
+                val (dx, dy) = when (motion.direction) {
+                    "left" -> -span to 0f
+                    "right" -> span to 0f
+                    "up" -> 0f to -span
+                    else -> 0f to span
+                }
+                look.copy(transform = b.copy(scale = (b.scale + z / 2f).toInt(), posX = b.posX + dx.toInt(), posY = b.posY + dy.toInt()))
+            }
+        }
     }
 
     private fun isStep90(deg: Float): Boolean {

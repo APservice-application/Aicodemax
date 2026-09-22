@@ -13,6 +13,7 @@ import com.aicodemax.data.media.ClipMask
 import com.aicodemax.data.media.ClipChroma
 import com.aicodemax.data.media.ClipBackground
 import com.aicodemax.data.media.ClipLut
+import com.aicodemax.data.media.ClipMotion
 import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.SpeedPoint
 import com.aicodemax.core.common.Ids
@@ -102,6 +103,7 @@ class MediaToolExecutor(
                                     (clip.fx?.takeUnless { it.isIdentity }?.let { " {FX:${it.summary()}}" } ?: "") +
                                     (clip.color?.takeUnless { it.isIdentity }?.let { " {C:${it.summary()}}" } ?: "") +
                                     (clip.lut?.let { " {L:${it.summary()}}" } ?: "") +
+                                    (clip.motion?.takeUnless { it.isIdentity }?.let { " {M:${it.summary()}}" } ?: "") +
                                     (clip.mask?.takeUnless { it.isIdentity }?.let { " {M:${it.summary()}}" } ?: "") +
                                     (clip.chroma?.let { " {CH:${it.summary()}}" } ?: "")
                             }
@@ -774,6 +776,51 @@ class MediaToolExecutor(
                         onSuccess = { asset ->
                             done(true, "สร้างแล้ว: ${asset.id} (${result.note}) — เพิ่มลงไทม์ไลน์ด้วย timeline.addClip assetId=${asset.id}")
                         },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.motion" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    if (call.args["off"] == "true") {
+                        return@withContext media.setClipMotion(projectId, clipId, null, call.actor).fold(
+                            onSuccess = { done(true, "ปิดโมชันแล้ว (เลิกทำได้: edit.undo)") },
+                            onFailure = { done(false, error = it.message) },
+                        )
+                    }
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val base = timeline.findClip(clipId)?.second?.motion ?: ClipMotion()
+                    val next = base.copy(
+                        direction = call.args["dir"] ?: base.direction,
+                        zoom = call.args["zoom"]?.toIntOrNull() ?: base.zoom,
+                    )
+                    media.setClipMotion(projectId, clipId, next, call.actor).fold(
+                        onSuccess = { done(true, "ตั้งโมชันแล้ว (${next.summary()}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.slideshow" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val raw = call.args["assetIds"] ?: call.args["assets"]
+                        ?: return@withContext done(false, error = "missing arg: assetIds (คั่นด้วยจุลภาค)")
+                    val refs = raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                    val assets = ((media.listAssets(projectId) as? Outcome.Success)?.value.orEmpty())
+                    val ids = refs.mapNotNull { ref ->
+                        assets.find { it.id == ref }?.id
+                            ?: assets.find { it.originalName == ref || it.originalName.endsWith("/$ref") }?.id
+                    }
+                    if (ids.size < refs.size) {
+                        val known = assets.map { it.originalName }
+                        return@withContext done(false, error = "หารูปไม่เจอ (มีในโปรเจกต์: ${known.joinToString(", ").ifBlank { "—" }})")
+                    }
+                    val stillMs = call.args["stillMs"]?.toLongOrNull() ?: 3000L
+                    val fadeMs = call.args["fadeMs"]?.toLongOrNull() ?: 400L
+                    media.slideshow(projectId, ids, stillMs, fadeMs, call.actor).fold(
+                        onSuccess = { done(true, "ทำสไลด์โชว์แล้ว (${ids.size} รูป ต่อรูป ${stillMs}ms) (เลิกทำได้: edit.undo)") },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

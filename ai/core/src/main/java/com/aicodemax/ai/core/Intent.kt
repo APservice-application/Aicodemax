@@ -89,6 +89,8 @@ enum class IntentType {
     LIB_SEARCH,
     GEN_MAKE,
     GEN_LIST,
+    CLIP_MOTION,
+    SLIDESHOW,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -515,6 +517,26 @@ object IntentParser {
             return UserIntent(
                 IntentType.GEN_MAKE, text,
                 params("kind" to kind, "prompt" to prompt, "path" to file),
+            )
+        }
+        if (containsAny(lower, ThaiVocabulary.slideshowWords)) {
+            val names = fileNamePattern.findAll(t).map { it.value }.toList()
+            return UserIntent(IntentType.SLIDESHOW, text, params("assets" to names.joinToString(",").ifBlank { null }))
+        }
+        if (containsAny(t, ThaiVocabulary.motionWords)) {
+            val dir = when {
+                t.contains("ซูมออก") -> "out"
+                t.contains("ซูมเข้า") || t.contains("ซูม") -> "in"
+                t.contains("ซ้าย") -> "left"
+                t.contains("ขวา") -> "right"
+                t.contains("ขึ้น") -> "up"
+                t.contains("ลง") -> "down"
+                else -> null
+            }
+            val off = t.contains("ปิด") || t.contains("หยุด")
+            return UserIntent(
+                IntentType.CLIP_MOTION, text,
+                params("clipIndex" to parseClipIndex(t), "dir" to dir, "off" to (if (off) "true" else null)),
             )
         }
         if (containsAny(lower, ThaiVocabulary.templateWords)) {

@@ -257,6 +257,16 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp84MotionSlideIntents() {
+        val motion = IntentParser.parse("โมชันคลิปที่ 1 ซูมเข้า")
+        assertEquals(IntentType.CLIP_MOTION, motion.type)
+        assertEquals("in", motion.parameters["dir"])
+        val slide = IntentParser.parse("สไลด์โชว์ a.png,b.png")
+        assertEquals(IntentType.SLIDESHOW, slide.type)
+        assertEquals("a.png,b.png", slide.parameters["assets"])
+    }
+
+    @Test
     fun cp83GenIntents() {
         val poster = IntentParser.parse("ทำโปสเตอร์ \"เปิดร้าน\"")
         assertEquals(IntentType.GEN_MAKE, poster.type)

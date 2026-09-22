@@ -481,6 +481,28 @@ data class ClipLut(
     }
 }
 
+/** CP-84 §45 Ken Burns motion: slow zoom/pan over the clip. zoom = extra % at the far end. */
+@Serializable
+data class ClipMotion(
+    val direction: String = "in",
+    val zoom: Int = 20,
+) {
+    val isIdentity: Boolean get() = zoom == 0
+
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (direction !in DIRS) errors.add("ทิศต้องเป็น ${DIRS.joinToString("/")} (ได้ $direction)")
+        if (zoom !in 0..60) errors.add("ซูมต้องอยู่ 0..60 (ได้ $zoom)")
+        return errors
+    }
+
+    fun summary(): String = "KB:$direction+$zoom"
+
+    companion object {
+        val DIRS = listOf("in", "out", "left", "right", "up", "down")
+    }
+}
+
 /** One placed piece of an asset on a track. Times in ms. */
 @Serializable
 data class Clip(
@@ -513,6 +535,8 @@ data class Clip(
     val chroma: ClipChroma? = null,
     /** CP-81 .cube LUT (null = off). Applied after [color]. */
     val lut: ClipLut? = null,
+    /** CP-84 Ken Burns motion (null/identity = static). */
+    val motion: ClipMotion? = null,
 ) {
     val durationMs: Long get() = endMs - startMs
 
@@ -807,6 +831,7 @@ data class Timeline(
                 clip.fx?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.color?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.lut?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.motion?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.mask?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.chroma?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 for (tr in listOfNotNull(clip.transitionIn, clip.transitionOut)) {

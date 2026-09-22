@@ -26,6 +26,7 @@ import com.aicodemax.data.media.ClipFx
 import com.aicodemax.data.media.ClipColor
 import com.aicodemax.data.media.ClipMask
 import com.aicodemax.data.media.ClipLut
+import com.aicodemax.data.media.ClipMotion
 import com.aicodemax.data.media.ClipChroma
 import com.aicodemax.data.media.ClipBackground
 import com.aicodemax.data.media.LibraryItem
@@ -204,6 +205,20 @@ interface MediaProjectPort {
     suspend fun libraryList(kind: String? = null): Outcome<List<LibraryItem>>
     suspend fun librarySearch(query: String): Outcome<List<LibraryItem>>
     suspend fun libraryRemove(itemId: String): Outcome<Unit>
+    // CP-84 Ken Burns + slideshow (§45).
+    suspend fun setClipMotion(
+        projectId: String,
+        clipId: String,
+        motion: ClipMotion?,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun slideshow(
+        projectId: String,
+        assetIds: List<String>,
+        stillMs: Long = 3000,
+        fadeMs: Long = 400,
+        actor: String = "AI",
+    ): Outcome<Project>
     // CP-78 color correction (§42).
     suspend fun setClipColor(
         projectId: String,
@@ -708,6 +723,44 @@ class FileMediaProject(
         }
 
     override suspend fun libraryRemove(itemId: String): Outcome<Unit> = library.remove(itemId)
+    override suspend fun setClipMotion(
+        projectId: String,
+        clipId: String,
+        motion: ClipMotion?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "โมชันคลิป $clipId", ProjectEventTypes.CLIP_MOTION, actor,
+    ) { TimelineOps.motion(it, clipId, motion) }
+
+    override suspend fun slideshow(
+        projectId: String,
+        assetIds: List<String>,
+        stillMs: Long,
+        fadeMs: Long,
+        actor: String,
+    ): Outcome<Project> = mutate(
+        projectId, "สไลด์โชว์ ${assetIds.size} รูป", ProjectEventTypes.SLIDESHOW_MADE, actor, emptyMap(),
+    ) {
+        for (id in assetIds) {
+            val asset = when (val got = assets.get(projectId, id)) {
+                is Outcome.Failure -> return@mutate got
+                is Outcome.Success -> got.value
+            }
+            if (asset.kind != MediaKind.IMAGE) {
+                return@mutate Outcome.Failure(AppError("MEDIA_KIND", "สไลด์โชว์ใช้ได้เฉพาะรูป ($id เป็น ${asset.kind})"))
+            }
+        }
+        val timeline = when (val got = getTimeline(projectId)) {
+            is Outcome.Failure -> return@mutate got
+            is Outcome.Success -> got.value
+        }
+        try {
+            val ids = assetIds.map { Ids.newId("clip") }
+            setTimeline(projectId, TimelineOps.slideshow(timeline, assetIds, stillMs, fadeMs, ids), actor)
+        } catch (e: IllegalArgumentException) {
+            Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "ทำสไลด์โชว์ไม่ได้"))
+        }
+    }
     override suspend fun setClipLut(
         projectId: String,
         clipId: String,
@@ -1459,6 +1512,39 @@ class InMemoryMediaProject : MediaProjectPort {
     override suspend fun libraryRemove(itemId: String): Outcome<Unit> =
         if (memLibrary.remove(itemId) != null) Outcome.Success(Unit)
         else Outcome.Failure(AppError("LIB_MISSING", "ไม่มี asset $itemId"))
+    override suspend fun setClipMotion(
+        projectId: String,
+        clipId: String,
+        motion: ClipMotion?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "โมชันคลิป $clipId", ProjectEventTypes.CLIP_MOTION, actor,
+    ) { TimelineOps.motion(it, clipId, motion) }
+
+    override suspend fun slideshow(
+        projectId: String,
+        assetIds: List<String>,
+        stillMs: Long,
+        fadeMs: Long,
+        actor: String,
+    ): Outcome<Project> = mutate(
+        projectId, "สไลด์โชว์ ${assetIds.size} รูป", ProjectEventTypes.SLIDESHOW_MADE, actor,
+    ) {
+        for (id in assetIds) {
+            val asset = assets[projectId]?.firstOrNull { it.id == id }
+                ?: return@mutate Outcome.Failure(AppError("MEDIA_NO_ASSET", "ไม่มี asset $id"))
+            if (asset.kind != MediaKind.IMAGE) {
+                return@mutate Outcome.Failure(AppError("MEDIA_KIND", "สไลด์โชว์ใช้ได้เฉพาะรูป ($id เป็น ${asset.kind})"))
+            }
+        }
+        val timeline = (getTimeline(projectId) as? Outcome.Success)?.value ?: Timeline()
+        try {
+            val ids = assetIds.map { Ids.newId("clip") }
+            setTimeline(projectId, TimelineOps.slideshow(timeline, assetIds, stillMs, fadeMs, ids), actor)
+        } catch (e: IllegalArgumentException) {
+            Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "ทำสไลด์โชว์ไม่ได้"))
+        }
+    }
     override suspend fun setClipLut(
         projectId: String,
         clipId: String,

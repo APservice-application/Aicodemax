@@ -424,6 +424,23 @@ class RuleBasedPlanner(
                 listOf("media.gen.make" to args)
             }
             IntentType.GEN_LIST -> listOf("media.gen.list" to emptyMap())
+            IntentType.CLIP_MOTION -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ใส่โมชันให้คลิปที่เท่าไหร่ครับ? เช่น โมชันคลิปที่ 1 ซูมเข้า"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["dir"]?.let { args["dir"] = it }
+                intent.parameters["off"]?.let { args["off"] = it }
+                listOf("media.timeline.motion" to args)
+            }
+            IntentType.SLIDESHOW -> {
+                val assets = intent.parameters["assets"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_ASSETS", "สไลด์โชว์ใช้รูปไหนบ้างครับ? (บอกชื่อไฟล์ เช่น สไลด์โชว์ a.png,b.png)"),
+                    )
+                listOf("media.timeline.slideshow" to mapOf("assetIds" to assets))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

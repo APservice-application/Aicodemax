@@ -46,6 +46,7 @@ fun TimelineScreen(services: ServiceLocator) {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var lutPath by remember { mutableStateOf("") }
+    var slideAssets by remember { mutableStateOf("") }
     var newText by remember { mutableStateOf("") }
     var presetIndex by remember { mutableStateOf(2) }
     var ideaTopic by remember { mutableStateOf("") }
@@ -672,6 +673,58 @@ fun TimelineScreen(services: ServiceLocator) {
                                     )
                                 }
                             }, enabled = !busy) { Text("ล้าง") }
+                        }
+                        // CP-84 Ken Burns + slideshow (§45).
+                        val mo = clip.motion ?: com.aicodemax.data.media.ClipMotion()
+                        Text(
+                            "โมชัน: ${clip.motion?.summary() ?: "นิ่ง"}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(onClick = {
+                                val dirs = com.aicodemax.data.media.ClipMotion.DIRS
+                                val next = dirs[(dirs.indexOf(mo.direction).coerceAtLeast(0) + 1) % dirs.size]
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipMotion(projectId, clipId, mo.copy(direction = next), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ทิศ:${mo.direction}") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipMotion(projectId, clipId, mo.copy(zoom = (mo.zoom + 10).coerceAtMost(60)), "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ซูม+:${mo.zoom}") }
+                            OutlinedButton(onClick = {
+                                keyCall { projectId, clipId ->
+                                    services.media.setClipMotion(projectId, clipId, null, "HUMAN").fold(
+                                        onSuccess = {},
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ปิดโมชัน") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            TextField(
+                                value = slideAssets,
+                                onValueChange = { slideAssets = it },
+                                label = { Text("assetIds รูป คั่นจุลภาค") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(0.6f),
+                            )
+                            OutlinedButton(onClick = {
+                                val ids = slideAssets.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                                runCall { projectId ->
+                                    services.media.slideshow(projectId, ids, 3000, 400, "HUMAN").fold(
+                                        onSuccess = { message = "สไลด์โชว์ ${ids.size} รูปแล้ว" },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }, enabled = !busy && slideAssets.isNotBlank()) { Text("สไลด์โชว์") }
                         }
                         // CP-79 mask + chroma (§17/§18).
                         val mk = clip.mask ?: com.aicodemax.data.media.ClipMask()

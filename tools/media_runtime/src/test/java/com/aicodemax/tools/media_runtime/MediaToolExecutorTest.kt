@@ -324,4 +324,24 @@ class MediaToolExecutorTest {
         val slot = run("gen.make", mapOf("projectId" to projectId, "kind" to "text2video", "prompt" to "x"))
         assertTrue(!slot.ok && slot.error.contains("§29"))
     }
+
+    @Test
+    fun motionSlideshowFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("ms") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "a.png")).ok)
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "b.png")).ok)
+        assertTrue(run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4")).ok)
+        val made = run("timeline.slideshow", mapOf("projectId" to projectId, "assetIds" to "a.png,b.png", "stillMs" to "2000"))
+        assertTrue(made.output, made.ok)
+        val listed = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed.output, listed.output.contains("{M:KB:in+22}"))
+        val badKind = run("timeline.slideshow", mapOf("projectId" to projectId, "assetIds" to "v.mp4"))
+        assertTrue(!badKind.ok)
+        val motioned = run("timeline.motion", mapOf("projectId" to projectId, "clipIndex" to "1", "dir" to "left", "zoom" to "30"))
+        assertTrue(motioned.output, motioned.ok)
+        val off = run("timeline.motion", mapOf("projectId" to projectId, "clipIndex" to "1", "off" to "true"))
+        assertTrue(off.ok)
+        val bad = run("timeline.motion", mapOf("projectId" to projectId, "clipIndex" to "1", "dir" to "nope"))
+        assertTrue(!bad.ok)
+    }
 }

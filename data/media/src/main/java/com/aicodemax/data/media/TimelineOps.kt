@@ -443,6 +443,55 @@ object TimelineOps {
         )
     }
 
+    /** CP-84: replaces the clip's Ken Burns motion (§45). Null/identity clears. */
+    fun motion(timeline: Timeline, clipId: String, motion: ClipMotion?): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        if (track.kind == MediaKind.AUDIO) {
+            throw IllegalArgumentException("คลิปเสียงใช้โมชันไม่ได้")
+        }
+        if (motion != null) {
+            val problems = motion.validate()
+            if (problems.isNotEmpty()) throw IllegalArgumentException(problems.joinToString("; "))
+        }
+        val next = if (motion == null || motion.isIdentity) null else motion
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(motion = next) else it })
+    }
+
+    /** CP-84 §45: appends an image slideshow to V1 (single undo entry at port level). */
+    fun slideshow(
+        timeline: Timeline,
+        assetIds: List<String>,
+        stillMs: Long,
+        fadeMs: Long,
+        ids: List<String>,
+    ): Timeline {
+        if (assetIds.isEmpty()) throw IllegalArgumentException("สไลด์โชว์ต้องมีรูปอย่างน้อย 1 รูป")
+        if (assetIds.size > 50) throw IllegalArgumentException("สไลด์โชว์มากสุด 50 รูป (ได้ ${assetIds.size})")
+        if (stillMs !in 500..30_000) throw IllegalArgumentException("เวลาต่อรูปต้องอยู่ 500..30000ms (ได้ $stillMs)")
+        if (fadeMs !in 0..2000) throw IllegalArgumentException("เฟดต้องอยู่ 0..2000ms (ได้ $fadeMs)")
+        if (ids.size != assetIds.size) throw IllegalArgumentException("ids ไม่ครบ")
+        val dirs = ClipMotion.DIRS
+        val existing = timeline.tracks.find { it.id == "V1" }
+        if (existing != null) checkUnlocked(existing)
+        var cursor = existing?.clips?.maxOfOrNull { it.atMs + it.outputDurationMs() } ?: 0L
+        val clips = assetIds.mapIndexed { i, asset ->
+            val fade = if (fadeMs > 0) ClipTransition("fade", fadeMs) else null
+            Clip(
+                ids[i], asset, 0, stillMs, cursor,
+                transitionIn = fade, transitionOut = fade,
+                motion = ClipMotion(dirs[i % dirs.size], 22),
+            ).also { cursor += stillMs }
+        }
+        val tracks = if (existing != null) {
+            timeline.tracks.map { if (it.id == "V1") it.copy(clips = it.clips + clips) else it }
+        } else {
+            timeline.tracks + Track("V1", MediaKind.VIDEO, clips)
+        }
+        return timeline.copy(tracks = tracks)
+    }
+
     /** CP-79: replaces the timeline background (§19). Null/identity clears. */
     fun background(timeline: Timeline, background: ClipBackground?): Timeline {
         if (background != null) {

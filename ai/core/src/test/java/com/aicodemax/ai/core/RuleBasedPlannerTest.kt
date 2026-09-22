@@ -240,6 +240,16 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp84MotionSlidePlansRealSteps() = runBlocking {
+        val motion = (planner.plan(UserIntent(IntentType.CLIP_MOTION, "t", mapOf("clipIndex" to "1", "dir" to "in"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.motion", motion.steps[0].action)
+        val slide = (planner.plan(UserIntent(IntentType.SLIDESHOW, "t", mapOf("assets" to "a.png"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.slideshow", slide.steps[0].action)
+        val noassets = planner.plan(UserIntent(IntentType.SLIDESHOW, "t"))
+        assertEquals("PLAN_NO_ASSETS", (noassets as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp83GenPlansRealSteps() = runBlocking {
         val make = (planner.plan(UserIntent(IntentType.GEN_MAKE, "t", mapOf("kind" to "poster", "prompt" to "Hi"))) as Outcome.Success<Plan>).value
         assertEquals("gen.make", make.steps[0].action)
