@@ -17,6 +17,7 @@ import com.aicodemax.core.common.Outcome
 import com.aicodemax.core.common.fold
 import com.aicodemax.data.media.Clip
 import com.aicodemax.data.media.ClipTransform
+import com.aicodemax.data.media.ClipSpeed
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.MediaAsset
 import com.aicodemax.data.media.MediaKind
@@ -211,6 +212,7 @@ class AndroidRenderPort(
         val width: Int = -1,
         val height: Int = -1,
         val transform: ClipTransform? = null,
+        val speed: ClipSpeed? = null,
     )
 
     private data class RenderPlan(
@@ -236,9 +238,9 @@ class AndroidRenderPort(
                 val file = File(File(mediaRoot, "${project.id}/assets"), asset.fileName)
                 if (!file.isFile) return null
                 when (track.kind) {
-                    MediaKind.VIDEO, MediaKind.IMAGE -> videoSegs += Segment(clip, file, track.kind, transform = clip.transform)
+                    MediaKind.VIDEO, MediaKind.IMAGE -> videoSegs += Segment(clip, file, track.kind, transform = clip.transform, speed = clip.speed?.takeUnless { it.isIdentity })
                     MediaKind.AUDIO -> if (job.preset.includeAudio) {
-                        audioSegs += Segment(clip, file, track.kind)
+                        audioSegs += Segment(clip, file, track.kind, speed = clip.speed?.takeUnless { it.isIdentity })
                     }
                 }
             }
@@ -258,7 +260,8 @@ class AndroidRenderPort(
             single.clip.atMs == 0L &&
             (single.transform == null || single.transform.isIdentity) &&
             single.height in 1..job.preset.maxHeight &&
-            timeline.texts.isEmpty()
+            timeline.texts.isEmpty() &&
+            (single.speed == null)
         return RenderPlan(
             timeline = timeline,
             segments = probed.sortedBy { it.clip.atMs },
@@ -437,7 +440,7 @@ class AndroidRenderPort(
                     if (seg.kind == MediaKind.IMAGE) {
                         feedStill(seg, outW, outH, planar, plan.texts, feed)
                     } else {
-                        decodeSegment(seg, outW, outH, planar, seg.transform, plan.texts, feed)
+                        decodeSegment(seg, outW, outH, planar, seg.transform, plan.texts, seg.speed, feed)
                     }
                     progress(5 + 70 * (index + 1) / total.coerceAtLeast(1))
                 }
@@ -500,9 +503,39 @@ class AndroidRenderPort(
         planar: Boolean,
         transform: ClipTransform?,
         texts: List<OverlayText>,
+        speed: ClipSpeed?,
         feed: (ByteArray) -> Unit,
     ) {
         val active = transform?.takeUnless { it.isIdentity }
+        if (speed?.reverse == true) {
+            decodeReversed(seg, outW, outH, planar, active, texts, speed, feed)
+            return
+        }
+        val srcLen = seg.clip.endMs - seg.clip.startMs
+        val outLen = seg.clip.outputDurationMs()
+        val totalOut = ((outLen * 30) / 1000).toInt().coerceAtLeast(1)
+        var outIndex = 0
+        var lastYuv: ByteArray? = null
+        fun needed(j: Int): Long =
+            speed?.outputToSource(j * 1000L / 30, srcLen) ?: (j * 1000L / 30)
+        fun emit(image: android.media.Image, j: Int) {
+            val timelineMs = seg.clip.atMs + j * 1000L / 30
+            val live = texts.filter { timelineMs in it.startMs until it.endMs }
+            val yuv = if (active == null && live.isEmpty()) {
+                frameToYuv(image, outW, outH, planar)
+            } else {
+                val argb = yuv420888ToArgb(image)
+                val base = if (active != null) {
+                    composeFrame(argb, image.width, image.height, active, outW, outH)
+                } else {
+                    scaleArgb(argb, image.width, image.height, outW, outH)
+                }
+                if (live.isNotEmpty()) drawTexts(base, outW, outH, live, timelineMs)
+                if (planar) Yuv.toI420(base, outW, outH) else Yuv.toNV12(base, outW, outH)
+            }
+            lastYuv = yuv
+            feed(yuv)
+        }
         val startUs = seg.clip.startMs * 1000
         val endUs = seg.clip.endMs * 1000
         val readerW = if (seg.width > 0) seg.width else outW
@@ -539,26 +572,39 @@ class AndroidRenderPort(
                         }
                     }
                 }
-                val outIndex = decoder.dequeueOutputBuffer(decInfo, 10_000)
+                val outIdx = decoder.dequeueOutputBuffer(decInfo, 10_000)
                 when {
-                    outIndex >= 0 -> {
+                    outIdx >= 0 -> {
                         if (decInfo.size > 0 && decInfo.presentationTimeUs >= startUs) {
-                            decoder.releaseOutputBuffer(outIndex, true)
+                            decoder.releaseOutputBuffer(outIdx, true)
                             val image = acquireImage(reader)
                             if (image != null) {
                                 try {
-                                    val timelineMs = seg.clip.atMs + (decInfo.presentationTimeUs / 1000 - seg.clip.startMs)
-                                    feed(frameYuv(image, active, texts, timelineMs, outW, outH, planar))
+                                    // Nearest-previous sampling: emit for every output
+                                    // frame whose source time this decoded frame covers.
+                                    val rel = decInfo.presentationTimeUs / 1000 - seg.clip.startMs
+                                    while (outIndex < totalOut && needed(outIndex) <= rel) {
+                                        emit(image, outIndex)
+                                        outIndex += 1
+                                    }
                                 } finally {
                                     image.close()
                                 }
                             }
                         } else {
-                            decoder.releaseOutputBuffer(outIndex, false)
+                            decoder.releaseOutputBuffer(outIdx, false)
                         }
                         if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) sawOutputEos = true
                     }
-                    outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> Unit
+                    outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> Unit
+                }
+            }
+            // Pad with the last frame if the source ran short (§13: no interpolation).
+            val tail = lastYuv
+            if (tail != null) {
+                while (outIndex < totalOut) {
+                    feed(tail)
+                    outIndex += 1
                 }
             }
         } finally {
@@ -572,6 +618,143 @@ class AndroidRenderPort(
         }
     }
 
+    /**
+     * CP-75 reverse playback: decodes the range once, caches selected frames
+     * as JPEGs (bounded temp), then feeds them back-to-front. Capped at 90
+     * output frames (~3s) — honest v0 limit, longer clips fail with guidance.
+     */
+    private fun decodeReversed(
+        seg: Segment,
+        outW: Int,
+        outH: Int,
+        planar: Boolean,
+        active: ClipTransform?,
+        texts: List<OverlayText>,
+        speed: ClipSpeed,
+        feed: (ByteArray) -> Unit,
+    ) {
+        val srcLen = seg.clip.endMs - seg.clip.startMs
+        val outLen = seg.clip.outputDurationMs()
+        val totalOut = ((outLen * 30) / 1000).toInt().coerceAtLeast(1)
+        if (totalOut > 90) {
+            throw IllegalStateException("ย้อนกลับได้ครั้งละไม่เกิน 3 วินาที (v0) — ตัดช่วงให้สั้นลงก่อนครับ")
+        }
+        // Source time each output frame shows (mirrored through the rate map).
+        fun srcAt(j: Int): Long =
+            (srcLen - speed.outputToSource(j * 1000L / 30, srcLen)).coerceIn(0, srcLen)
+        val cacheDir = File(outDir, "rev-${seg.clip.id}-${System.currentTimeMillis()}").also { it.mkdirs() }
+        try {
+            val startUs = seg.clip.startMs * 1000
+            val endUs = seg.clip.endMs * 1000
+            val reader = ImageReader.newInstance(
+                if (seg.width > 0) seg.width else outW,
+                if (seg.height > 0) seg.height else outH,
+                android.graphics.ImageFormat.YUV_420_888, 2,
+            )
+            val ext = MediaExtractor()
+            ext.setDataSource(seg.file.path)
+            val trackIndex = (0 until ext.trackCount).firstOrNull { i ->
+                (ext.getTrackFormat(i).getString(MediaFormat.KEY_MIME) ?: "").startsWith("video/")
+            } ?: run { ext.release(); reader.close(); return }
+            ext.selectTrack(trackIndex)
+            ext.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            val decoder = MediaCodec.createDecoderByType(
+                ext.getTrackFormat(trackIndex).getString(MediaFormat.KEY_MIME)!!,
+            )
+            val rels = mutableListOf<Long>()
+            try {
+                decoder.configure(ext.getTrackFormat(trackIndex), reader.surface, null, 0)
+                decoder.start()
+                val decInfo = android.media.MediaCodec.BufferInfo()
+                var sawInputEos = false
+                var sawOutputEos = false
+                var stored = 0
+                while (!sawOutputEos && stored < 400) {
+                    if (!sawInputEos) {
+                        val inIndex = decoder.dequeueInputBuffer(10_000)
+                        if (inIndex >= 0) {
+                            val buf = decoder.getInputBuffer(inIndex)
+                            val size = if (buf != null) ext.readSampleData(buf, 0) else -1
+                            if (size < 0 || ext.sampleTime > endUs) {
+                                decoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                sawInputEos = true
+                            } else {
+                                decoder.queueInputBuffer(inIndex, 0, size, ext.sampleTime, 0)
+                                ext.advance()
+                            }
+                        }
+                    }
+                    val outIdx = decoder.dequeueOutputBuffer(decInfo, 10_000)
+                    when {
+                        outIdx >= 0 -> {
+                            if (decInfo.size > 0 && decInfo.presentationTimeUs >= startUs) {
+                                decoder.releaseOutputBuffer(outIdx, true)
+                                val image = acquireImage(reader)
+                                if (image != null) {
+                                    try {
+                                        val argb = yuv420888ToArgb(image)
+                                        val base = if (active != null) {
+                                            composeFrame(argb, image.width, image.height, active, outW, outH)
+                                        } else {
+                                            scaleArgb(argb, image.width, image.height, outW, outH)
+                                        }
+                                        val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+                                        bmp.setPixels(base, 0, outW, 0, 0, outW, outH)
+                                        File(cacheDir, "f$stored.jpg").outputStream().use { out ->
+                                            bmp.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                                        }
+                                        bmp.recycle()
+                                        rels += decInfo.presentationTimeUs / 1000 - seg.clip.startMs
+                                        stored += 1
+                                    } finally {
+                                        image.close()
+                                    }
+                                }
+                            } else {
+                                decoder.releaseOutputBuffer(outIdx, false)
+                            }
+                            if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) sawOutputEos = true
+                        }
+                        outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> Unit
+                    }
+                }
+            } finally {
+                try {
+                    decoder.stop()
+                } catch (_: Exception) {
+                }
+                decoder.release()
+                ext.release()
+                reader.close()
+            }
+            if (rels.isEmpty()) throw IllegalStateException("ถอดเฟรมช่วงย้อนกลับไม่ได้")
+            for (j in 0 until totalOut) {
+                val want = srcAt(j)
+                var best = 0
+                for (i in rels.indices) {
+                    if (kotlin.math.abs(rels[i] - want) < kotlin.math.abs(rels[best] - want)) best = i
+                }
+                val bmp = BitmapFactory.decodeFile(File(cacheDir, "f$best.jpg").path)
+                    ?: throw IllegalStateException("อ่านเฟรมแคชไม่ได้")
+                val frame = IntArray(outW * outH)
+                if (bmp.width == outW && bmp.height == outH) {
+                    bmp.getPixels(frame, 0, outW, 0, 0, outW, outH)
+                } else {
+                    val scaled = Bitmap.createScaledBitmap(bmp, outW, outH, true)
+                    scaled.getPixels(frame, 0, outW, 0, 0, outW, outH)
+                    if (scaled != bmp) scaled.recycle()
+                }
+                bmp.recycle()
+                val timelineMs = seg.clip.atMs + j * 1000L / 30
+                val live = texts.filter { timelineMs in it.startMs until it.endMs }
+                if (live.isNotEmpty()) drawTexts(frame, outW, outH, live, timelineMs)
+                feed(if (planar) Yuv.toI420(frame, outW, outH) else Yuv.toNV12(frame, outW, outH))
+            }
+        } finally {
+            cacheDir.deleteRecursively()
+        }
+    }
+
     private fun feedStill(
         seg: Segment,
         outW: Int,
@@ -582,7 +765,7 @@ class AndroidRenderPort(
     ) {
         val raw = BitmapFactory.decodeFile(seg.file.path) ?: return
         val active = seg.transform?.takeUnless { it.isIdentity }
-        val stillEnd = seg.clip.atMs + (seg.clip.endMs - seg.clip.startMs)
+        val stillEnd = seg.clip.atMs + seg.clip.outputDurationMs()
         val live = texts.filter { it.startMs < stillEnd && it.endMs > seg.clip.atMs }
         if (active != null || live.isNotEmpty()) {
             feedStillComposed(raw, active, live, seg, outW, outH, planar, feed)
@@ -593,7 +776,7 @@ class AndroidRenderPort(
         scaled.getPixels(pixels, 0, outW, 0, 0, outW, outH)
         scaled.recycle()
         val yuv = if (planar) Yuv.toI420(pixels, outW, outH) else Yuv.toNV12(pixels, outW, outH)
-        val frames = ((seg.clip.endMs - seg.clip.startMs) * 30 / 1000).toInt().coerceIn(1, 30 * 600)
+        val frames = ((seg.clip.outputDurationMs() * 30) / 1000).toInt().coerceIn(1, 30 * 600)
         repeat(frames) { feed(yuv) }
     }
 
@@ -628,7 +811,7 @@ class AndroidRenderPort(
         } else {
             scaleArgb(centerCropPixels(pixels, raw.width, raw.height, outW, outH), outW, outH, outW, outH)
         }
-        val frames = ((seg.clip.endMs - seg.clip.startMs) * 30 / 1000).toInt().coerceIn(1, 30 * 600)
+        val frames = ((seg.clip.outputDurationMs() * 30) / 1000).toInt().coerceIn(1, 30 * 600)
         if (live.isEmpty()) {
             val yuv = if (planar) Yuv.toI420(base, outW, outH) else Yuv.toNV12(base, outW, outH)
             repeat(frames) { feed(yuv) }
@@ -667,28 +850,6 @@ class AndroidRenderPort(
         if (cropped != src) cropped.recycle()
         if (scaled != cropped) scaled.recycle()
         return out
-    }
-
-    /** One decoded frame → output YUV, with optional transform + text overlay. */
-    private fun frameYuv(
-        image: android.media.Image,
-        t: ClipTransform?,
-        texts: List<OverlayText>,
-        timelineMs: Long,
-        outW: Int,
-        outH: Int,
-        planar: Boolean,
-    ): ByteArray {
-        val live = texts.filter { timelineMs in it.startMs until it.endMs }
-        if (t == null && live.isEmpty()) return frameToYuv(image, outW, outH, planar)
-        val argb = yuv420888ToArgb(image)
-        val base = if (t != null) {
-            composeFrame(argb, image.width, image.height, t, outW, outH)
-        } else {
-            scaleArgb(argb, image.width, image.height, outW, outH)
-        }
-        if (live.isNotEmpty()) drawTexts(base, outW, outH, live, timelineMs)
-        return if (planar) Yuv.toI420(base, outW, outH) else Yuv.toNV12(base, outW, outH)
     }
 
     private fun scaleArgb(pixels: IntArray, w: Int, h: Int, outW: Int, outH: Int): IntArray {
@@ -1116,18 +1277,61 @@ class AndroidRenderPort(
                     val endFrame = ((seg.clip.endMs * rate) / 1000).toInt().coerceIn(startFrame, stereo.frames)
                     val atFrame = ((seg.clip.atMs * rate) / 1000).toInt()
                     val gain = seg.clip.volume / 100.0f
-                    var s = startFrame
-                    var d = atFrame
-                    while (s < endFrame && d < frames) {
-                        mix[d * 2] += stereo.samples[s * 2] * gain
-                        mix[d * 2 + 1] += stereo.samples[s * 2 + 1] * gain
-                        s += 1
-                        d += 1
-                    }
+                    mixAudioSlice(mix, frames, stereo, startFrame, endFrame, atFrame, gain, seg.speed)
                 }
             }
         }
         return encodeAac(mix, rate, dst)
+    }
+
+    /**
+     * CP-75: mixes one audio slice with optional speed (rate/reverse/curve).
+     * Curves walk the normalized profile incrementally (O(n), linear interp).
+     */
+    private fun mixAudioSlice(
+        mix: FloatArray,
+        mixFrames: Int,
+        stereo: PcmAudio,
+        startFrame: Int,
+        endFrame: Int,
+        atFrame: Int,
+        gain: Float,
+        speed: ClipSpeed?,
+    ) {
+        if (speed == null) {
+            var s = startFrame
+            var d = atFrame
+            while (s < endFrame && d < mixFrames) {
+                mix[d * 2] += stereo.samples[s * 2] * gain
+                mix[d * 2 + 1] += stereo.samples[s * 2 + 1] * gain
+                s += 1
+                d += 1
+            }
+            return
+        }
+        val sliceLen = (endFrame - startFrame).coerceAtLeast(1)
+        val outLen = (sliceLen * 100 / speed.rate).coerceAtLeast(1)
+        val prof = speed.profile()
+        val stepMs = 1000.0 / stereo.sampleRate
+        var srcMs = 0.0
+        var o = 0
+        var d = atFrame
+        while (o < outLen && d < mixFrames) {
+            val permille = ((o.toLong() * 1000) / outLen).toInt().coerceIn(0, 1000)
+            srcMs += prof[per mille] * stepMs
+            var f = startFrame + srcMs * stereo.sampleRate / 1000.0
+            if (speed.reverse) f = endFrame - (f - startFrame)
+            val clamped = f.coerceIn(startFrame.toDouble(), (endFrame - 1).coerceAtLeast(startFrame).toDouble())
+            val i0 = clamped.toInt()
+            val i1 = (i0 + 1).coerceAtMost((endFrame - 1).coerceAtLeast(startFrame))
+            val frac = (clamped - i0).toFloat()
+            val l = stereo.samples[i0 * 2] * (1 - frac) + stereo.samples[i1 * 2] * frac
+            val r = stereo.samples[i0 * 2 + 1] * (1 - frac) + stereo.samples[i1 * 2 + 1] * frac
+            mix[d * 2] += l * gain
+            mix[d * 2 + 1] += r * gain
+            o += 1
+            d += 1
+        }
     }
 
     private fun toStereo44100(pcm: PcmAudio, rate: Int): PcmAudio {

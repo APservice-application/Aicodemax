@@ -244,6 +244,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp75SpeedIntents() {
+        val speed = IntentParser.parse("สปีดคลิปที่ 1 200")
+        assertEquals(IntentType.CLIP_SPEED, speed.type)
+        assertEquals("1", speed.parameters["clipIndex"])
+        assertEquals("200", speed.parameters["rate"])
+        val slow = IntentParser.parse("ช้าลงคลิปที่ 2")
+        assertEquals("50", slow.parameters["rate"])
+        val rev = IntentParser.parse("ย้อนคลิปที่ 1")
+        assertEquals(IntentType.CLIP_REVERSE, rev.type)
+    }
+
+    @Test
     fun cp74TextIntents() {
         val add = IntentParser.parse("เพิ่มข้อความ: เปิดร้านแล้ว!")
         assertEquals(IntentType.TEXT_ADD, add.type)

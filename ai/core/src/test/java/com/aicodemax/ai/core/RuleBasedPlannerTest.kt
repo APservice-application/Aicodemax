@@ -229,6 +229,17 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp75SpeedPlansRealSteps() = runBlocking {
+        val speed = (planner.plan(UserIntent(IntentType.CLIP_SPEED, "t", mapOf("clipIndex" to "1", "rate" to "50"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setSpeed", speed.steps[0].action)
+        assertEquals("50", speed.steps[0].args["rate"])
+        val rev = (planner.plan(UserIntent(IntentType.CLIP_REVERSE, "t", mapOf("clipIndex" to "1"))) as Outcome.Success<Plan>).value
+        assertEquals("true", rev.steps[0].args["reverse"])
+        val missing = planner.plan(UserIntent(IntentType.CLIP_SPEED, "t"))
+        assertEquals("PLAN_NO_CLIP", (missing as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp74TextPlansRealSteps() = runBlocking {
         val add = (planner.plan(UserIntent(IntentType.TEXT_ADD, "t", mapOf("text" to "hi"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.addText", add.steps[0].action)
