@@ -177,7 +177,7 @@ class AndroidRenderPort(
             when (val uri = exportFile(job)) {
                 is Outcome.Failure -> uri
                 is Outcome.Success -> {
-                    val exported = job.copy(exportedUri = uri.value)
+                    val exported = job.copy(exportedUri = uri.value.exportedUri)
                     queue.save(exported)
                     Outcome.Success(exported)
                 }
