@@ -695,7 +695,7 @@ class AndroidRenderPort(
             ext.setDataSource(seg.file.path)
             val trackIndex = (0 until ext.trackCount).firstOrNull { i ->
                 (ext.getTrackFormat(i).getString(MediaFormat.KEY_MIME) ?: "").startsWith("video/")
-            } ?: run { ext.release(); reader.close(); return }
+            } ?: run { ext.release(); reader.close(); return null }
             ext.selectTrack(trackIndex)
             ext.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
             val decoder = MediaCodec.createDecoderByType(
