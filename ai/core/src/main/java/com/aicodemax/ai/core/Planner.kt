@@ -202,6 +202,83 @@ class RuleBasedPlanner(
                 }
                 listOf("subtitle.burn" to mapOf("src" to src, "srt" to srt))
             }
+            IntentType.CLIP_SPLIT -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                val at = intent.parameters["atMs"]
+                if (clip == null || at == null) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_SPLIT", "แยกคลิปที่เท่าไหร่ ตรงไหนครับ? เช่น แยกคลิปที่ 1 นาทีที่ 2"),
+                    )
+                }
+                listOf("media.timeline.splitClip" to mapOf("clipIndex" to clip, "atMs" to at))
+            }
+            IntentType.CLIP_TRIM -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                val start = intent.parameters["startMs"]
+                val end = intent.parameters["endMs"]
+                if (clip == null || (start == null && end == null)) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_TRIM", "ทริมคลิปที่เท่าไหร่ครับ? เช่น ทริมคลิปที่ 1 เริ่ม 5 วิ จบ 20 วิ"),
+                    )
+                }
+                val args = mutableMapOf("clipIndex" to clip)
+                start?.let { args["startMs"] = it }
+                end?.let { args["endMs"] = it }
+                listOf("media.timeline.trimClip" to args)
+            }
+            IntentType.CLIP_MOVE -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                val to = intent.parameters["toAtMs"]
+                if (clip == null || to == null) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_MOVE", "ย้ายคลิปที่เท่าไหร่ ไปตรงไหนครับ? เช่น ย้ายคลิปที่ 2 ไปนาทีที่ 1"),
+                    )
+                }
+                listOf("media.timeline.moveClip" to mapOf("clipIndex" to clip, "toAtMs" to to))
+            }
+            IntentType.CLIP_DELETE -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ลบคลิปที่เท่าไหร่ครับ? เช่น ลบคลิปที่ 2"),
+                    )
+                listOf("media.timeline.deleteClip" to mapOf("clipIndex" to clip))
+            }
+            IntentType.CLIP_DUPLICATE -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "สำเนาคลิปที่เท่าไหร่ครับ? เช่น สำเนาคลิปที่ 1"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["atMs"]?.let { args["atMs"] = it }
+                listOf("media.timeline.duplicateClip" to args)
+            }
+            IntentType.MARKER_ADD -> {
+                val at = intent.parameters["atMs"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_MARKER", "ปักมาร์กเกอร์ตรงไหนครับ? เช่น มาร์กเกอร์ไฮไลต์ นาทีที่ 2"),
+                    )
+                val args = mutableMapOf("atMs" to at)
+                intent.parameters["label"]?.let { args["label"] = it }
+                listOf("media.timeline.addMarker" to args)
+            }
+            IntentType.MARKER_REMOVE -> {
+                val id = intent.parameters["markerId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_MARKER", "ลบมาร์กเกอร์ไหนครับ? ดูรหัสจาก timeline.get ก่อนครับ"),
+                    )
+                listOf("media.timeline.removeMarker" to mapOf("markerId" to id))
+            }
+            IntentType.TRACK_FLAGS -> {
+                val track = intent.parameters["trackId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_TRACK", "แทร็กไหนครับ? เช่น ล็อกแทร็ก V1"),
+                    )
+                val args = mutableMapOf("trackId" to track)
+                intent.parameters["locked"]?.let { args["locked"] = it }
+                intent.parameters["muted"]?.let { args["muted"] = it }
+                intent.parameters["hidden"]?.let { args["hidden"] = it }
+                listOf("media.timeline.trackFlags" to args)
+            }
             IntentType.PROJECT_RENAME -> {
                 val name = intent.parameters["name"]
                     ?: return Outcome.Failure(

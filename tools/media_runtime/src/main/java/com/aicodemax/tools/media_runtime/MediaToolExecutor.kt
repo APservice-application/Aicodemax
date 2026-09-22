@@ -57,10 +57,21 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
                     media.getTimeline(projectId).fold(
                         onSuccess = { timeline ->
-                            val lines = timeline.tracks.flatMap { track ->
-                                track.clips.map { "  ${track.id}: ${it.assetId} ${it.startMs}..${it.endMs} @${it.atMs}" }
+                            val ordered = timeline.orderedClips()
+                            val lines = ordered.mapIndexed { i, (track, clip) ->
+                                "  ${i + 1}. ${track.id}: ${clip.assetId} ${clip.startMs}..${clip.endMs} @${clip.atMs} [${clip.id}]"
                             }
-                            done(true, "timeline ${timeline.durationMs}ms, ${lines.size} คลิป\n" + lines.joinToString("\n"))
+                            val flags = timeline.tracks.joinToString(" ") { track ->
+                                buildString {
+                                    append(track.id)
+                                    if (track.locked) append("(ล็อก)")
+                                    if (track.muted) append("(ปิดเสียง)")
+                                    if (track.hidden) append("(ซ่อน)")
+                                }
+                            }
+                            val markers = if (timeline.markers.isEmpty()) "ไม่มีมาร์กเกอร์"
+                            else timeline.markers.joinToString(", ") { "${it.label.ifBlank { "มาร์ก" }}@${it.atMs} [${it.id}]" }
+                            done(true, "timeline ${timeline.durationMs}ms, ${lines.size} คลิป\nแทร็ก: $flags\n" + lines.joinToString("\n") + "\n$markers")
                         },
                         onFailure = { done(false, error = it.message) },
                     )
@@ -206,9 +217,118 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "timeline.splitClip" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val at = call.args["atMs"]?.toLongOrNull()
+                        ?: return@withContext done(false, error = "missing arg: atMs")
+                    media.splitClip(projectId, clipId, at, call.actor).fold(
+                        onSuccess = { done(true, "แยกคลิปแล้ว timeline ยาว ${it.timeline.durationMs}ms (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.trimClip" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    media.trimClip(
+                        projectId, clipId,
+                        call.args["startMs"]?.toLongOrNull(),
+                        call.args["endMs"]?.toLongOrNull(),
+                        call.args["atMs"]?.toLongOrNull(),
+                        call.actor,
+                    ).fold(
+                        onSuccess = { done(true, "ทริมคลิปแล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.moveClip" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val to = call.args["toAtMs"]?.toLongOrNull()
+                        ?: return@withContext done(false, error = "missing arg: toAtMs")
+                    media.moveClip(projectId, clipId, to, call.args["toTrack"], call.actor).fold(
+                        onSuccess = { done(true, "ย้ายคลิปแล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.deleteClip" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    media.deleteClip(projectId, clipId, call.actor).fold(
+                        onSuccess = { done(true, "ลบคลิปแล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.duplicateClip" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    media.duplicateClip(projectId, clipId, call.args["atMs"]?.toLongOrNull(), call.actor).fold(
+                        onSuccess = { done(true, "สำเนาคลิปแล้ว (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.addMarker" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val at = call.args["atMs"]?.toLongOrNull()
+                        ?: return@withContext done(false, error = "missing arg: atMs")
+                    media.addMarker(projectId, at, call.args["label"] ?: "", call.actor).fold(
+                        onSuccess = { done(true, "เพิ่มมาร์กเกอร์แล้ว ${it.id} @${it.atMs}ms") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.removeMarker" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val markerId = call.args["markerId"]
+                        ?: return@withContext done(false, error = "missing arg: markerId")
+                    media.removeMarker(projectId, markerId, call.actor).fold(
+                        onSuccess = { done(true, "ลบมาร์กเกอร์แล้ว") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.trackFlags" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val trackId = call.args["trackId"]
+                        ?: return@withContext done(false, error = "missing arg: trackId (เช่น V1/A1)")
+                    media.setTrackFlags(
+                        projectId, trackId,
+                        parseFlag(call.args["locked"]), parseFlag(call.args["muted"]),
+                        parseFlag(call.args["hidden"]), call.args["color"], call.actor,
+                    ).fold(
+                        onSuccess = { done(true, "แทร็ก ${it.id}: ล็อก=${it.locked} ปิดเสียง=${it.muted} ซ่อน=${it.hidden}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
                 else -> done(false, error = "unknown action '${call.action}'")
             }
         }
+
+    /** clipId direct, or 1-based clipIndex from timeline.get order. */
+    private suspend fun resolveClip(projectId: String, args: Map<String, String>): String? {
+        args["clipId"]?.let { return it }
+        val index = args["clipIndex"]?.toIntOrNull() ?: return null
+        val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value ?: return null
+        return timeline.orderedClips().getOrNull(index - 1)?.second?.id
+    }
+
+    private fun parseFlag(raw: String?): Boolean? = when (raw?.trim()?.lowercase()) {
+        null -> null
+        "true", "1", "เปิด", "on", "yes" -> true
+        "false", "0", "ปิด", "off", "no" -> false
+        else -> null
+    }
 
     /** Latest project (by update time) for chat flows that omit projectId. */
     private suspend fun latestProject(): String? = when (val list = media.listProjects()) {

@@ -19,6 +19,8 @@ import com.aicodemax.data.media.ProjectEvent
 import com.aicodemax.data.media.ProjectEventTypes
 import com.aicodemax.data.media.ProjectSnapshot
 import com.aicodemax.data.media.Timeline
+import com.aicodemax.data.media.TimelineMarker
+import com.aicodemax.data.media.TimelineOps
 import com.aicodemax.data.media.Track
 import com.aicodemax.data.media.UndoEntry
 import java.io.File
@@ -47,6 +49,26 @@ interface MediaProjectPort {
         volume: Int = 100,
         actor: String = "AI",
     ): Outcome<Project>
+    // CP-72 clip + marker + track-flag ops.
+    suspend fun splitClip(projectId: String, clipId: String, atMs: Long, actor: String = "AI"): Outcome<Project>
+    suspend fun trimClip(
+        projectId: String, clipId: String, startMs: Long?, endMs: Long?, atMs: Long?,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun moveClip(
+        projectId: String, clipId: String, toAtMs: Long, toTrack: String? = null,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun deleteClip(projectId: String, clipId: String, actor: String = "AI"): Outcome<Project>
+    suspend fun duplicateClip(
+        projectId: String, clipId: String, atMs: Long? = null, actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun addMarker(projectId: String, atMs: Long, label: String = "", actor: String = "AI"): Outcome<TimelineMarker>
+    suspend fun removeMarker(projectId: String, markerId: String, actor: String = "AI"): Outcome<Unit>
+    suspend fun setTrackFlags(
+        projectId: String, trackId: String, locked: Boolean?, muted: Boolean?, hidden: Boolean?,
+        color: String? = null, actor: String = "AI",
+    ): Outcome<Track>
     suspend fun saveVersion(projectId: String, actor: String = "AI"): Outcome<Int>
     suspend fun listVersions(projectId: String): Outcome<List<Int>>
     suspend fun restoreVersion(projectId: String, version: Int, actor: String = "AI"): Outcome<Project>
@@ -196,10 +218,97 @@ class FileMediaProject(
             tracks.add(Track(trackId, asset.kind, listOf(clip)))
         } else {
             val track = tracks[idx]
+            if (track.locked) {
+                return@mutate Outcome.Failure(AppError("MEDIA_CLIP", "แทร็ก $trackId ล็อกอยู่"))
+            }
             tracks[idx] = track.copy(clips = track.clips + clip)
         }
         // setTimeline nests inside this transaction (single undo entry).
-        setTimeline(projectId, Timeline(tracks), actor)
+        setTimeline(projectId, Timeline(tracks, timeline.markers), actor)
+    }
+
+    override suspend fun splitClip(projectId: String, clipId: String, atMs: Long, actor: String): Outcome<Project> =
+        editTimeline(projectId, "แยกคลิป $clipId", ProjectEventTypes.CLIP_SPLIT, actor) { timeline ->
+            TimelineOps.split(timeline, clipId, atMs, Ids.newId("clip"))
+        }
+
+    override suspend fun trimClip(
+        projectId: String, clipId: String, startMs: Long?, endMs: Long?, atMs: Long?, actor: String,
+    ): Outcome<Project> = editTimeline(projectId, "ทริมคลิป $clipId", ProjectEventTypes.CLIP_TRIMMED, actor) { timeline ->
+        val (_, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        val asset = (assets.get(projectId, clip.assetId) as? Outcome.Success)?.value
+        val maxEnd = asset?.facts?.get("durationMs")?.toLongOrNull()
+        TimelineOps.trim(timeline, clipId, startMs, endMs, atMs, maxEnd)
+    }
+
+    override suspend fun moveClip(
+        projectId: String, clipId: String, toAtMs: Long, toTrack: String?, actor: String,
+    ): Outcome<Project> = editTimeline(projectId, "ย้ายคลิป $clipId", ProjectEventTypes.CLIP_MOVED, actor) { timeline ->
+        val (_, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        val asset = (assets.get(projectId, clip.assetId) as? Outcome.Success)?.value
+            ?: throw IllegalArgumentException("ไม่มี asset ${clip.assetId}")
+        TimelineOps.move(timeline, clipId, toAtMs, toTrack, asset.kind)
+    }
+
+    override suspend fun deleteClip(projectId: String, clipId: String, actor: String): Outcome<Project> =
+        editTimeline(projectId, "ลบคลิป $clipId", ProjectEventTypes.CLIP_DELETED, actor) { timeline ->
+            TimelineOps.delete(timeline, clipId)
+        }
+
+    override suspend fun duplicateClip(
+        projectId: String, clipId: String, atMs: Long?, actor: String,
+    ): Outcome<Project> =
+        editTimeline(projectId, "สำเนาคลิป $clipId", ProjectEventTypes.CLIP_DUPLICATED, actor) { timeline ->
+            TimelineOps.duplicate(timeline, clipId, atMs, Ids.newId("clip"))
+        }
+
+    override suspend fun addMarker(projectId: String, atMs: Long, label: String, actor: String): Outcome<TimelineMarker> =
+        mutate(projectId, "เพิ่มมาร์กเกอร์", ProjectEventTypes.MARKER_ADDED, actor, mapOf("atMs" to atMs.toString())) {
+            val timeline = timelineOrFail(projectId)
+            val marker = TimelineMarker(Ids.newId("mark"), atMs, label)
+            setTimeline(projectId, TimelineOps.addMarker(timeline, marker), actor)
+            Outcome.Success(marker)
+        }
+
+    override suspend fun removeMarker(projectId: String, markerId: String, actor: String): Outcome<Unit> =
+        mutate(projectId, "ลบมาร์กเกอร์", ProjectEventTypes.MARKER_REMOVED, actor, emptyMap()) {
+            val timeline = timelineOrFail(projectId)
+            setTimeline(projectId, TimelineOps.removeMarker(timeline, markerId), actor)
+            Outcome.Success(Unit)
+        }
+
+    override suspend fun setTrackFlags(
+        projectId: String, trackId: String, locked: Boolean?, muted: Boolean?, hidden: Boolean?,
+        color: String?, actor: String,
+    ): Outcome<Track> =
+        mutate(projectId, "ตั้งค่าแทร็ก $trackId", ProjectEventTypes.TRACK_FLAGS, actor, emptyMap()) {
+            val timeline = timelineOrFail(projectId)
+            val next = TimelineOps.trackFlags(timeline, trackId, locked, muted, hidden, color)
+            setTimeline(projectId, next, actor)
+            Outcome.Success(next.tracks.first { it.id == trackId })
+        }
+
+    private suspend fun timelineOrFail(projectId: String): Timeline =
+        when (val got = getTimeline(projectId)) {
+            is Outcome.Failure -> throw IllegalArgumentException(got.error.message)
+            is Outcome.Success -> got.value
+        }
+
+    /** Runs a pure [TimelineOps] edit inside this transaction (IAE → honest failure + rollback). */
+    private suspend fun editTimeline(
+        projectId: String,
+        label: String,
+        eventType: String,
+        actor: String,
+        edit: (Timeline) -> Timeline,
+    ): Outcome<Project> = mutate(projectId, label, eventType, actor, emptyMap()) {
+        try {
+            setTimeline(projectId, edit(timelineOrFail(projectId)), actor)
+        } catch (e: IllegalArgumentException) {
+            Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "แก้คลิปไม่ได้"))
+        }
     }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
@@ -601,9 +710,91 @@ class InMemoryMediaProject : MediaProjectPort {
         if (idx < 0) {
             tracks.add(Track(trackId, asset.kind, listOf(clip)))
         } else {
+            if (tracks[idx].locked) {
+                return@mutate Outcome.Failure(AppError("MEDIA_CLIP", "แทร็ก $trackId ล็อกอยู่"))
+            }
             tracks[idx] = tracks[idx].copy(clips = tracks[idx].clips + clip)
         }
-        setTimeline(projectId, Timeline(tracks), actor)
+        setTimeline(projectId, Timeline(tracks, timeline.markers), actor)
+    }
+
+    override suspend fun splitClip(projectId: String, clipId: String, atMs: Long, actor: String): Outcome<Project> =
+        editTimeline(projectId, "แยกคลิป $clipId", ProjectEventTypes.CLIP_SPLIT, actor) { timeline ->
+            TimelineOps.split(timeline, clipId, atMs, Ids.newId("clip"))
+        }
+
+    override suspend fun trimClip(
+        projectId: String, clipId: String, startMs: Long?, endMs: Long?, atMs: Long?, actor: String,
+    ): Outcome<Project> = editTimeline(projectId, "ทริมคลิป $clipId", ProjectEventTypes.CLIP_TRIMMED, actor) { timeline ->
+        TimelineOps.trim(timeline, clipId, startMs, endMs, atMs, null)
+    }
+
+    override suspend fun moveClip(
+        projectId: String, clipId: String, toAtMs: Long, toTrack: String?, actor: String,
+    ): Outcome<Project> = editTimeline(projectId, "ย้ายคลิป $clipId", ProjectEventTypes.CLIP_MOVED, actor) { timeline ->
+        val (_, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        val kind = assets[projectId]?.firstOrNull { it.id == clip.assetId }?.kind
+            ?: throw IllegalArgumentException("ไม่มี asset ${clip.assetId}")
+        TimelineOps.move(timeline, clipId, toAtMs, toTrack, kind)
+    }
+
+    override suspend fun deleteClip(projectId: String, clipId: String, actor: String): Outcome<Project> =
+        editTimeline(projectId, "ลบคลิป $clipId", ProjectEventTypes.CLIP_DELETED, actor) { timeline ->
+            TimelineOps.delete(timeline, clipId)
+        }
+
+    override suspend fun duplicateClip(
+        projectId: String, clipId: String, atMs: Long?, actor: String,
+    ): Outcome<Project> =
+        editTimeline(projectId, "สำเนาคลิป $clipId", ProjectEventTypes.CLIP_DUPLICATED, actor) { timeline ->
+            TimelineOps.duplicate(timeline, clipId, atMs, Ids.newId("clip"))
+        }
+
+    override suspend fun addMarker(projectId: String, atMs: Long, label: String, actor: String): Outcome<TimelineMarker> =
+        mutate(projectId, "เพิ่มมาร์กเกอร์", ProjectEventTypes.MARKER_ADDED, actor) {
+            val timeline = timelineOrFail(projectId)
+            val marker = TimelineMarker(Ids.newId("mark"), atMs, label)
+            setTimeline(projectId, TimelineOps.addMarker(timeline, marker), actor)
+            Outcome.Success(marker)
+        }
+
+    override suspend fun removeMarker(projectId: String, markerId: String, actor: String): Outcome<Unit> =
+        mutate(projectId, "ลบมาร์กเกอร์", ProjectEventTypes.MARKER_REMOVED, actor) {
+            val timeline = timelineOrFail(projectId)
+            setTimeline(projectId, TimelineOps.removeMarker(timeline, markerId), actor)
+            Outcome.Success(Unit)
+        }
+
+    override suspend fun setTrackFlags(
+        projectId: String, trackId: String, locked: Boolean?, muted: Boolean?, hidden: Boolean?,
+        color: String?, actor: String,
+    ): Outcome<Track> =
+        mutate(projectId, "ตั้งค่าแทร็ก $trackId", ProjectEventTypes.TRACK_FLAGS, actor) {
+            val timeline = timelineOrFail(projectId)
+            val next = TimelineOps.trackFlags(timeline, trackId, locked, muted, hidden, color)
+            setTimeline(projectId, next, actor)
+            Outcome.Success(next.tracks.first { it.id == trackId })
+        }
+
+    private suspend fun timelineOrFail(projectId: String): Timeline =
+        when (val got = getTimeline(projectId)) {
+            is Outcome.Failure -> throw IllegalArgumentException(got.error.message)
+            is Outcome.Success -> got.value
+        }
+
+    private suspend fun editTimeline(
+        projectId: String,
+        label: String,
+        eventType: String,
+        actor: String,
+        edit: (Timeline) -> Timeline,
+    ): Outcome<Project> = mutate(projectId, label, eventType, actor) {
+        try {
+            setTimeline(projectId, edit(timelineOrFail(projectId)), actor)
+        } catch (e: IllegalArgumentException) {
+            Outcome.Failure(AppError("MEDIA_CLIP", e.message ?: "แก้คลิปไม่ได้"))
+        }
     }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =

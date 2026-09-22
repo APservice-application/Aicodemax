@@ -41,6 +41,14 @@ object ProjectEventTypes {
     const val CHECKPOINT_SAVED = "CHECKPOINT_SAVED"
     const val CHECKPOINT_RECOVERED = "CHECKPOINT_RECOVERED"
     const val TRANSACTION = "TRANSACTION"
+    const val CLIP_SPLIT = "CLIP_SPLIT"
+    const val CLIP_TRIMMED = "CLIP_TRIMMED"
+    const val CLIP_MOVED = "CLIP_MOVED"
+    const val CLIP_DELETED = "CLIP_DELETED"
+    const val CLIP_DUPLICATED = "CLIP_DUPLICATED"
+    const val MARKER_ADDED = "MARKER_ADDED"
+    const val MARKER_REMOVED = "MARKER_REMOVED"
+    const val TRACK_FLAGS = "TRACK_FLAGS"
 }
 
 class FileEventLog(root: File) {
