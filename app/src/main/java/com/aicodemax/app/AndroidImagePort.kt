@@ -11,6 +11,7 @@ import com.aicodemax.tools.image.ImageProbe
 import com.aicodemax.tools.image.ColorScopes
 import com.aicodemax.tools.image.FrameScopes
 import com.aicodemax.tools.image.PixelImage
+import com.aicodemax.tools.image.PhotoOps
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers

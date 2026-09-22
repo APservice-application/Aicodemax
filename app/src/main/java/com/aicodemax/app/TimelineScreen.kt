@@ -786,7 +786,7 @@ fun TimelineScreen(services: ServiceLocator) {
                             }, enabled = !busy) { Text("ช็อตเด่น") }
                         }
                         // CP-88 reframe + canvas (§33).
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                             listOf("9:16", "16:9", "1:1").forEach { aspect ->
                                 OutlinedButton(onClick = {
                                     runCall { projectId ->
