@@ -224,6 +224,9 @@ class AndroidRenderPort(
         val videoSegs = mutableListOf<Segment>()
         val audioSegs = mutableListOf<Segment>()
         for (track in timeline.tracks.sortedBy { it.id }) {
+            // CP-72: hidden video tracks and muted audio tracks are skipped.
+            if (track.kind != MediaKind.AUDIO && track.hidden) continue
+            if (track.kind == MediaKind.AUDIO && track.muted) continue
             for (clip in track.clips.sortedBy { it.atMs }) {
                 val asset = byId[clip.assetId] ?: return null
                 val file = File(File(mediaRoot, "${project.id}/assets"), asset.fileName)

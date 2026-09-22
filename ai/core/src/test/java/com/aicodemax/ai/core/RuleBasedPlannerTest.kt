@@ -201,6 +201,19 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp72ClipPlansRealSteps() = runBlocking {
+        val split = (planner.plan(UserIntent(IntentType.CLIP_SPLIT, "t", mapOf("clipIndex" to "1", "atMs" to "2000"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.splitClip", split.steps[0].action)
+        val noSplit = planner.plan(UserIntent(IntentType.CLIP_SPLIT, "t"))
+        assertEquals("PLAN_NO_SPLIT", (noSplit as Outcome.Failure).error.code)
+        val del = (planner.plan(UserIntent(IntentType.CLIP_DELETE, "t", mapOf("clipIndex" to "2"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.deleteClip", del.steps[0].action)
+        val flags = (planner.plan(UserIntent(IntentType.TRACK_FLAGS, "t", mapOf("trackId" to "V1", "muted" to "true"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.trackFlags", flags.steps[0].action)
+        assertEquals("true", flags.steps[0].args["muted"])
+    }
+
+    @Test
     fun cp71UndoMgmtPlansRealSteps() = runBlocking {
         val undo = (planner.plan(UserIntent(IntentType.EDIT_UNDO, "t")) as Outcome.Success<Plan>).value
         assertEquals("media", undo.steps[0].toolId)

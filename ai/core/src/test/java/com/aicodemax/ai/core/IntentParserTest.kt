@@ -203,6 +203,35 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp72ClipIntents() {
+        val split = IntentParser.parse("แยกคลิปที่ 1 นาทีที่ 2")
+        assertEquals(IntentType.CLIP_SPLIT, split.type)
+        assertEquals("1", split.parameters["clipIndex"])
+        assertEquals("120000", split.parameters["atMs"])
+        val sec = IntentParser.parse("แยกคลิปที่ 2 90 วิ")
+        assertEquals("90000", sec.parameters["atMs"])
+        val move = IntentParser.parse("ย้ายคลิปที่ 2 ไปนาทีที่ 1")
+        assertEquals(IntentType.CLIP_MOVE, move.type)
+        assertEquals("60000", move.parameters["toAtMs"])
+        val del = IntentParser.parse("ลบคลิปที่ 3")
+        assertEquals(IntentType.CLIP_DELETE, del.type)
+        assertEquals("3", del.parameters["clipIndex"])
+        val trim = IntentParser.parse("ทริมคลิปที่ 1 เริ่ม 5 วิ จบ 20 วิ")
+        assertEquals(IntentType.CLIP_TRIM, trim.type)
+        assertEquals("5000", trim.parameters["startMs"])
+        assertEquals("20000", trim.parameters["endMs"])
+        val mark = IntentParser.parse("มาร์กเกอร์ไฮไลต์ นาทีที่ 2")
+        assertEquals(IntentType.MARKER_ADD, mark.type)
+        assertEquals("120000", mark.parameters["atMs"])
+        val lock = IntentParser.parse("ล็อกแทร็ก V1")
+        assertEquals(IntentType.TRACK_FLAGS, lock.type)
+        assertEquals("V1", lock.parameters["trackId"])
+        assertEquals("true", lock.parameters["locked"])
+        val unlock = IntentParser.parse("ปลดล็อกแทร็ก A1")
+        assertEquals("false", unlock.parameters["locked"])
+    }
+
+    @Test
     fun cp71UndoMgmtIntents() {
         assertEquals(IntentType.EDIT_UNDO, IntentParser.parse("ย้อนกลับ").type)
         assertEquals(IntentType.EDIT_REDO, IntentParser.parse("ทำซ้ำ").type)
