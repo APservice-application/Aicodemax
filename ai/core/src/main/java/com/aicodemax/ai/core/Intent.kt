@@ -63,6 +63,9 @@ enum class IntentType {
     CLIP_ROTATE,
     CLIP_FLIP,
     CLIP_FREEZE,
+    TEXT_ADD,
+    TEXT_REMOVE,
+    TEXT_IDEA,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -359,6 +362,41 @@ object IntentParser {
             return UserIntent(
                 IntentType.CLIP_FREEZE, text,
                 params("clipIndex" to parseClipIndex(t), "holdMs" to parseTimeMs(t)?.toString()),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.textRemoveWords)) {
+            val index = Regex("ข้อความ(?:ที่)?\\s*(\\d+)").find(t)?.groupValues?.get(1)
+            return UserIntent(IntentType.TEXT_REMOVE, text, params("textIndex" to index))
+        }
+        if (containsAny(t, ThaiVocabulary.textAddWords)) {
+            val after = t.substringAfter(":", "").trim()
+            val cleaned = if (after.isNotEmpty()) {
+                after
+            } else {
+                ThaiVocabulary.textAddWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
+            }
+            val preset = listOf("title", "lower", "caption", "hook", "cta").firstOrNull { cleaned.contains(it) }
+            val content = preset?.let { cleaned.replace(it, "").trim() } ?: cleaned
+            return UserIntent(
+                IntentType.TEXT_ADD, text,
+                params(
+                    "text" to content.ifBlank { null },
+                    "preset" to preset,
+                    "startMs" to parseTimeMs(t)?.toString(),
+                ),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.textIdeaWords)) {
+            val kind = when {
+                t.contains("หัวข้อ") -> "title"
+                t.contains("สโลแกน") -> "hook"
+                t.contains("ขาย") || t.contains("ชวน") -> "cta"
+                else -> "caption"
+            }
+            val topic = ThaiVocabulary.textIdeaWords.fold(t) { acc, w -> acc.replace(w, "") }.trim()
+            return UserIntent(
+                IntentType.TEXT_IDEA, text,
+                params("kind" to kind, "topic" to topic.ifBlank { null }, "platform" to findPlatform(t)),
             )
         }
         if (containsAny(t, ThaiVocabulary.projectRenameWords)) {

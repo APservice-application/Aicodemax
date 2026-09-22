@@ -181,6 +181,36 @@ object TimelineOps {
         return timeline.replaceClips(track.id, withStill)
     }
 
+    /** CP-74 text overlays (§22): texts live on the timeline, not on tracks. */
+    fun addText(timeline: Timeline, overlay: OverlayText): Timeline {
+        val problems = overlay.validate()
+        if (problems.isNotEmpty()) {
+            throw IllegalArgumentException(problems.joinToString("; "))
+        }
+        if (timeline.texts.any { it.id == overlay.id }) {
+            throw IllegalArgumentException("มีข้อความ ${overlay.id} แล้ว")
+        }
+        return timeline.copy(texts = (timeline.texts + overlay).sortedBy { it.startMs })
+    }
+
+    fun updateText(timeline: Timeline, id: String, patch: (OverlayText) -> OverlayText): Timeline {
+        val current = timeline.texts.firstOrNull { it.id == id }
+            ?: throw IllegalArgumentException("ไม่มีข้อความ $id")
+        val next = patch(current).copy(id = id)
+        val problems = next.validate()
+        if (problems.isNotEmpty()) {
+            throw IllegalArgumentException(problems.joinToString("; "))
+        }
+        return timeline.copy(texts = timeline.texts.map { if (it.id == id) next else it }.sortedBy { it.startMs })
+    }
+
+    fun removeText(timeline: Timeline, id: String): Timeline {
+        if (timeline.texts.none { it.id == id }) {
+            throw IllegalArgumentException("ไม่มีข้อความ $id")
+        }
+        return timeline.copy(texts = timeline.texts.filter { it.id != id })
+    }
+
     private fun checkUnlocked(track: Track) {
         if (track.locked) throw IllegalArgumentException("แทร็ก ${track.id} ล็อกอยู่")
     }

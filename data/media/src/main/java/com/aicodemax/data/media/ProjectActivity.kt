@@ -51,6 +51,9 @@ object ProjectEventTypes {
     const val TRACK_FLAGS = "TRACK_FLAGS"
     const val CLIP_TRANSFORMED = "CLIP_TRANSFORMED"
     const val CLIP_FROZEN = "CLIP_FROZEN"
+    const val TEXT_ADDED = "TEXT_ADDED"
+    const val TEXT_UPDATED = "TEXT_UPDATED"
+    const val TEXT_REMOVED = "TEXT_REMOVED"
 }
 
 class FileEventLog(root: File) {

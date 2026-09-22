@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +44,11 @@ fun TimelineScreen(services: ServiceLocator) {
     var undoCount by remember { mutableStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var newText by remember { mutableStateOf("") }
+    var presetIndex by remember { mutableStateOf(2) }
+    var ideaTopic by remember { mutableStateOf("") }
+    var ideaKindIndex by remember { mutableStateOf(2) }
+    var ideas by remember { mutableStateOf("") }
 
     suspend fun refresh() {
         val project = projects.getOrNull(projectIndex) ?: return
@@ -152,6 +158,90 @@ fun TimelineScreen(services: ServiceLocator) {
                             (if (clip.id == selectedId) " ●" else ""),
                         style = MaterialTheme.typography.bodyMedium,
                     )
+                }
+            }
+        }
+        val presets = listOf("title", "lower", "caption", "hook", "cta")
+        item {
+            Surface(tonalElevation = spacing.xs) {
+                Column(modifier = Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    Text("ข้อความ (${timeline?.texts?.size ?: 0})", style = MaterialTheme.typography.titleMedium)
+                    timeline?.texts?.forEachIndexed { i, overlay ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            Text(
+                                "T${i + 1}. ${overlay.summary()}",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(
+                                onClick = {
+                                    runCall { projectId ->
+                                        services.media.removeText(projectId, overlay.id, "HUMAN").fold(
+                                            onSuccess = {},
+                                            onFailure = { message = it.message },
+                                        )
+                                    }
+                                },
+                                enabled = !busy,
+                            ) { Text("ลบ") }
+                        }
+                    }
+                    TextField(
+                        value = newText,
+                        onValueChange = { newText = it },
+                        label = { Text("ข้อความใหม่") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        OutlinedButton(
+                            onClick = { presetIndex = (presetIndex + 1) % presets.size },
+                            enabled = !busy,
+                        ) { Text("สไตล์: ${presets[presetIndex]}") }
+                        Button(
+                            onClick = {
+                                runCall { projectId ->
+                                    val duration = timeline?.durationMs ?: 0
+                                    services.media.addText(
+                                        projectId,
+                                        com.aicodemax.data.media.OverlayText.preset(presets[presetIndex]).copy(
+                                            id = com.aicodemax.core.common.Ids.newId("text"),
+                                            text = newText,
+                                            startMs = 0,
+                                            endMs = if (duration > 0) duration else 3000,
+                                        ),
+                                        "HUMAN",
+                                    ).fold(
+                                        onSuccess = { newText = "" },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            },
+                            enabled = !busy && newText.isNotBlank(),
+                        ) { Text("เพิ่ม") }
+                    }
+                    TextField(
+                        value = ideaTopic,
+                        onValueChange = { ideaTopic = it },
+                        label = { Text("หัวข้อสำหรับไอเดีย") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        val kinds = listOf("title", "hook", "caption", "cta", "description")
+                        OutlinedButton(
+                            onClick = { ideaKindIndex = (ideaKindIndex + 1) % kinds.size },
+                            enabled = !busy,
+                        ) { Text("ชนิด: ${kinds[ideaKindIndex]}") }
+                        Button(
+                            onClick = {
+                                ideas = com.aicodemax.tools.media.TextIdeas
+                                    .ideas(kinds[ideaKindIndex], ideaTopic)
+                                    .mapIndexed { i, idea -> "${i + 1}. $idea" }
+                                    .joinToString("\n")
+                            },
+                            enabled = ideaTopic.isNotBlank(),
+                        ) { Text("คิดไอเดีย") }
+                    }
+                    if (ideas.isNotEmpty()) Text(ideas, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

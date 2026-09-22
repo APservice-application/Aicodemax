@@ -244,6 +244,20 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp74TextIntents() {
+        val add = IntentParser.parse("เพิ่มข้อความ: เปิดร้านแล้ว!")
+        assertEquals(IntentType.TEXT_ADD, add.type)
+        assertEquals("เปิดร้านแล้ว!", add.parameters["text"])
+        val remove = IntentParser.parse("ลบข้อความที่ 2")
+        assertEquals(IntentType.TEXT_REMOVE, remove.type)
+        assertEquals("2", remove.parameters["textIndex"])
+        val idea = IntentParser.parse("คิดแคปชันร้านกาแฟ")
+        assertEquals(IntentType.TEXT_IDEA, idea.type)
+        assertEquals("caption", idea.parameters["kind"])
+        assertEquals("ร้านกาแฟ", idea.parameters["topic"])
+    }
+
+    @Test
     fun cp73TransformIntents() {
         val rotate = IntentParser.parse("หมุนคลิปที่ 1 180")
         assertEquals(IntentType.CLIP_ROTATE, rotate.type)
