@@ -41,6 +41,12 @@ interface AudioPort {
     /** CP-86 §30: procedural one-shot SFX → WAV. */
     suspend fun synthSfx(kind: String, dst: String): Outcome<AudioInfo>
 
+    /** CP-94: starts in-app audio recording to [dst] (MediaRecorder on Android). */
+    suspend fun recordStart(dst: String): Outcome<Unit>
+
+    /** CP-94: stops recording started by [recordStart]; result is a decodable file. */
+    suspend fun recordStop(): Outcome<AudioInfo>
+
     /** CP-87 §32/§40: speech ranges + energy curve (offline, no ML). */
     suspend fun speech(
         path: String,
@@ -127,6 +133,23 @@ class InMemoryAudioPort : AudioPort {
 
     override suspend fun synthSfx(kind: String, dst: String): Outcome<AudioInfo> =
         synthTo(dst, "AUDIO_SYNTH") { Synth.sfx(kind) }
+
+    private var pendingRecord: String? = null
+
+    override suspend fun recordStart(dst: String): Outcome<Unit> {
+        if (pendingRecord != null) return Outcome.Failure(AppError("AUDIO_RECORDING", "กำลังอัดอยู่แล้ว"))
+        pendingRecord = dst
+        return Outcome.Success(Unit)
+    }
+
+    override suspend fun recordStop(): Outcome<AudioInfo> {
+        val dst = pendingRecord
+            ?: return Outcome.Failure(AppError("AUDIO_NOT_RECORDING", "ยังไม่ได้เริ่มอัด (recordStart ก่อน)"))
+        pendingRecord = null
+        val tone = Synth.musicBed("calm", 2)
+        store[dst] = tone
+        return Outcome.Success(AudioInfo(dst, "WAV", 2000L, tone.sampleRate, tone.channels))
+    }
 
     override suspend fun speech(path: String, thresholdDb: Double, minSpeechMs: Long, minSilenceMs: Long, padMs: Long): Outcome<SpeechAnalysis> {
         val clip = store[path]

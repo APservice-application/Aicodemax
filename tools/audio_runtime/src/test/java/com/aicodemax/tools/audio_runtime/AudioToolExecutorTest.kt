@@ -62,6 +62,17 @@ class AudioToolExecutorTest {
     }
 
     @Test
+    fun recordFlow() {
+        val p = port()
+        assertTrue(!run(p, "recordStop", emptyMap()).ok)
+        assertTrue(run(p, "recordStart", mapOf("dst" to "/tmp/rec.wav")).ok)
+        assertTrue(!run(p, "recordStart", mapOf("dst" to "/tmp/rec2.wav")).ok)
+        val stop = run(p, "recordStop", emptyMap())
+        assertTrue(stop.output.ifBlank { stop.error }, stop.ok)
+        assertTrue(p.get("/tmp/rec.wav") != null)
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         val p = port()
         assertTrue(!run(p, "info", emptyMap()).ok)

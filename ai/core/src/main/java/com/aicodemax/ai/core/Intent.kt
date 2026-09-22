@@ -108,6 +108,9 @@ enum class IntentType {
     CLIP_ENHANCE,
     CAM_TRACK,
     BEAUTY,
+    RECORD_START,
+    RECORD_STOP,
+    SCREEN_RECORD,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -668,6 +671,15 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.beautyWords)) {
             return UserIntent(IntentType.BEAUTY, text, params("clipIndex" to parseClipIndex(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.recordStopWords)) {
+            return UserIntent(IntentType.RECORD_STOP, text)
+        }
+        if (containsAny(t, ThaiVocabulary.screenRecordWords)) {
+            return UserIntent(IntentType.SCREEN_RECORD, text)
+        }
+        if (containsAny(t, ThaiVocabulary.recordStartWords)) {
+            return UserIntent(IntentType.RECORD_START, text, params("dst" to file))
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value

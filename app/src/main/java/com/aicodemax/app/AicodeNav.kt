@@ -54,6 +54,7 @@ object Routes {
     const val TIMELINE = "timeline"
     const val TEMPLATES = "templates"
     const val GEN = "gen"
+    const val RECORD = "record"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -84,6 +85,7 @@ private fun titleFor(route: String): String = when (route) {
     Routes.TIMELINE -> "ไทม์ไลน์"
     Routes.TEMPLATES -> "เทมเพลต"
     Routes.GEN -> "สร้างมีเดีย"
+    Routes.RECORD -> "อัดเสียง/ถ่าย"
     else -> "Aicodemax"
 }
 
@@ -177,6 +179,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
             composable(Routes.TIMELINE) { TimelineScreen(services) }
             composable(Routes.TEMPLATES) { TemplatesScreen(services) }
             composable(Routes.GEN) { GenScreen(services) }
+            composable(Routes.RECORD) { RecordScreen(services) }
         }
     }
 }

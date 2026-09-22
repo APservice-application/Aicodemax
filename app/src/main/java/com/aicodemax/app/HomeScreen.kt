@@ -105,6 +105,11 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             action = "เปิด" to { onOpen(Routes.GEN) },
         )
         StatusCard(
+            title = "อัดเสียง/ถ่าย",
+            line = "อัดเสียง เทเลพรอมป์เตอร์ ถ่ายวิดีโอ",
+            action = "เปิด" to { onOpen(Routes.RECORD) },
+        )
+        StatusCard(
             title = "เทอร์มินัล (dev)",
             line = terminalLine(services),
             action = "เปิด" to { onOpen(Routes.TERMINAL) },

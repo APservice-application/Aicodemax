@@ -1,6 +1,7 @@
 package com.aicodemax.app
 
 import android.media.AudioFormat
+import android.media.MediaRecorder
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -25,6 +26,52 @@ import kotlinx.coroutines.withContext
  * no lossy re-encode yet).
  */
 class AndroidAudioPort : AudioPort {
+    private var recorder: MediaRecorder? = null
+    private var recordDst: String? = null
+
+    override suspend fun recordStart(dst: String): Outcome<Unit> = withContext(Dispatchers.IO) {
+        if (recorder != null) {
+            return@withContext Outcome.Failure(AppError("AUDIO_RECORDING", "กำลังอัดอยู่แล้ว"))
+        }
+        try {
+            java.io.File(dst).parentFile?.mkdirs()
+            @Suppress("DEPRECATION")
+            val rec = MediaRecorder()
+            rec.setAudioSource(MediaRecorder.AudioSource.MIC)
+            rec.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            rec.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            rec.setOutputFile(dst)
+            rec.prepare()
+            rec.start()
+            recorder = rec
+            recordDst = dst
+            Outcome.Success(Unit)
+        } catch (e: Exception) {
+            recorder?.release()
+            recorder = null
+            Outcome.Failure(AppError("AUDIO_RECORD", "เริ่มอัดไม่ได้ (สิทธิ์ไมโครโฟน?): ${e.message}"))
+        }
+    }
+
+    override suspend fun recordStop(): Outcome<AudioInfo> = withContext(Dispatchers.IO) {
+        val rec = recorder
+        val dst = recordDst
+        if (rec == null || dst == null) {
+            return@withContext Outcome.Failure(AppError("AUDIO_NOT_RECORDING", "ยังไม่ได้เริ่มอัด"))
+        }
+        recorder = null
+        recordDst = null
+        try {
+            rec.stop()
+        } catch (_: Exception) {
+        }
+        try {
+            rec.release()
+        } catch (_: Exception) {
+        }
+        info(dst)
+    }
+
     override suspend fun info(path: String): Outcome<AudioInfo> =
         withContext(Dispatchers.IO) {
             when (val probed = AudioProbe.probe(File(path))) {

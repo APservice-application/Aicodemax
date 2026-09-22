@@ -151,6 +151,10 @@ object StandardCapabilities {
             metadata = meta("audio", "ทำเสียงเอฟเฟกต์", listOf("kind,dst?"), listOf("dst"), listOf("fs.write"), false, "sfx ok", "retry")),
         CapabilityBinding("audio.speech", "audio", "speech", AdapterKind.NATIVE,
             metadata = meta("audio", "หาช่วงเสียงพูด", listOf("src,thresholdDb?"), listOf("ranges"), emptyList(), false, "ranges shown", "retry")),
+        CapabilityBinding("audio.recordStart", "audio", "recordStart", AdapterKind.NATIVE,
+            metadata = meta("audio", "เริ่มอัดเสียง", listOf("dst"), listOf("ok"), listOf("mic"), false, "recording", "grant mic")),
+        CapabilityBinding("audio.recordStop", "audio", "recordStop", AdapterKind.NATIVE,
+            metadata = meta("audio", "หยุดอัดเสียง", emptyList(), listOf("dst"), listOf("mic"), false, "file saved", "retry")),
         // Video engine (native, MP4 probe + stream-copy ops).
         CapabilityBinding("video.info", "video", "info", AdapterKind.NATIVE,
             metadata = meta("video", "ดูฟอร์แมต+ขนาด+ความยาววิดีโอ", listOf("path"), listOf("info"), emptyList(), false, "header parsed", "re-probe")),

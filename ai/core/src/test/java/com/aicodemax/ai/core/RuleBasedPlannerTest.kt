@@ -240,6 +240,17 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp94RecordPlans() = runBlocking {
+        val start = (planner.plan(UserIntent(IntentType.RECORD_START, "t", mapOf("dst" to "r.m4a"))) as Outcome.Success<Plan>).value
+        assertEquals("recordStart", start.steps[0].action)
+        val stop = (planner.plan(UserIntent(IntentType.RECORD_STOP, "t", emptyMap())) as Outcome.Success<Plan>).value
+        assertEquals("recordStop", stop.steps[0].action)
+        val screen = planner.plan(UserIntent(IntentType.SCREEN_RECORD, "t", emptyMap()))
+        assertTrue(screen is Outcome.Failure)
+        assertEquals("DEFERRED_SCREEN", (screen as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp92CamTrackDefersHonestly() = runBlocking {
         val r = planner.plan(UserIntent(IntentType.CAM_TRACK, "t", mapOf("clipIndex" to "1")))
         assertTrue(r is Outcome.Failure)

@@ -257,6 +257,17 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp94RecordIntents() {
+        val start = IntentParser.parse("อัดเสียงที่ rec.m4a")
+        assertEquals(IntentType.RECORD_START, start.type)
+        assertEquals("rec.m4a", start.parameters["dst"])
+        val stop = IntentParser.parse("หยุดอัด")
+        assertEquals(IntentType.RECORD_STOP, stop.type)
+        val screen = IntentParser.parse("อัดหน้าจอ")
+        assertEquals(IntentType.SCREEN_RECORD, screen.type)
+    }
+
+    @Test
     fun cp92CamTrackDeferIntent() {
         val ct = IntentParser.parse("แทร็กกล้องคลิปที่ 1")
         assertEquals(IntentType.CAM_TRACK, ct.type)

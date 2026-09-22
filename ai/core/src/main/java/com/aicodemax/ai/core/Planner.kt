@@ -563,6 +563,23 @@ class RuleBasedPlanner(
                     ),
                 )
             }
+            IntentType.RECORD_START -> {
+                val dst = intent.parameters["dst"] ?: intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_DST", "อัดเสียงเก็บที่ไหนครับ? เช่น อัดเสียงที่ rec.m4a"),
+                    )
+                listOf("audio.recordStart" to mapOf("dst" to dst))
+            }
+            IntentType.RECORD_STOP -> listOf("audio.recordStop" to emptyMap())
+            // CP-94 honest scope: screen capture needs MediaProjection consent plumbing (roadmap).
+            IntentType.SCREEN_RECORD -> {
+                return Outcome.Failure(
+                    AppError(
+                        "DEFERRED_SCREEN",
+                        "อัดหน้าจอในแอปยังไม่รองรับครับ — ใช้ตัวอัดหน้าจอของระบบ แล้วนำเข้าไฟล์ด้วย นำเข้าไฟล์ ได้เลย",
+                    ),
+                )
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

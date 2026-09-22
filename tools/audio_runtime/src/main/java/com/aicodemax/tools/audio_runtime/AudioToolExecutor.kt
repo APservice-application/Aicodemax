@@ -132,7 +132,21 @@ class AudioToolExecutor(private val audio: AudioPort = InMemoryAudioPort()) : To
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade/beats/voicefx/synthmusic/synthsfx/speech)")
+                "recordStart" -> {
+                    val dst = call.args["dst"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: dst")
+                    audio.recordStart(dst).fold(
+                        onSuccess = { done(true, "เริ่มอัดเสียงแล้ว → $dst") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "recordStop" -> {
+                    audio.recordStop().fold(
+                        onSuccess = { done(true, "หยุดอัดแล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/trim/concat/gain/fade/beats/voicefx/synthmusic/synthsfx/speech/recordStart/recordStop)")
             }
         }
 
