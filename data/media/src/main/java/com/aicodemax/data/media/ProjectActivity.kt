@@ -58,6 +58,9 @@ object ProjectEventTypes {
     const val KEYFRAME_SET = "KEYFRAME_SET"
     const val KEYFRAME_REMOVED = "KEYFRAME_REMOVED"
     const val KEYFRAMES_CLEARED = "KEYFRAMES_CLEARED"
+    const val TRANSITION_SET = "TRANSITION_SET"
+    const val TRANSITION_CLEARED = "TRANSITION_CLEARED"
+    const val CLIP_FX = "CLIP_FX"
 }
 
 class FileEventLog(root: File) {

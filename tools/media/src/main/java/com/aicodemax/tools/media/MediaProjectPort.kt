@@ -22,6 +22,7 @@ import com.aicodemax.data.media.ProjectSnapshot
 import com.aicodemax.data.media.Timeline
 import com.aicodemax.data.media.TimelineMarker
 import com.aicodemax.data.media.ClipSpeed
+import com.aicodemax.data.media.ClipFx
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.TimelineOps
 import com.aicodemax.data.media.Track
@@ -112,6 +113,27 @@ interface MediaProjectPort {
         projectId: String,
         clipId: String,
         prop: String? = null,
+        actor: String = "AI",
+    ): Outcome<Project>
+    // CP-77 transitions + basic fx (§21/§20).
+    suspend fun setTransition(
+        projectId: String,
+        clipId: String,
+        edge: String,
+        kind: String,
+        durationMs: Long = 500,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun clearTransition(
+        projectId: String,
+        clipId: String,
+        edge: String? = null,
+        actor: String = "AI",
+    ): Outcome<Project>
+    suspend fun setClipFx(
+        projectId: String,
+        clipId: String,
+        fx: ClipFx,
         actor: String = "AI",
     ): Outcome<Project>
     suspend fun addMarker(projectId: String, atMs: Long, label: String = "", actor: String = "AI"): Outcome<TimelineMarker>
@@ -478,6 +500,35 @@ class FileMediaProject(
     ): Outcome<Project> = editTimeline(
         projectId, "ล้างคีย์เฟรม $clipId", ProjectEventTypes.KEYFRAMES_CLEARED, actor,
     ) { TimelineOps.clearKeyframes(it, clipId, prop) }
+
+    override suspend fun setTransition(
+        projectId: String,
+        clipId: String,
+        edge: String,
+        kind: String,
+        durationMs: Long,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ทรานซิชัน$edge $clipId", ProjectEventTypes.TRANSITION_SET, actor,
+    ) { TimelineOps.transition(it, clipId, edge, kind, durationMs) }
+
+    override suspend fun clearTransition(
+        projectId: String,
+        clipId: String,
+        edge: String?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ล้างทรานซิชัน $clipId", ProjectEventTypes.TRANSITION_CLEARED, actor,
+    ) { TimelineOps.clearTransition(it, clipId, edge) }
+
+    override suspend fun setClipFx(
+        projectId: String,
+        clipId: String,
+        fx: ClipFx,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "เอฟเฟกต์คลิป $clipId", ProjectEventTypes.CLIP_FX, actor,
+    ) { TimelineOps.fx(it, clipId, fx) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(
@@ -1064,6 +1115,35 @@ class InMemoryMediaProject : MediaProjectPort {
     ): Outcome<Project> = editTimeline(
         projectId, "ล้างคีย์เฟรม $clipId", ProjectEventTypes.KEYFRAMES_CLEARED, actor,
     ) { TimelineOps.clearKeyframes(it, clipId, prop) }
+
+    override suspend fun setTransition(
+        projectId: String,
+        clipId: String,
+        edge: String,
+        kind: String,
+        durationMs: Long,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ทรานซิชัน$edge $clipId", ProjectEventTypes.TRANSITION_SET, actor,
+    ) { TimelineOps.transition(it, clipId, edge, kind, durationMs) }
+
+    override suspend fun clearTransition(
+        projectId: String,
+        clipId: String,
+        edge: String?,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ล้างทรานซิชัน $clipId", ProjectEventTypes.TRANSITION_CLEARED, actor,
+    ) { TimelineOps.clearTransition(it, clipId, edge) }
+
+    override suspend fun setClipFx(
+        projectId: String,
+        clipId: String,
+        fx: ClipFx,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "เอฟเฟกต์คลิป $clipId", ProjectEventTypes.CLIP_FX, actor,
+    ) { TimelineOps.fx(it, clipId, fx) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(projectId, "บันทึกเวอร์ชัน", ProjectEventTypes.VERSION_SAVED, actor) {

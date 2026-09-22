@@ -19,6 +19,8 @@ import com.aicodemax.data.media.Clip
 import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.ClipSpeed
 import com.aicodemax.data.media.ClipKeyframes
+import com.aicodemax.data.media.ClipTransition
+import com.aicodemax.data.media.ClipFx
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.MediaAsset
 import com.aicodemax.data.media.MediaKind
@@ -210,6 +212,8 @@ class AndroidRenderPort(
         val clip: Clip,
         val file: File,
         val kind: MediaKind,
+        val trackId: String = "",
+
         val width: Int = -1,
         val height: Int = -1,
         val transform: ClipTransform? = null,
@@ -239,9 +243,9 @@ class AndroidRenderPort(
                 val file = File(File(mediaRoot, "${project.id}/assets"), asset.fileName)
                 if (!file.isFile) return null
                 when (track.kind) {
-                    MediaKind.VIDEO, MediaKind.IMAGE -> videoSegs += Segment(clip, file, track.kind, transform = clip.transform, speed = clip.speed?.takeUnless { it.isIdentity })
+                    MediaKind.VIDEO, MediaKind.IMAGE -> videoSegs += Segment(clip, file, track.kind, track.id, transform = clip.transform, speed = clip.speed?.takeUnless { it.isIdentity })
                     MediaKind.AUDIO -> if (job.preset.includeAudio) {
-                        audioSegs += Segment(clip, file, track.kind, speed = clip.speed?.takeUnless { it.isIdentity })
+                        audioSegs += Segment(clip, file, track.kind, track.id, speed = clip.speed?.takeUnless { it.isIdentity })
                     }
                 }
             }
@@ -257,6 +261,7 @@ class AndroidRenderPort(
         }
         val single = probed.singleOrNull()
         val singleKeys = single?.clip?.keyframes
+        val singleFx = single?.clip?.fx
         val fast = single != null && single.kind == MediaKind.VIDEO &&
             audioSegs.isEmpty() && single.clip.volume == 100 &&
             single.clip.atMs == 0L &&
@@ -264,7 +269,10 @@ class AndroidRenderPort(
             single.height in 1..job.preset.maxHeight &&
             timeline.texts.isEmpty() &&
             (single.speed == null) &&
-            (singleKeys == null || singleKeys.isEmpty)
+            (singleKeys == null || singleKeys.isEmpty) &&
+            single?.clip?.transitionIn == null &&
+            single?.clip?.transitionOut == null &&
+            (singleFx == null || singleFx.isIdentity)
         return RenderPlan(
             timeline = timeline,
             segments = probed.sortedBy { it.clip.atMs },
@@ -439,12 +447,24 @@ class AndroidRenderPort(
                     ptsUs += frameStepUs
                 }
                 val total = plan.segments.size
-                plan.segments.forEachIndexed { index, seg ->
-                    if (seg.kind == MediaKind.IMAGE) {
-                        feedStill(seg, outW, outH, planar, plan.texts, feed)
-                    } else {
-                        decodeSegment(seg, outW, outH, planar, seg.transform, plan.texts, seg.speed, feed)
+                val tails = mutableMapOf<String, IntArray>()
+                val needTail = mutableSetOf<String>()
+                plan.segments.groupBy { it.trackId }.values.forEach { group ->
+                    val sorted = group.sortedBy { it.clip.atMs }
+                    sorted.forEachIndexed { i, s ->
+                        val k = s.clip.transitionIn?.kind
+                        if (i > 0 && k != null && k != "cut" && k != "fade") needTail += sorted[i - 1].clip.id
                     }
+                }
+                plan.segments.forEachIndexed { index, seg ->
+                    val prev = tails[seg.trackId]
+                    val wantTail = seg.clip.id in needTail
+                    val last = if (seg.kind == MediaKind.IMAGE) {
+                        feedStill(seg, outW, outH, planar, plan.texts, prev, wantTail, feed)
+                    } else {
+                        decodeSegment(seg, outW, outH, planar, seg.transform, plan.texts, seg.speed, prev, wantTail, feed)
+                    }
+                    if (last != null) tails[seg.trackId] = last
                     progress(5 + 70 * (index + 1) / total.coerceAtLeast(1))
                 }
                 // Encoder EOS + drain.
@@ -507,12 +527,13 @@ class AndroidRenderPort(
         transform: ClipTransform?,
         texts: List<OverlayText>,
         speed: ClipSpeed?,
+        prevTail: IntArray?,
+        wantTail: Boolean,
         feed: (ByteArray) -> Unit,
-    ) {
+    ): IntArray? {
         val active = transform?.takeUnless { it.isIdentity }
         if (speed?.reverse == true) {
-            decodeReversed(seg, outW, outH, planar, active, texts, speed, feed)
-            return
+            return decodeReversed(seg, outW, outH, planar, active, texts, speed, prevTail, wantTail, feed)
         }
         val srcLen = seg.clip.endMs - seg.clip.startMs
         val outLen = seg.clip.outputDurationMs()
@@ -522,22 +543,32 @@ class AndroidRenderPort(
         fun needed(j: Int): Long =
             speed?.outputToSource(j * 1000L / 30, srcLen) ?: (j * 1000L / 30)
         val keys = seg.clip.keyframes?.takeUnless { it.isEmpty }
+        var lastArgb: IntArray? = null
+        val trIn = seg.clip.transitionIn
+        val trOut = seg.clip.transitionOut
+        val fx = seg.clip.fx?.takeUnless { it.isIdentity }
+        val plainOk = active == null && keys == null && trIn == null && trOut == null && fx == null
         fun emit(image: android.media.Image, j: Int) {
-            val timelineMs = seg.clip.atMs + j * 1000L / 30
+            val offMs = j * 1000L / 30
+            val timelineMs = seg.clip.atMs + offMs
             val live = texts.filter { timelineMs in it.startMs until it.endMs }
-            val yuv = if (active == null && live.isEmpty() && keys == null) {
+            val yuv = if (plainOk && !wantTail && live.isEmpty()) {
                 frameToYuv(image, outW, outH, planar)
             } else {
                 val argb = yuv420888ToArgb(image)
-                val base = if (keys != null) {
-                    composeLook(argb, image.width, image.height, frameLook(active, keys, j * 1000L / 30), outW, outH)
+                var frame = if (keys != null) {
+                    composeLook(argb, image.width, image.height, frameLook(active, keys, offMs), outW, outH)
                 } else if (active != null) {
                     composeFrame(argb, image.width, image.height, active, outW, outH)
                 } else {
                     scaleArgb(argb, image.width, image.height, outW, outH)
                 }
-                if (live.isNotEmpty()) drawTexts(base, outW, outH, live, timelineMs)
-                if (planar) Yuv.toI420(base, outW, outH) else Yuv.toNV12(base, outW, outH)
+                frame = applyTransitionIn(frame, outW, outH, trIn, prevTail, offMs)
+                frame = applyTransitionOut(frame, trOut, offMs, outLen)
+                frame = applyFx(frame, outW, outH, fx, timelineMs)
+                lastArgb = frame
+                if (live.isNotEmpty()) drawTexts(frame, outW, outH, live, timelineMs)
+                if (planar) Yuv.toI420(frame, outW, outH) else Yuv.toNV12(frame, outW, outH)
             }
             lastYuv = yuv
             feed(yuv)
@@ -551,7 +582,7 @@ class AndroidRenderPort(
         ext.setDataSource(seg.file.path)
         val trackIndex = (0 until ext.trackCount).firstOrNull { i ->
             (ext.getTrackFormat(i).getString(MediaFormat.KEY_MIME) ?: "").startsWith("video/")
-        } ?: run { ext.release(); reader.close(); return }
+        } ?: run { ext.release(); reader.close(); return null }
         ext.selectTrack(trackIndex)
         ext.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
         val decoder = MediaCodec.createDecoderByType(
@@ -622,6 +653,7 @@ class AndroidRenderPort(
             ext.release()
             reader.close()
         }
+        return lastArgb
     }
 
     /**
@@ -637,8 +669,10 @@ class AndroidRenderPort(
         active: ClipTransform?,
         texts: List<OverlayText>,
         speed: ClipSpeed,
+        prevTail: IntArray?,
+        wantTail: Boolean,
         feed: (ByteArray) -> Unit,
-    ) {
+    ): IntArray? {
         val srcLen = seg.clip.endMs - seg.clip.startMs
         val outLen = seg.clip.outputDurationMs()
         val totalOut = ((outLen * 30) / 1000).toInt().coerceAtLeast(1)
@@ -742,6 +776,8 @@ class AndroidRenderPort(
                 reader.close()
             }
             if (rels.isEmpty()) throw IllegalStateException("ถอดเฟรมช่วงย้อนกลับไม่ได้")
+            var lastArgb: IntArray? = null
+            val fx = seg.clip.fx?.takeUnless { it.isIdentity }
             for (j in 0 until totalOut) {
                 val want = srcAt(j)
                 var best = 0
@@ -764,11 +800,20 @@ class AndroidRenderPort(
                     if (scaled != bmp) scaled.recycle()
                 }
                 bmp.recycle()
-                val timelineMs = seg.clip.atMs + j * 1000L / 30
+                val offMs = j * 1000L / 30
+                val timelineMs = seg.clip.atMs + offMs
+                var done = applyTransitionIn(frame, outW, outH, seg.clip.transitionIn, prevTail, offMs)
+                done = applyTransitionOut(done, seg.clip.transitionOut, offMs, outLen)
+                done = applyFx(done, outW, outH, fx, timelineMs)
+                lastArgb = done
                 val live = texts.filter { timelineMs in it.startMs until it.endMs }
-                if (live.isNotEmpty()) drawTexts(frame, outW, outH, live, timelineMs)
-                feed(if (planar) Yuv.toI420(frame, outW, outH) else Yuv.toNV12(frame, outW, outH))
+                if (live.isNotEmpty()) drawTexts(done, outW, outH, live, timelineMs)
+                feed(if (planar) Yuv.toI420(done, outW, outH) else Yuv.toNV12(done, outW, outH))
             }
+            if (!wantTail && fx == null && seg.clip.transitionIn == null && seg.clip.transitionOut == null) {
+                lastArgb = null
+            }
+            return lastArgb
         } finally {
             cacheDir.deleteRecursively()
         }
@@ -780,16 +825,20 @@ class AndroidRenderPort(
         outH: Int,
         planar: Boolean,
         texts: List<OverlayText>,
+        prevTail: IntArray?,
+        wantTail: Boolean,
         feed: (ByteArray) -> Unit,
-    ) {
-        val raw = BitmapFactory.decodeFile(seg.file.path) ?: return
+    ): IntArray? {
+        val raw = BitmapFactory.decodeFile(seg.file.path) ?: return null
         val active = seg.transform?.takeUnless { it.isIdentity }
         val keys = seg.clip.keyframes?.takeUnless { it.isEmpty }
         val stillEnd = seg.clip.atMs + seg.clip.outputDurationMs()
         val live = texts.filter { it.startMs < stillEnd && it.endMs > seg.clip.atMs }
-        if (active != null || live.isNotEmpty() || keys != null) {
-            feedStillComposed(raw, active, live, seg, outW, outH, planar, feed)
-            return
+        val fxStill = seg.clip.fx?.takeUnless { it.isIdentity }
+        if (active != null || live.isNotEmpty() || keys != null || wantTail ||
+            seg.clip.transitionIn != null || seg.clip.transitionOut != null || fxStill != null
+        ) {
+            return feedStillComposed(raw, active, live, seg, outW, outH, planar, prevTail, feed)
         }
         val scaled = centerCrop(raw, outW, outH)
         val pixels = IntArray(outW * outH)
@@ -798,6 +847,7 @@ class AndroidRenderPort(
         val yuv = if (planar) Yuv.toI420(pixels, outW, outH) else Yuv.toNV12(pixels, outW, outH)
         val frames = ((seg.clip.outputDurationMs() * 30) / 1000).toInt().coerceIn(1, 30 * 600)
         repeat(frames) { feed(yuv) }
+        return null
     }
 
     // ---- CP-73 clip transform (§12) ----
@@ -822,37 +872,55 @@ class AndroidRenderPort(
         outW: Int,
         outH: Int,
         planar: Boolean,
+        prevTail: IntArray?,
         feed: (ByteArray) -> Unit,
-    ) {
+    ): IntArray? {
         val pixels = IntArray(raw.width * raw.height)
         raw.getPixels(pixels, 0, raw.width, 0, 0, raw.width, raw.height)
-        val frames = ((seg.clip.outputDurationMs() * 30) / 1000).toInt().coerceIn(1, 30 * 600)
+        val outLen = seg.clip.outputDurationMs()
+        val frames = ((outLen * 30) / 1000).toInt().coerceIn(1, 30 * 600)
         val keys = seg.clip.keyframes?.takeUnless { it.isEmpty }
+        val trIn = seg.clip.transitionIn
+        val trOut = seg.clip.transitionOut
+        val fx = seg.clip.fx?.takeUnless { it.isIdentity }
+        var lastArgb: IntArray? = null
         if (keys != null) {
             repeat(frames) { i ->
-                val timelineMs = seg.clip.atMs + i * 1000L / 30
-                val frame = composeLook(pixels, raw.width, raw.height, frameLook(t, keys, i * 1000L / 30), outW, outH)
+                val offMs = i * 1000L / 30
+                val timelineMs = seg.clip.atMs + offMs
+                var frame = composeLook(pixels, raw.width, raw.height, frameLook(t, keys, offMs), outW, outH)
+                frame = applyTransitionIn(frame, outW, outH, trIn, prevTail, offMs)
+                frame = applyTransitionOut(frame, trOut, offMs, outLen)
+                frame = applyFx(frame, outW, outH, fx, timelineMs)
+                lastArgb = frame
                 drawTexts(frame, outW, outH, live.filter { timelineMs in it.startMs until it.endMs }, timelineMs)
                 feed(if (planar) Yuv.toI420(frame, outW, outH) else Yuv.toNV12(frame, outW, outH))
             }
-            return
+            return lastArgb
         }
-        val base = if (t != null) {
+        var base = if (t != null) {
             composeFrame(pixels, raw.width, raw.height, t, outW, outH)
         } else {
             scaleArgb(centerCropPixels(pixels, raw.width, raw.height, outW, outH), outW, outH, outW, outH)
         }
-        if (live.isEmpty()) {
+        base = applyFx(base, outW, outH, fx, seg.clip.atMs)
+        lastArgb = base
+        if (live.isEmpty() && trIn == null && trOut == null) {
             val yuv = if (planar) Yuv.toI420(base, outW, outH) else Yuv.toNV12(base, outW, outH)
             repeat(frames) { feed(yuv) }
-            return
+            return lastArgb
         }
         repeat(frames) { i ->
-            val timelineMs = seg.clip.atMs + i * 1000L / 30
-            val frame = base.copyOf()
+            val offMs = i * 1000L / 30
+            val timelineMs = seg.clip.atMs + offMs
+            var frame = base.copyOf()
+            frame = applyTransitionIn(frame, outW, outH, trIn, prevTail, offMs)
+            frame = applyTransitionOut(frame, trOut, offMs, outLen)
+            lastArgb = frame
             drawTexts(frame, outW, outH, live.filter { timelineMs in it.startMs until it.endMs }, timelineMs)
             feed(if (planar) Yuv.toI420(frame, outW, outH) else Yuv.toNV12(frame, outW, outH))
         }
+        return lastArgb
     }
 
     private fun centerCropPixels(pixels: IntArray, w: Int, h: Int, outW: Int, outH: Int): IntArray {
@@ -1088,6 +1156,183 @@ class AndroidRenderPort(
             }
         }
         return Triple(out, ow, oh)
+    }
+
+    // ---- CP-77 transitions (§21) + basic fx (§20) ----
+
+    /**
+     * Transition-in blend. dissolve/wipe mix with the same-track predecessor's
+     * last frame ([prevTail]); without one they fall back to black (honest v0:
+     * rendered inside clip bounds, no A/B overlap).
+     */
+    private fun applyTransitionIn(
+        px: IntArray,
+        w: Int,
+        h: Int,
+        tr: ClipTransition?,
+        prev: IntArray?,
+        offsetMs: Long,
+    ): IntArray {
+        if (tr == null || tr.kind == "cut" || offsetMs >= tr.durationMs) return px
+        val f = (offsetMs.toFloat() / tr.durationMs).coerceIn(0f, 1f)
+        return when (tr.kind) {
+            "fade" -> darken(px, 1f - f)
+            "dissolve" -> if (prev != null && prev.size == px.size) mixArgb(prev, px, f) else darken(px, 1f - f)
+            "wipeleft" -> wipe(px, w, h, prev, f, 0)
+            "wiperight" -> wipe(px, w, h, prev, f, 1)
+            "wipeup" -> wipe(px, w, h, prev, f, 2)
+            "wipedown" -> wipe(px, w, h, prev, f, 3)
+            else -> px
+        }
+    }
+
+    /** Transition-out: fade to black over the clip tail (out only allows fade/cut). */
+    private fun applyTransitionOut(px: IntArray, tr: ClipTransition?, offsetMs: Long, lenMs: Long): IntArray {
+        if (tr == null || tr.kind == "cut") return px
+        val start = lenMs - tr.durationMs
+        if (offsetMs < start) return px
+        val f = ((offsetMs - start).toFloat() / tr.durationMs).coerceIn(0f, 1f)
+        return darken(px, f)
+    }
+
+    private fun darken(px: IntArray, amt: Float): IntArray {
+        val keep = 1f - amt.coerceIn(0f, 1f)
+        if (keep >= 1f) return px
+        for (i in px.indices) {
+            val c = px[i]
+            px[i] = (c and 0xFF000000.toInt()) or
+                ((((c shr 16) and 0xFF) * keep).toInt() shl 16) or
+                ((((c shr 8) and 0xFF) * keep).toInt() shl 8) or
+                (((c and 0xFF) * keep).toInt())
+        }
+        return px
+    }
+
+    private fun mixArgb(a: IntArray, b: IntArray, f: Float): IntArray {
+        val t = f.coerceIn(0f, 1f)
+        val out = IntArray(b.size)
+        for (i in b.indices) {
+            val ca = a[i]
+            val cb = b[i]
+            val r = (((ca shr 16) and 0xFF) + ((((cb shr 16) and 0xFF) - ((ca shr 16) and 0xFF)) * t)).toInt()
+            val g = (((ca shr 8) and 0xFF) + ((((cb shr 8) and 0xFF) - ((ca shr 8) and 0xFF)) * t)).toInt()
+            val bl = ((ca and 0xFF) + (((cb and 0xFF) - (ca and 0xFF)) * t)).toInt()
+            out[i] = 0xFF000000.toInt() or (r shl 16) or (g shl 8) or bl
+        }
+        return out
+    }
+
+    /** Wipe reveal of [px] over [prev] (or black). dir: 0=L 1=R 2=U 3=D. */
+    private fun wipe(px: IntArray, w: Int, h: Int, prev: IntArray?, f: Float, dir: Int): IntArray {
+        val out = if (prev != null && prev.size == px.size) prev.copyOf() else IntArray(px.size) { 0xFF000000.toInt() }
+        val t = f.coerceIn(0f, 1f)
+        when (dir) {
+            0 -> {
+                val x0 = (w * (1f - t)).toInt()
+                for (y in 0 until h) for (x in x0 until w) out[y * w + x] = px[y * w + x]
+            }
+            1 -> {
+                val x1 = (w * t).toInt()
+                for (y in 0 until h) for (x in 0 until x1) out[y * w + x] = px[y * w + x]
+            }
+            2 -> {
+                val y0 = (h * (1f - t)).toInt()
+                for (y in y0 until h) for (x in 0 until w) out[y * w + x] = px[y * w + x]
+            }
+            else -> {
+                val y1 = (h * t).toInt()
+                for (y in 0 until y1) for (x in 0 until w) out[y * w + x] = px[y * w + x]
+            }
+        }
+        return out
+    }
+
+    private fun applyFx(px: IntArray, w: Int, h: Int, fx: ClipFx?, seed: Long): IntArray {
+        if (fx == null || fx.isIdentity) return px
+        var cur = if (fx.blur > 0) boxBlur(px, w, h, fx.blur) else px
+        if (fx.vignette > 0) applyVignette(cur, w, h, fx.vignette)
+        if (fx.grain > 0) applyGrain(cur, fx.grain, seed)
+        return cur
+    }
+
+    /** Separable box blur, O(w*h) per pass (sliding window). */
+    private fun boxBlur(src: IntArray, w: Int, h: Int, radius: Int): IntArray {
+        val r = radius.coerceIn(1, 10)
+        val tmp = IntArray(src.size)
+        val out = IntArray(src.size)
+        val window = r * 2 + 1
+        for (y in 0 until h) {
+            var rs = 0
+            var gs = 0
+            var bs = 0
+            for (x in -r..r) {
+                val c = src[y * w + x.coerceIn(0, w - 1)]
+                rs += (c shr 16) and 0xFF
+                gs += (c shr 8) and 0xFF
+                bs += c and 0xFF
+            }
+            for (x in 0 until w) {
+                tmp[y * w + x] = 0xFF000000.toInt() or ((rs / window) shl 16) or ((gs / window) shl 8) or (bs / window)
+                val add = src[y * w + (x + r + 1).coerceIn(0, w - 1)]
+                val sub = src[y * w + (x - r).coerceIn(0, w - 1)]
+                rs += ((add shr 16) and 0xFF) - ((sub shr 16) and 0xFF)
+                gs += ((add shr 8) and 0xFF) - ((sub shr 8) and 0xFF)
+                bs += (add and 0xFF) - (sub and 0xFF)
+            }
+        }
+        for (x in 0 until w) {
+            var rs = 0
+            var gs = 0
+            var bs = 0
+            for (y in -r..r) {
+                val c = tmp[y.coerceIn(0, h - 1) * w + x]
+                rs += (c shr 16) and 0xFF
+                gs += (c shr 8) and 0xFF
+                bs += c and 0xFF
+            }
+            for (y in 0 until h) {
+                out[y * w + x] = 0xFF000000.toInt() or ((rs / window) shl 16) or ((gs / window) shl 8) or (bs / window)
+                val add = tmp[(y + r + 1).coerceIn(0, h - 1) * w + x]
+                val sub = tmp[(y - r).coerceIn(0, h - 1) * w + x]
+                rs += ((add shr 16) and 0xFF) - ((sub shr 16) and 0xFF)
+                gs += ((add shr 8) and 0xFF) - ((sub shr 8) and 0xFF)
+                bs += (add and 0xFF) - (sub and 0xFF)
+            }
+        }
+        return out
+    }
+
+    private fun applyVignette(px: IntArray, w: Int, h: Int, amount: Int) {
+        val cx = (w - 1) / 2f
+        val cy = (h - 1) / 2f
+        val maxD = kotlin.math.sqrt(cx * cx + cy * cy).coerceAtLeast(1f)
+        val strength = amount.coerceIn(0, 100) / 100f
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val dx = (x - cx) / maxD
+                val dy = (y - cy) / maxD
+                val keep = 1f - strength * (dx * dx + dy * dy).coerceIn(0f, 1f)
+                val i = y * w + x
+                val c = px[i]
+                px[i] = (c and 0xFF000000.toInt()) or
+                    ((((c shr 16) and 0xFF) * keep).toInt() shl 16) or
+                    ((((c shr 8) and 0xFF) * keep).toInt() shl 8) or
+                    (((c and 0xFF) * keep).toInt())
+            }
+        }
+    }
+
+    private fun applyGrain(px: IntArray, amount: Int, seed: Long) {
+        val amp = (amount.coerceIn(0, 100) * 255 / 100).coerceAtLeast(1)
+        val rnd = kotlin.random.Random(seed)
+        for (i in px.indices) {
+            val n = rnd.nextInt(-amp, amp + 1)
+            val c = px[i]
+            val r = (((c shr 16) and 0xFF) + n).coerceIn(0, 255)
+            val g = (((c shr 8) and 0xFF) + n).coerceIn(0, 255)
+            val b = ((c and 0xFF) + n).coerceIn(0, 255)
+            px[i] = (c and 0xFF000000.toInt()) or (r shl 16) or (g shl 8) or b
+        }
     }
 
     // ---- CP-76 keyframes (§14) ----
@@ -1395,7 +1640,9 @@ class AndroidRenderPort(
                     val endFrame = ((seg.clip.endMs * rate) / 1000).toInt().coerceIn(startFrame, stereo.frames)
                     val atFrame = ((seg.clip.atMs * rate) / 1000).toInt()
                     val gain = seg.clip.volume / 100.0f
-                    mixAudioSlice(mix, frames, stereo, startFrame, endFrame, atFrame, gain, seg.speed, seg.clip.keyframes?.takeUnless { it.points("volume").isEmpty() })
+                    val fadeIn = seg.clip.transitionIn?.takeUnless { it.kind == "cut" }?.durationMs ?: 0L
+                    val fadeOut = seg.clip.transitionOut?.takeUnless { it.kind == "cut" }?.durationMs ?: 0L
+                    mixAudioSlice(mix, frames, stereo, startFrame, endFrame, atFrame, gain, seg.speed, seg.clip.keyframes?.takeUnless { it.points("volume").isEmpty() }, fadeIn, fadeOut)
                 }
             }
         }
@@ -1416,15 +1663,25 @@ class AndroidRenderPort(
         gain: Float,
         speed: ClipSpeed?,
         volKeys: ClipKeyframes? = null,
+        fadeInMs: Long = 0,
+        fadeOutMs: Long = 0,
     ) {
         fun volGain(outMs: Long): Float =
             volKeys?.valueAt("volume", outMs)?.div(100f) ?: 1f
+        fun fadeGain(outMs: Double, totalMs: Double): Float {
+            var f = 1f
+            if (fadeInMs > 0) f *= (outMs / fadeInMs).toFloat().coerceIn(0f, 1f)
+            if (fadeOutMs > 0) f *= ((totalMs - outMs) / fadeOutMs).toFloat().coerceIn(0f, 1f)
+            return f
+        }
         val stepMs = 1000.0 / stereo.sampleRate
         if (speed == null) {
+            val totalMs = (endFrame - startFrame) * stepMs
             var s = startFrame
             var d = atFrame
             while (s < endFrame && d < mixFrames) {
-                val g = gain * volGain(((d - atFrame) * stepMs).toLong())
+                val outMs = (d - atFrame) * stepMs
+                val g = gain * volGain(outMs.toLong()) * fadeGain(outMs, totalMs)
                 mix[d * 2] += stereo.samples[s * 2] * g
                 mix[d * 2 + 1] += stereo.samples[s * 2 + 1] * g
                 s += 1
@@ -1449,7 +1706,7 @@ class AndroidRenderPort(
             val frac = (clamped - i0).toFloat()
             val l = stereo.samples[i0 * 2] * (1 - frac) + stereo.samples[i1 * 2] * frac
             val r = stereo.samples[i0 * 2 + 1] * (1 - frac) + stereo.samples[i1 * 2 + 1] * frac
-            val g = gain * volGain((o * stepMs).toLong())
+            val g = gain * volGain((o * stepMs).toLong()) * fadeGain(o * stepMs, outLen * stepMs)
             mix[d * 2] += l * g
             mix[d * 2 + 1] += r * g
             o += 1
