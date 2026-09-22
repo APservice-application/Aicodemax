@@ -85,6 +85,11 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             action = "เปิด" to { onOpen(Routes.PROJECTS) },
         )
         StatusCard(
+            title = "เรนเดอร์",
+            line = "คิวเรนเดอร์ / QC / อนุมัติ / เอ็กซ์พอร์ต",
+            action = "เปิด" to { onOpen(Routes.RENDER) },
+        )
+        StatusCard(
             title = "เทอร์มินัล (dev)",
             line = terminalLine(services),
             action = "เปิด" to { onOpen(Routes.TERMINAL) },

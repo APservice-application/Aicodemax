@@ -82,6 +82,9 @@ import com.aicodemax.tools.subtitle.SubtitlePort
 import com.aicodemax.tools.subtitle.subtitleDescriptorToday
 import com.aicodemax.tools.subtitle_runtime.SubtitleToolExecutor
 import com.aicodemax.tools.video.VideoPort
+import com.aicodemax.tools.render.RenderPort
+import com.aicodemax.tools.render.renderDescriptorToday
+import com.aicodemax.tools.render_runtime.RenderToolExecutor
 import com.aicodemax.tools.video.videoDescriptorToday
 import com.aicodemax.tools.video_runtime.VideoToolExecutor
 import com.aicodemax.tools.audio.AudioPort
@@ -118,11 +121,15 @@ class ServiceLocator(context: Context) {
     val skills: FileSkillStore = FileSkillStore(File(appContext.filesDir, "skills"))
     val voice: VoicePort = AndroidVoicePort(appContext)
     val images: ImagePort = AndroidImagePort()
-    val audio: AudioPort = AndroidAudioPort()
+    private val androidAudio = AndroidAudioPort()
+    val audio: AudioPort = androidAudio
     val video: VideoPort = AndroidVideoPort()
     val subtitles: SubtitlePort = AndroidSubtitlePort(audio, video)
     val media: MediaProjectPort =
         FileMediaProject(File(appContext.filesDir, "media"), images, audio, video)
+    val render: RenderPort = AndroidRenderPort(
+        media, File(appContext.filesDir, "media"), androidAudio::decodeToPcm, video, appContext,
+    )
     val settings: SettingsRepository = DataStoreSettingsRepository(appContext)
 
     val resources: ResourceMonitor = AndroidResourceMonitor(appContext)
@@ -190,6 +197,7 @@ class ServiceLocator(context: Context) {
         toolRegistry.register(videoDescriptorToday())
         toolRegistry.register(subtitleDescriptorToday())
         toolRegistry.register(mediaDescriptorToday())
+        toolRegistry.register(renderDescriptorToday())
 
         gateway = DefaultToolGateway(
             toolRegistry,
@@ -212,6 +220,7 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(VideoToolExecutor(video))
         gateway.registerExecutor(SubtitleToolExecutor(subtitles))
         gateway.registerExecutor(MediaToolExecutor(media))
+        gateway.registerExecutor(RenderToolExecutor(render, media))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry)
 
