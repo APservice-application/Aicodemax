@@ -392,6 +392,64 @@ data class ClipFx(
     }.joinToString("/")
 }
 
+/** CP-78 per-clip color correction (§42 basic + HSL shifts). All zero = identity. */
+@Serializable
+data class ClipColor(
+    val brightness: Int = 0,
+    val contrast: Int = 0,
+    val saturation: Int = 0,
+    val temperature: Int = 0,
+    val tint: Int = 0,
+    val highlights: Int = 0,
+    val shadows: Int = 0,
+    val hueShift: Int = 0,
+    val lightness: Int = 0,
+) {
+    val isIdentity: Boolean get() = this == ClipColor()
+
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        fun range(name: String, v: Int, lo: Int, hi: Int) {
+            if (v !in lo..hi) errors.add("$name ต้องอยู่ $lo..$hi (ได้ $v)")
+        }
+        range("brightness", brightness, -100, 100)
+        range("contrast", contrast, -100, 100)
+        range("saturation", saturation, -100, 100)
+        range("temperature", temperature, -100, 100)
+        range("tint", tint, -100, 100)
+        range("highlights", highlights, -100, 100)
+        range("shadows", shadows, -100, 100)
+        range("hueShift", hueShift, -180, 180)
+        range("lightness", lightness, -100, 100)
+        return errors
+    }
+
+    fun summary(): String = buildList {
+        if (brightness != 0) add("br$brightness")
+        if (contrast != 0) add("ct$contrast")
+        if (saturation != 0) add("st$saturation")
+        if (temperature != 0) add("tp$temperature")
+        if (tint != 0) add("tn$tint")
+        if (highlights != 0) add("hi$highlights")
+        if (shadows != 0) add("sh$shadows")
+        if (hueShift != 0) add("hu$hueShift")
+        if (lightness != 0) add("li$lightness")
+    }.joinToString(" ")
+
+    companion object {
+        val PRESETS = listOf("none", "cinema", "warm", "cool", "vivid", "bw")
+
+        fun preset(name: String): ClipColor = when (name) {
+            "cinema" -> ClipColor(contrast = 15, saturation = 10, shadows = 8, temperature = 5)
+            "warm" -> ClipColor(temperature = 30, tint = 5)
+            "cool" -> ClipColor(temperature = -30)
+            "vivid" -> ClipColor(saturation = 30, contrast = 10)
+            "bw" -> ClipColor(saturation = -100)
+            else -> ClipColor()
+        }
+    }
+}
+
 /** One placed piece of an asset on a track. Times in ms. */
 @Serializable
 data class Clip(
@@ -416,6 +474,8 @@ data class Clip(
     val transitionOut: ClipTransition? = null,
     /** CP-77 basic image effects (null/identity = off). */
     val fx: ClipFx? = null,
+    /** CP-78 color correction (null/identity = off). */
+    val color: ClipColor? = null,
 ) {
     val durationMs: Long get() = endMs - startMs
 
@@ -558,6 +618,7 @@ data class Timeline(
                 clip.transitionIn?.validate("in")?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.transitionOut?.validate("out")?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 clip.fx?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.color?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
                 for (tr in listOfNotNull(clip.transitionIn, clip.transitionOut)) {
                     if (tr.kind != "cut" && tr.durationMs > clip.outputDurationMs()) {
                         errors.add("คลิป ${clip.id}: ทรานซิชันยาวกว่าคลิป")

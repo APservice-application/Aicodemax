@@ -240,6 +240,20 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp78ColorScopesPlansRealSteps() = runBlocking {
+        val color = (planner.plan(UserIntent(IntentType.CLIP_COLOR, "t", mapOf("clipIndex" to "1", "preset" to "bw"))) as Outcome.Success<Plan>).value
+        assertEquals("timeline.setColor", color.steps[0].action)
+        assertEquals("bw", color.steps[0].args["preset"])
+        val missing = planner.plan(UserIntent(IntentType.CLIP_COLOR, "t", mapOf("clipIndex" to "1")))
+        assertEquals("PLAN_NO_COLOR", (missing as Outcome.Failure).error.code)
+        val scopes = (planner.plan(UserIntent(IntentType.IMAGE_SCOPES, "t", mapOf("path" to "a.png"))) as Outcome.Success<Plan>).value
+        assertEquals("image", scopes.steps[0].toolId)
+        assertEquals("scopes", scopes.steps[0].action)
+        val noPath = planner.plan(UserIntent(IntentType.IMAGE_SCOPES, "t"))
+        assertEquals("PLAN_NO_PATH", (noPath as Outcome.Failure).error.code)
+    }
+
+    @Test
     fun cp77TransitionFxPlansRealSteps() = runBlocking {
         val tr = (planner.plan(UserIntent(IntentType.TRANSITION_SET, "t", mapOf("clipIndex" to "2", "edge" to "in", "kind" to "dissolve"))) as Outcome.Success<Plan>).value
         assertEquals("timeline.setTransition", tr.steps[0].action)

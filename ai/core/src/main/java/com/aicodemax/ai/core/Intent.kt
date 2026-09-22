@@ -72,6 +72,8 @@ enum class IntentType {
     KEYFRAME_CLEAR,
     TRANSITION_SET,
     CLIP_FX,
+    CLIP_COLOR,
+    IMAGE_SCOPES,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -432,6 +434,34 @@ object IntentParser {
                     "blur" to (value.takeIf { t.contains("เบลอ") }),
                     "vignette" to (value.takeIf { t.contains("วิกเน็ต") }),
                     "grain" to (value.takeIf { t.contains("เกรน") }),
+                ),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.imageScopesWords)) {
+            return UserIntent(IntentType.IMAGE_SCOPES, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.clipColorWords)) {
+            val preset = when {
+                t.contains("ขาวดำ") -> "bw"
+                t.contains("ซีนีม่า") -> "cinema"
+                t.contains("โทนอุ่น") || t.contains("อุ่น") -> "warm"
+                t.contains("โทนเย็น") || t.contains("เย็น") -> "cool"
+                t.contains("สดใส") -> "vivid"
+                else -> null
+            }
+            val noClip = t.replace(Regex("คลิป(?:ที่)?\\s*\\d+"), "")
+            val value = Regex("(\\d+)").find(noClip)?.groupValues?.get(1)
+            val neg = t.contains("ลด") || t.contains("-")
+            val signed = value?.let { if (neg) "-$it" else it }
+            return UserIntent(
+                IntentType.CLIP_COLOR, text,
+                params(
+                    "clipIndex" to parseClipIndex(t),
+                    "preset" to preset,
+                    "brightness" to (signed.takeIf { t.contains("สว่าง") }),
+                    "contrast" to (signed.takeIf { t.contains("คอนทราสต์") }),
+                    "saturation" to (signed.takeIf { t.contains("อิ่มสี") || t.contains("สด") }),
+                    "temperature" to (signed.takeIf { t.contains("อุณหภูมิ") }),
                 ),
             )
         }

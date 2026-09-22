@@ -8,6 +8,8 @@ import com.aicodemax.tools.image.ImageInfo
 import com.aicodemax.tools.image.ImageOps
 import com.aicodemax.tools.image.ImagePort
 import com.aicodemax.tools.image.ImageProbe
+import com.aicodemax.tools.image.ColorScopes
+import com.aicodemax.tools.image.FrameScopes
 import com.aicodemax.tools.image.PixelImage
 import java.io.File
 import java.io.FileOutputStream
@@ -41,6 +43,36 @@ class AndroidImagePort : ImagePort {
 
     override suspend fun grayscale(src: String, dst: String): Outcome<ImageInfo> =
         edit(src, dst, "IMAGE_GRAY") { ImageOps.grayscale(it) }
+
+    override suspend fun scopes(path: String): Outcome<FrameScopes> =
+        withContext(Dispatchers.IO) {
+            val opts = BitmapFactory.Options().apply { inSampleSize = sampleFor(path) }
+            val bitmap = try {
+                BitmapFactory.decodeFile(path, opts)
+            } catch (e: Exception) {
+                return@withContext Outcome.Failure(AppError("IMAGE_SCOPES", "เปิดรูปไม่ได้: ${e.message}"))
+            } ?: return@withContext Outcome.Failure(AppError("IMAGE_SCOPES", "เปิดรูปไม่ได้ (ไฟล์เสียหรือไม่ใช่รูป): $path"))
+            val w = bitmap.width
+            val h = bitmap.height
+            val pixels = IntArray(w * h)
+            bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
+            bitmap.recycle()
+            Outcome.Success(ColorScopes.analyze(PixelImage(w, h, pixels)))
+        }
+
+    /** Downsample so the longer side is ≤ 480px (scopes don't need full res). */
+    private fun sampleFor(path: String): Int {
+        val probe = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        try {
+            BitmapFactory.decodeFile(path, probe)
+        } catch (_: Exception) {
+            return 1
+        }
+        val longer = maxOf(probe.outWidth, probe.outHeight)
+        var sample = 1
+        while (longer / (sample * 2) >= 480) sample *= 2
+        return sample
+    }
 
     private suspend fun edit(
         src: String,

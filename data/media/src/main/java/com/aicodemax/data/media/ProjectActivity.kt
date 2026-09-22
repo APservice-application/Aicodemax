@@ -61,6 +61,7 @@ object ProjectEventTypes {
     const val TRANSITION_SET = "TRANSITION_SET"
     const val TRANSITION_CLEARED = "TRANSITION_CLEARED"
     const val CLIP_FX = "CLIP_FX"
+    const val CLIP_COLOR = "CLIP_COLOR"
 }
 
 class FileEventLog(root: File) {

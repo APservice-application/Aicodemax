@@ -122,6 +122,8 @@ object StandardCapabilities {
             metadata = meta("image", "หมุนรูป 90/180/270", listOf("src,degrees?"), listOf("dst"), listOf("fs.write"), false, "dims swapped", "retry")),
         CapabilityBinding("image.grayscale", "image", "grayscale", AdapterKind.NATIVE,
             metadata = meta("image", "ทำรูปขาวดำ", listOf("src"), listOf("dst"), listOf("fs.write"), false, "luma only", "retry")),
+        CapabilityBinding("image.scopes", "image", "scopes", AdapterKind.NATIVE,
+            metadata = meta("image", "ฮิสโตแกรม+วัดแสงรูป", listOf("path"), listOf("scopes"), emptyList(), false, "verdict shown", "fix file")),
         // Audio engine (native, WAV pipeline + MediaCodec decode).
         CapabilityBinding("audio.info", "audio", "info", AdapterKind.NATIVE,
             metadata = meta("audio", "ดูฟอร์แมต+ความยาวเสียง", listOf("path"), listOf("info"), emptyList(), false, "header parsed", "re-probe")),
@@ -225,6 +227,8 @@ object StandardCapabilities {
             metadata = meta("media", "ล้างทรานซิชันคลิป", listOf("clipIndex,edge?"), listOf("ok"), listOf("fs.write"), false, "trans gone", "check id", true, "edit.undo")),
         CapabilityBinding("media.timeline.setFx", "media", "timeline.setFx", AdapterKind.NATIVE,
             metadata = meta("media", "เอฟเฟกต์ภาพคลิป", listOf("clipIndex,blur?,vignette?,grain?"), listOf("ok"), listOf("fs.write"), false, "fx shown", "0..10/100", true, "edit.undo")),
+        CapabilityBinding("media.timeline.setColor", "media", "timeline.setColor", AdapterKind.NATIVE,
+            metadata = meta("media", "แก้สีคลิป", listOf("clipIndex,preset?,brightness?,contrast?,saturation?,temperature?,tint?,highlights?,shadows?,hueShift?,lightness?"), listOf("ok"), listOf("fs.write"), false, "color shown", "fix range", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

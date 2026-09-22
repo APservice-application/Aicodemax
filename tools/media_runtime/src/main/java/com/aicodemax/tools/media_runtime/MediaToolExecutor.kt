@@ -8,6 +8,7 @@ import com.aicodemax.tools.gateway.ToolResult
 import com.aicodemax.data.media.ClipSpeed
 import com.aicodemax.data.media.ClipKeyframes
 import com.aicodemax.data.media.ClipFx
+import com.aicodemax.data.media.ClipColor
 import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.SpeedPoint
 import com.aicodemax.core.common.Ids
@@ -73,7 +74,8 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                                     (clip.keyframes?.takeUnless { it.isEmpty }?.let { " {KF ${it.summary()}}" } ?: "") +
                                     (clip.transitionIn?.let { " {IN:${it.summary()}}" } ?: "") +
                                     (clip.transitionOut?.let { " {OUT:${it.summary()}}" } ?: "") +
-                                    (clip.fx?.takeUnless { it.isIdentity }?.let { " {FX:${it.summary()}}" } ?: "")
+                                    (clip.fx?.takeUnless { it.isIdentity }?.let { " {FX:${it.summary()}}" } ?: "") +
+                                    (clip.color?.takeUnless { it.isIdentity }?.let { " {C:${it.summary()}}" } ?: "")
                             }
                             val flags = timeline.tracks.joinToString(" ") { track ->
                                 buildString {
@@ -515,6 +517,35 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                     )
                     media.setClipFx(projectId, clipId, next, call.actor).fold(
                         onSuccess = { done(true, "ตั้งเอฟเฟกต์แล้ว (${next.summary().ifBlank { "ปิด" }}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.setColor" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val presetRaw = call.args["preset"]
+                    if (presetRaw != null && presetRaw !in ClipColor.PRESETS) {
+                        return@withContext done(false, error = "preset ไม่รู้จัก ($presetRaw) ใช้ ${ClipColor.PRESETS.joinToString("/")}")
+                    }
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val fromPreset = presetRaw?.let { ClipColor.preset(it) }
+                    val base = fromPreset ?: timeline.findClip(clipId)?.second?.color ?: ClipColor()
+                    val next = base.copy(
+                        brightness = call.args["brightness"]?.toIntOrNull() ?: base.brightness,
+                        contrast = call.args["contrast"]?.toIntOrNull() ?: base.contrast,
+                        saturation = call.args["saturation"]?.toIntOrNull() ?: base.saturation,
+                        temperature = call.args["temperature"]?.toIntOrNull() ?: base.temperature,
+                        tint = call.args["tint"]?.toIntOrNull() ?: base.tint,
+                        highlights = call.args["highlights"]?.toIntOrNull() ?: base.highlights,
+                        shadows = call.args["shadows"]?.toIntOrNull() ?: base.shadows,
+                        hueShift = call.args["hueShift"]?.toIntOrNull() ?: base.hueShift,
+                        lightness = call.args["lightness"]?.toIntOrNull() ?: base.lightness,
+                    )
+                    media.setClipColor(projectId, clipId, next, call.actor).fold(
+                        onSuccess = { done(true, "แก้สีแล้ว (${next.summary().ifBlank { "ปกติ" }}) (เลิกทำได้: edit.undo)") },
                         onFailure = { done(false, error = it.message) },
                     )
                 }

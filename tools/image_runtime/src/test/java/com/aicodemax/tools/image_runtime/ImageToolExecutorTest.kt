@@ -48,6 +48,15 @@ class ImageToolExecutorTest {
     }
 
     @Test
+    fun scopesVerdict() {
+        val r = run(port(), "scopes", mapOf("path" to "/tmp/a.png"))
+        assertTrue(r.ok)
+        assertTrue(r.output, r.output.contains("ปกติ"))
+        val missing = run(port(), "scopes", emptyMap())
+        assertTrue(!missing.ok)
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         val p = port()
         assertTrue(!run(p, "info", emptyMap()).ok)
