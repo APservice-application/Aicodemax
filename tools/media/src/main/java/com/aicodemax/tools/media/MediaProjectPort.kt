@@ -21,6 +21,7 @@ import com.aicodemax.data.media.ProjectEventTypes
 import com.aicodemax.data.media.ProjectSnapshot
 import com.aicodemax.data.media.Timeline
 import com.aicodemax.data.media.TimelineMarker
+import com.aicodemax.data.media.ClipSpeed
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.data.media.TimelineOps
 import com.aicodemax.data.media.Track
@@ -83,6 +84,13 @@ interface MediaProjectPort {
     suspend fun addText(projectId: String, overlay: OverlayText, actor: String = "AI"): Outcome<Project>
     suspend fun updateText(projectId: String, id: String, overlay: OverlayText, actor: String = "AI"): Outcome<Project>
     suspend fun removeText(projectId: String, id: String, actor: String = "AI"): Outcome<Project>
+    // CP-75 clip speed (§13).
+    suspend fun setClipSpeed(
+        projectId: String,
+        clipId: String,
+        speed: ClipSpeed,
+        actor: String = "AI",
+    ): Outcome<Project>
     suspend fun addMarker(projectId: String, atMs: Long, label: String = "", actor: String = "AI"): Outcome<TimelineMarker>
     suspend fun removeMarker(projectId: String, markerId: String, actor: String = "AI"): Outcome<Unit>
     suspend fun setTrackFlags(
@@ -407,6 +415,15 @@ class FileMediaProject(
         editTimeline(projectId, "ลบข้อความ", ProjectEventTypes.TEXT_REMOVED, actor) {
             TimelineOps.removeText(it, id)
         }
+
+    override suspend fun setClipSpeed(
+        projectId: String,
+        clipId: String,
+        speed: ClipSpeed,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ความเร็วคลิป $clipId", ProjectEventTypes.CLIP_SPEED, actor,
+    ) { TimelineOps.speed(it, clipId, speed) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(
@@ -953,6 +970,15 @@ class InMemoryMediaProject : MediaProjectPort {
         editTimeline(projectId, "ลบข้อความ", ProjectEventTypes.TEXT_REMOVED, actor) {
             TimelineOps.removeText(it, id)
         }
+
+    override suspend fun setClipSpeed(
+        projectId: String,
+        clipId: String,
+        speed: ClipSpeed,
+        actor: String,
+    ): Outcome<Project> = editTimeline(
+        projectId, "ความเร็วคลิป $clipId", ProjectEventTypes.CLIP_SPEED, actor,
+    ) { TimelineOps.speed(it, clipId, speed) }
 
     override suspend fun saveVersion(projectId: String, actor: String): Outcome<Int> =
         mutate(projectId, "บันทึกเวอร์ชัน", ProjectEventTypes.VERSION_SAVED, actor) {

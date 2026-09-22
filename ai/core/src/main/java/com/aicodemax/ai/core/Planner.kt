@@ -303,6 +303,22 @@ class RuleBasedPlanner(
                 intent.parameters["platform"]?.let { args["platform"] = it }
                 listOf("media.text.ideas" to args)
             }
+            IntentType.CLIP_SPEED -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ปรับความเร็วคลิปที่เท่าไหร่ครับ? เช่น สปีดคลิปที่ 1 200"),
+                    )
+                val args = mutableMapOf("clipIndex" to clip)
+                intent.parameters["rate"]?.let { args["rate"] = it }
+                listOf("media.timeline.setSpeed" to args)
+            }
+            IntentType.CLIP_REVERSE -> {
+                val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_CLIP", "ย้อนคลิปที่เท่าไหร่ครับ? เช่น ย้อนคลิปที่ 1"),
+                    )
+                listOf("media.timeline.setSpeed" to mapOf("clipIndex" to clip, "reverse" to "true"))
+            }
             IntentType.MARKER_ADD -> {
                 val at = intent.parameters["atMs"]
                     ?: return Outcome.Failure(

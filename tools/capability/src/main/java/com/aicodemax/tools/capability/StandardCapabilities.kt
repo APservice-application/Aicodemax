@@ -211,6 +211,8 @@ object StandardCapabilities {
             metadata = meta("media", "แก้ข้อความ", listOf("textIndex,..."), listOf("ok"), listOf("fs.write"), false, "text shown", "check id", true, "edit.undo")),
         CapabilityBinding("media.timeline.removeText", "media", "timeline.removeText", AdapterKind.NATIVE,
             metadata = meta("media", "ลบข้อความ", listOf("textIndex"), listOf("ok"), listOf("fs.write"), false, "text gone", "check id", true, "edit.undo")),
+        CapabilityBinding("media.timeline.setSpeed", "media", "timeline.setSpeed", AdapterKind.NATIVE,
+            metadata = meta("media", "ความเร็ว/ย้อนกลับ/ramp คลิป", listOf("clipIndex,rate?,reverse?,curve?"), listOf("ok"), listOf("fs.write"), false, "speed shown", "25..400", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,
             metadata = meta("media", "ไอเดียข้อความ (hook/แคปชัน/CTA)", listOf("kind,topic,platform?"), listOf("ideas"), emptyList(), false, "ideas listed", "fix kind")),
         // Subtitle engine (native, SRT + burn-in).

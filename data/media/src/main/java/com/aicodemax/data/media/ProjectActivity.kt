@@ -54,6 +54,7 @@ object ProjectEventTypes {
     const val TEXT_ADDED = "TEXT_ADDED"
     const val TEXT_UPDATED = "TEXT_UPDATED"
     const val TEXT_REMOVED = "TEXT_REMOVED"
+    const val CLIP_SPEED = "CLIP_SPEED"
 }
 
 class FileEventLog(root: File) {

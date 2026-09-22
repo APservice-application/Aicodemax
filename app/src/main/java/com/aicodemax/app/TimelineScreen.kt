@@ -90,6 +90,17 @@ fun TimelineScreen(services: ServiceLocator) {
     fun selectedClip(): Pair<Track, Clip>? =
         timeline?.orderedClips()?.firstOrNull { it.second.id == selectedId }
 
+    fun adjustSpeed(mutate: (com.aicodemax.data.media.ClipSpeed) -> com.aicodemax.data.media.ClipSpeed) {
+        val clip = selectedClip()?.second ?: return
+        val next = mutate(clip.speed ?: com.aicodemax.data.media.ClipSpeed())
+        runCall { projectId ->
+            services.media.setClipSpeed(projectId, clip.id, next, "HUMAN").fold(
+                onSuccess = {},
+                onFailure = { message = it.message },
+            )
+        }
+    }
+
     fun adjustClip(mutate: (ClipTransform) -> ClipTransform) {
         val clip = selectedClip()?.second ?: return
         val next = mutate(clip.transform ?: ClipTransform())
@@ -358,9 +369,57 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }, enabled = !busy) { Text("↓") }
                             }
                         }
+                        Text(
+                            "ความเร็ว: ${(clip.speed?.summary()?.ifBlank { null } ?: "ปกติ")}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            OutlinedButton(onClick = {
+                                adjustSpeed { it.copy(rate = 50) }
+                            }, enabled = !busy) { Text("0.5x") }
+                            OutlinedButton(onClick = {
+                                adjustSpeed { com.aicodemax.data.media.ClipSpeed() }
+                            }, enabled = !busy) { Text("1x") }
+                            OutlinedButton(onClick = {
+                                adjustSpeed { it.copy(rate = 200) }
+                            }, enabled = !busy) { Text("2x") }
+                            OutlinedButton(onClick = {
+                                adjustSpeed { it.copy(reverse = !it.reverse, curve = emptyList()) }
+                            }, enabled = !busy) { Text(if (clip.speed?.reverse == true) "REV เปิด" else "ย้อนกลับ") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            val curves = listOf("none", "easein", "easeout", "montage", "hero", "bullet")
+                            OutlinedButton(onClick = {
+                                adjustSpeed { current ->
+                                    val names = curves.filter { it != "none" }
+                                    val idx = (selectedCurveIndex(clip) + 1) % (names.size + 1)
+                                    if (idx == 0) current.copy(curve = emptyList())
+                                    else current.copy(
+                                        curve = com.aicodemax.data.media.ClipSpeed.preset(names[idx - 1]),
+                                        reverse = false,
+                                    )
+                                }
+                            }, enabled = !busy) { Text("ramp: ${selectedCurveName(clip)}") }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/** Matches the clip's curve against known presets (UI label only). */
+private fun selectedCurveName(clip: Clip): String {
+    val curve = clip.speed?.curve.orEmpty()
+    if (curve.isEmpty()) return "none"
+    for (name in listOf("easein", "easeout", "montage", "hero", "bullet")) {
+        if (com.aicodemax.data.media.ClipSpeed.preset(name) == curve) return name
+    }
+    return "custom"
+}
+
+private fun selectedCurveIndex(clip: Clip): Int {
+    val name = selectedCurveName(clip)
+    if (name == "none" || name == "custom") return 0
+    return listOf("easein", "easeout", "montage", "hero", "bullet").indexOf(name) + 1
 }

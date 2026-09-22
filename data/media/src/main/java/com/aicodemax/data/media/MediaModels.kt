@@ -72,6 +72,129 @@ data class ClipTransform(
     }.joinToString(" ")
 }
 
+/** CP-75 speed point: output permille (0..1000) → relative rate (25..400). */
+@Serializable
+data class SpeedPoint(
+    val at: Int,
+    val rate: Int,
+)
+
+/**
+ * CP-75 clip speed (§13): constant rate + reverse + ramp curve.
+ * Output duration = source × 100/rate; the curve shapes pacing WITHIN that
+ * duration (normalized), so ops math stays exact. No frame interpolation
+ * (nearest sampling) and no optical flow — stated honestly in the descriptor.
+ */
+@Serializable
+data class ClipSpeed(
+    val rate: Int = 100,
+    val reverse: Boolean = false,
+    val curve: List<SpeedPoint> = emptyList(),
+) {
+    val isIdentity: Boolean get() = rate == 100 && !reverse && curve.isEmpty()
+
+    fun validate(): List<String> {
+        val errors = mutableListOf<String>()
+        if (rate !in 25..400) errors.add("ความเร็วต้องอยู่ 25..400% (ได้ $rate)")
+        if (curve.isNotEmpty()) {
+            if (curve.size !in 2..8) errors.add("curve ต้องมี 2..8 จุด")
+            if (curve.zipWithNext().any { (a, b) -> b.at <= a.at }) {
+                errors.add("จุด curve ต้องเรียงเวลา strictly")
+            }
+            curve.firstOrNull()?.let { if (it.at != 0) errors.add("curve ต้องเริ่มที่ 0") }
+            curve.lastOrNull()?.let { if (it.at != 1000) errors.add("curve ต้องจบที่ 1000") }
+            if (curve.any { it.rate !in 25..400 }) errors.add("rate ใน curve ต้องอยู่ 25..400")
+            if (reverse) errors.add("ย้อนกลับใช้กับ curve ไม่ได้ (v0)")
+        }
+        return errors
+    }
+
+    /** Output length for [srcLen] source ms. */
+    fun outputDuration(srcLen: Long): Long =
+        if (srcLen <= 0) 0 else (srcLen * 100 / rate).coerceAtLeast(1)
+
+    /** Interpolated relative rate (25..400) at output permille [f]. */
+    fun curveRateAt(f: Int): Double {
+        if (curve.isEmpty()) return rate.toDouble()
+        val x = f.coerceIn(0, 1000)
+        val pts = curve
+        for (i in 0 until pts.size - 1) {
+            val a = pts[i]
+            val b = pts[i + 1]
+            if (x in a.at..b.at) {
+                if (b.at == a.at) return b.rate.toDouble()
+                val t = (x - a.at).toDouble() / (b.at - a.at)
+                return a.rate + (b.rate - a.rate) * t
+            }
+        }
+        return pts.last().rate.toDouble()
+    }
+
+    /**
+     * Normalized profile: source-ms consumed per output-ms, averaged over
+     * 1001 taps so the curve keeps the constant-rate total duration.
+     */
+    fun profile(): DoubleArray {
+        val table = DoubleArray(1001) { curveRateAt(it) }
+        if (curve.isEmpty()) return DoubleArray(1001) { rate / 100.0 }
+        val avg = table.average().coerceAtLeast(1.0)
+        val norm = rate / avg
+        return DoubleArray(1001) { table[it] * norm / 100.0 }
+    }
+
+    /** Source offset (0..srcLen) for output offset [outMs]. */
+    fun outputToSource(outMs: Long, srcLen: Long): Long {
+        if (curve.isEmpty()) return (outMs * rate / 100).coerceIn(0, srcLen)
+        val out = outputDuration(srcLen)
+        if (out <= 0) return 0
+        val clamped = outMs.coerceIn(0, out)
+        // Exact endpoints (numeric integration only shapes the interior).
+        if (clamped <= 0) return 0
+        if (clamped >= out) return srcLen
+        val prof = profile()
+        val upto = ((clamped * 1000) / out).toInt().coerceIn(0, 1000)
+        var acc = 0.0
+        for (i in 0 until upto) acc += prof[i]
+        return (acc * out / 1000).toLong().coerceIn(0, srcLen)
+    }
+
+    /** Output offset for source offset [srcMs] (inverse walk). */
+    fun sourceToOutput(srcMs: Long, srcLen: Long): Long {
+        if (curve.isEmpty()) return (srcMs * 100 / rate).coerceAtLeast(0)
+        val out = outputDuration(srcLen)
+        val target = srcMs.coerceIn(0, srcLen)
+        var lo = 0L
+        var hi = out
+        while (lo < hi) {
+            val mid = (lo + hi) / 2
+            if (outputToSource(mid, srcLen) < target) lo = mid + 1 else hi = mid
+        }
+        return lo
+    }
+
+    fun summary(): String = buildList {
+        if (rate != 100) add((rate / 100.0).toString().trimEnd('0').trimEnd('.') + "x")
+        if (reverse) add("REV")
+        if (curve.isNotEmpty()) add("~curve")
+    }.joinToString(" ")
+
+    companion object {
+        /** Named ramp presets (§13 curves). */
+        fun preset(name: String): List<SpeedPoint> = when (name.lowercase()) {
+            "linear" -> listOf(SpeedPoint(0, 100), SpeedPoint(1000, 100))
+            "easein" -> listOf(SpeedPoint(0, 40), SpeedPoint(500, 80), SpeedPoint(1000, 160))
+            "easeout" -> listOf(SpeedPoint(0, 160), SpeedPoint(500, 80), SpeedPoint(1000, 40))
+            "easeinout" -> listOf(SpeedPoint(0, 50), SpeedPoint(500, 140), SpeedPoint(1000, 50))
+            "montage" -> listOf(SpeedPoint(0, 60), SpeedPoint(300, 180), SpeedPoint(600, 70), SpeedPoint(1000, 160))
+            "hero" -> listOf(SpeedPoint(0, 35), SpeedPoint(700, 60), SpeedPoint(1000, 250))
+            "bullet" -> listOf(SpeedPoint(0, 250), SpeedPoint(400, 120), SpeedPoint(1000, 45))
+            else -> emptyList()
+        }
+
+        fun presetNames(): List<String> = listOf("linear", "easein", "easeout", "easeinout", "montage", "hero", "bullet")
+    }
+}
+
 /** One placed piece of an asset on a track. Times in ms. */
 @Serializable
 data class Clip(
@@ -86,8 +209,23 @@ data class Clip(
     val volume: Int = 100,
     /** Visual transform (null = identity). */
     val transform: ClipTransform? = null,
+    /** Playback speed (null = identity). */
+    val speed: ClipSpeed? = null,
 ) {
     val durationMs: Long get() = endMs - startMs
+
+    /** Timeline-facing length after speed. */
+    fun outputDurationMs(): Long = speed?.outputDuration(durationMs) ?: durationMs
+
+    /** Source offset for an output offset (0..output). */
+    fun outputToSource(outMs: Long): Long =
+        speed?.outputToSource(outMs.coerceIn(0, outputDurationMs()), durationMs)
+            ?: outMs.coerceIn(0, durationMs)
+
+    /** Output offset for a source offset (0..duration). */
+    fun sourceToOutput(srcMs: Long): Long =
+        speed?.sourceToOutput(srcMs.coerceIn(0, durationMs), durationMs)
+            ?: srcMs.coerceIn(0, durationMs)
 }
 
 /** A single lane of clips (V1/A1/...). Overlaps are allowed (top clip wins). */
@@ -182,7 +320,7 @@ data class Timeline(
     val markers: List<TimelineMarker> = emptyList(),
     val texts: List<OverlayText> = emptyList(),
 ) {
-    val durationMs: Long get() = tracks.flatMap { it.clips }.maxOfOrNull { it.atMs + it.durationMs } ?: 0
+    val durationMs: Long get() = tracks.flatMap { it.clips }.maxOfOrNull { it.atMs + it.outputDurationMs() } ?: 0
 
     /** Clips in timeline order (by position, then track). CP-72 chat index = 1-based into this list. */
     fun orderedClips(): List<Pair<Track, Clip>> =
@@ -210,6 +348,7 @@ data class Timeline(
                     errors.add("คลิป ${clip.id} เสียงต้อง 0..100 (ได้ ${clip.volume})")
                 }
                 clip.transform?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
+                clip.speed?.validate()?.forEach { errors.add("คลิป ${clip.id}: $it") }
             }
         }
         for (marker in markers) {

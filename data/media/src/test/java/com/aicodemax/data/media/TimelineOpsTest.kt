@@ -175,4 +175,49 @@ class TimelineOpsTest {
             assertTrue(name, preset.validate().isEmpty())
         }
     }
+
+    @Test
+    fun speedMappingMath() {
+        val fast = ClipSpeed(rate = 200)
+        assertEquals(2000, fast.outputDuration(4000))
+        assertEquals(2000, fast.outputToSource(1000, 4000))
+        assertEquals(1000, fast.sourceToOutput(2000, 4000))
+        val slow = ClipSpeed(rate = 50)
+        assertEquals(8000, slow.outputDuration(4000))
+        assertEquals(0, slow.outputToSource(0, 4000))
+        assertEquals(4000, slow.outputToSource(8000, 4000))
+        // Curve endpoints are exact, midpoint is shaped.
+        val ramp = ClipSpeed(rate = 100, curve = ClipSpeed.preset("easein"))
+        assertEquals(4000, ramp.outputDuration(4000))
+        assertEquals(0, ramp.outputToSource(0, 4000))
+        assertEquals(4000, ramp.outputToSource(4000, 4000))
+        val mid = ramp.outputToSource(2000, 4000)
+        assertTrue("mid=$mid", mid in 1..3999)
+        // Roundtrip through the inverse walk.
+        assertTrue(kotlin.math.abs(ramp.sourceToOutput(mid, 4000) - 2000) <= 2)
+    }
+
+    @Test
+    fun splitRespectsSpeed() {
+        val sped = TimelineOps.speed(timeline(), "c1", ClipSpeed(rate = 200))
+        assertEquals("2x", sped.tracks[0].clips[0].speed!!.summary())
+        // Timeline end is now 1000 + 2000 = 3000; split at 2000 → source cut at 2000.
+        val t = TimelineOps.split(sped, "c1", 2000, "c2")
+        val clips = t.tracks[0].clips.sortedBy { it.atMs }
+        assertEquals(2000, clips[0].endMs)
+        assertEquals(2000, clips[1].startMs)
+        assertEquals(2000, clips[1].atMs)
+        try {
+            TimelineOps.speed(t, "c1", ClipSpeed(rate = 999))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("25..400"))
+        }
+        try {
+            TimelineOps.speed(t, "c1", ClipSpeed(reverse = true, curve = ClipSpeed.preset("hero")))
+            fail("expected IAE")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("curve"))
+        }
+    }
 }

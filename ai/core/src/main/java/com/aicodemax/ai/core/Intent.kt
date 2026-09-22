@@ -66,6 +66,8 @@ enum class IntentType {
     TEXT_ADD,
     TEXT_REMOVE,
     TEXT_IDEA,
+    CLIP_SPEED,
+    CLIP_REVERSE,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -397,6 +399,24 @@ object IntentParser {
             return UserIntent(
                 IntentType.TEXT_IDEA, text,
                 params("kind" to kind, "topic" to topic.ifBlank { null }, "platform" to findPlatform(t)),
+            )
+        }
+        if (containsAny(t, ThaiVocabulary.clipReverseWords)) {
+            return UserIntent(IntentType.CLIP_REVERSE, text, params("clipIndex" to parseClipIndex(t)))
+        }
+        if (containsAny(t, ThaiVocabulary.clipSpeedWords)) {
+            val noClip = t.replace(Regex("คลิป(?:ที่)?\\s*\\d+"), "")
+            val digits = Regex("(\\d+)").find(noClip)?.groupValues?.get(1)?.toIntOrNull()
+            val rate = when {
+                digits != null -> digits
+                t.contains("ช้าลง") -> 50
+                t.contains("เร็วขึ้น") -> 200
+                t.contains("ปกติ") -> 100
+                else -> null
+            }
+            return UserIntent(
+                IntentType.CLIP_SPEED, text,
+                params("clipIndex" to parseClipIndex(t), "rate" to rate?.toString()),
             )
         }
         if (containsAny(t, ThaiVocabulary.projectRenameWords)) {

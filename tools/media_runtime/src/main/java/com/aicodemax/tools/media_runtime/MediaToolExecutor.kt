@@ -5,7 +5,9 @@ import com.aicodemax.core.common.fold
 import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.gateway.ToolExecutor
 import com.aicodemax.tools.gateway.ToolResult
+import com.aicodemax.data.media.ClipSpeed
 import com.aicodemax.data.media.ClipTransform
+import com.aicodemax.data.media.SpeedPoint
 import com.aicodemax.core.common.Ids
 import com.aicodemax.data.media.OverlayText
 import com.aicodemax.tools.media.TextIdeas
@@ -64,7 +66,8 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                             val ordered = timeline.orderedClips()
                             val lines = ordered.mapIndexed { i, (track, clip) ->
                                 "  ${i + 1}. ${track.id}: ${clip.assetId} ${clip.startMs}..${clip.endMs} @${clip.atMs} [${clip.id}]" +
-                                    (clip.transform?.summary()?.ifBlank { null }?.let { " <$it>" } ?: "")
+                                    (clip.transform?.summary()?.ifBlank { null }?.let { " <$it>" } ?: "") +
+                                    (clip.speed?.summary()?.ifBlank { null }?.let { " [$it]" } ?: "")
                             }
                             val flags = timeline.tracks.joinToString(" ") { track ->
                                 buildString {
@@ -398,6 +401,34 @@ class MediaToolExecutor(private val media: MediaProjectPort = InMemoryMediaProje
                     val topic = call.args["topic"] ?: ""
                     val ideas = TextIdeas.ideas(kind, topic, call.args["platform"])
                     done(true, ideas.mapIndexed { i, idea -> "${i + 1}. $idea" }.joinToString("\n"))
+                }
+                "timeline.setSpeed" -> {
+                    val projectId = call.args["projectId"] ?: latestProject()
+                        ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")
+                    val clipId = resolveClip(projectId, call.args)
+                        ?: return@withContext done(false, error = "missing arg: clipId/clipIndex (ดูเลขคลิปจาก timeline.get)")
+                    val timeline = (media.getTimeline(projectId) as? Outcome.Success)?.value
+                        ?: return@withContext done(false, error = "อ่านไทม์ไลน์ไม่ได้")
+                    val base = timeline.findClip(clipId)?.second?.speed ?: ClipSpeed()
+                    val curveRaw = call.args["curve"]
+                    val curve = when {
+                        curveRaw == null -> base.curve
+                        curveRaw == "none" || curveRaw == "off" -> emptyList()
+                        "," in curveRaw -> curveRaw.split(",").mapNotNull { part ->
+                            val kv = part.split(":").map { it.trim().toIntOrNull() ?: return@mapNotNull null }
+                            if (kv.size == 2) SpeedPoint(kv[0], kv[1]) else null
+                        }
+                        else -> ClipSpeed.preset(curveRaw)
+                    }
+                    val next = base.copy(
+                        rate = call.args["rate"]?.toIntOrNull() ?: base.rate,
+                        reverse = parseFlag(call.args["reverse"]) ?: base.reverse,
+                        curve = curve,
+                    )
+                    media.setClipSpeed(projectId, clipId, next, call.actor).fold(
+                        onSuccess = { done(true, "ตั้งความเร็วแล้ว (${next.summary().ifBlank { "ปกติ" }}) (เลิกทำได้: edit.undo)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
                 }
                 "timeline.addMarker" -> {
                     val projectId = call.args["projectId"] ?: latestProject()

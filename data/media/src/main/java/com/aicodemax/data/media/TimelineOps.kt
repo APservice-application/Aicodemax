@@ -11,11 +11,11 @@ object TimelineOps {
             ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
         checkUnlocked(track)
         val start = clip.atMs
-        val end = clip.atMs + clip.durationMs
+        val end = clip.atMs + clip.outputDurationMs()
         if (atTimelineMs <= start || atTimelineMs >= end) {
             throw IllegalArgumentException("จุดแยกต้องอยู่ระหว่าง ${start}..${end}ms")
         }
-        val cut = clip.startMs + (atTimelineMs - start)
+        val cut = clip.startMs + clip.outputToSource(atTimelineMs - start)
         val left = clip.copy(endMs = cut)
         val right = clip.copy(id = newId, startMs = cut, atMs = atTimelineMs)
         return timeline.replaceClips(track.id, track.clips.flatMap { if (it.id == clipId) listOf(left, right) else listOf(it) })
@@ -88,7 +88,7 @@ object TimelineOps {
         val (track, clip) = timeline.findClip(clipId)
             ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
         checkUnlocked(track)
-        val pos = atMs ?: (clip.atMs + clip.durationMs)
+        val pos = atMs ?: (clip.atMs + clip.outputDurationMs())
         if (pos < 0) throw IllegalArgumentException("ตำแหน่งติดลบไม่ได้")
         return timeline.replaceClips(track.id, track.clips + clip.copy(id = newId, atMs = pos))
     }
@@ -158,11 +158,11 @@ object TimelineOps {
             ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
         checkUnlocked(track)
         val start = clip.atMs
-        val end = clip.atMs + clip.durationMs
+        val end = clip.atMs + clip.outputDurationMs()
         if (atTimelineMs < start || atTimelineMs > end) {
             throw IllegalArgumentException("จุดฟรีซต้องอยู่ระหว่าง ${start}..${end}ms")
         }
-        val cut = clip.startMs + (atTimelineMs - start)
+        val cut = clip.startMs + clip.outputToSource(atTimelineMs - start)
         // Edge-exact freezes keep only the non-empty side (no zero-length clips).
         val left = if (atTimelineMs > start) listOf(clip.copy(endMs = cut)) else emptyList()
         val right = if (atTimelineMs < end) {
@@ -209,6 +209,19 @@ object TimelineOps {
             throw IllegalArgumentException("ไม่มีข้อความ $id")
         }
         return timeline.copy(texts = timeline.texts.filter { it.id != id })
+    }
+
+    /** CP-75: replaces the clip's playback speed (§13). Identity clears to null. */
+    fun speed(timeline: Timeline, clipId: String, speed: ClipSpeed): Timeline {
+        val (track, clip) = timeline.findClip(clipId)
+            ?: throw IllegalArgumentException("ไม่มีคลิป $clipId")
+        checkUnlocked(track)
+        val problems = speed.validate()
+        if (problems.isNotEmpty()) {
+            throw IllegalArgumentException(problems.joinToString("; "))
+        }
+        val next = if (speed.isIdentity) null else speed
+        return timeline.replaceClips(track.id, track.clips.map { if (it.id == clipId) clip.copy(speed = next) else it })
     }
 
     private fun checkUnlocked(track: Track) {

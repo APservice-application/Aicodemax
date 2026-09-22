@@ -126,4 +126,25 @@ class MediaToolExecutorTest {
         val removed = run("timeline.removeText", mapOf("projectId" to projectId, "textIndex" to "1"))
         assertTrue(removed.output, removed.ok)
     }
+
+    @Test
+    fun speedFlow(): Unit = runBlocking {
+        val projectId = (media.createProject("sp") as Outcome.Success<com.aicodemax.data.media.Project>).value.id
+        val imported = run("asset.import", mapOf("projectId" to projectId, "path" to "v.mp4"))
+        assertTrue(imported.ok)
+        val assetId = ((media.listAssets(projectId) as Outcome.Success<List<com.aicodemax.data.media.MediaAsset>>).value[0].id)
+        val clip = run(
+            "timeline.addClip",
+            mapOf("projectId" to projectId, "assetId" to assetId, "startMs" to "0", "endMs" to "4000", "atMs" to "0"),
+        )
+        assertTrue(clip.ok)
+        val sped = run("timeline.setSpeed", mapOf("projectId" to projectId, "clipIndex" to "1", "rate" to "200"))
+        assertTrue(sped.output, sped.ok)
+        val listed = run("timeline.get", mapOf("projectId" to projectId))
+        assertTrue(listed.output, listed.ok && listed.output.contains("[2x]"))
+        val ramp = run("timeline.setSpeed", mapOf("projectId" to projectId, "clipIndex" to "1", "rate" to "100", "curve" to "hero"))
+        assertTrue(ramp.output, ramp.ok)
+        val bad = run("timeline.setSpeed", mapOf("projectId" to projectId, "clipIndex" to "1", "rate" to "999"))
+        assertTrue(!bad.ok)
+    }
 }
