@@ -92,7 +92,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: app/src/main/jniLibs/arm64-v8a/libaicode_jni.so
-          key: llama-jni-v0.4.1-ndk-27.0.12077973-${{ hashFiles('app/src/main/cpp/**') }}
+          key: llama-jni-v0.4.1-ndk-27.0.12077973-${{ hashFiles('app/src/main/cpp/**') }}-${{ hashFiles('.github/workflows/android.yml') }}
       - name: Build llama.cpp + JNI arm64 (CP-122/123)
         if: steps.llama-cache.outputs.cache-hit != 'true'
         run: |
