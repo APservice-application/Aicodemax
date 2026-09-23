@@ -18,6 +18,9 @@ class ScoringModelRouter(
 ) : ModelRouter {
     private val usable = setOf(ModelStatus.READY, ModelStatus.LOADED, ModelStatus.AVAILABLE)
 
+    override fun candidates(requirement: ModelRequirement): List<ModelDescriptor> =
+        scoreAll(requirement).mapNotNull { registry.get(it.modelId) }
+
     override fun pick(requirement: ModelRequirement): Outcome<ModelDescriptor> {
         val scored = scoreAll(requirement)
         return scored.firstOrNull()?.let { best -> registry.get(best.modelId)?.let { Outcome.Success(it) } }

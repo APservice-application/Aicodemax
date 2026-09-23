@@ -58,8 +58,8 @@ fun ModelsScreen(services: ServiceLocator) {
     fun refreshModels() {
         models = services.models.all()
         verdict = services.router.pick().fold(
-            onSuccess = { "router เลือก: ${it.name} (${it.status.name})" },
-            onFailure = { it.message },
+            onSuccess = { "router เลือก: ${it.name} (${it.kind.name}/${it.status.name})\n" + services.brainRoute() },
+            onFailure = { it.message + "\n" + services.brainRoute() },
         )
     }
 
@@ -201,7 +201,7 @@ fun ModelsScreen(services: ServiceLocator) {
                             val health = withContext(Dispatchers.IO) { provider.health() }
                             health.fold(
                                 onSuccess = {
-                                    services.setLlm(provider, llmModel.trim())
+                                    services.setLlm(provider, llmModel.trim(), llmUrl.trim())
                                     llmStatus = "เชื่อมต่อแล้ว: $it"
                                 },
                                 onFailure = { llmStatus = "ต่อไม่ได้: ${it.message}" },

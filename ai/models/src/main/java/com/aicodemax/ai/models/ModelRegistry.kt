@@ -56,6 +56,13 @@ class InMemoryModelRegistry : ModelRegistry {
 
 interface ModelRouter {
     fun pick(requirement: ModelRequirement = ModelRequirement()): Outcome<ModelDescriptor>
+
+    /** CP-107: ordered failover candidates, best first (default = single pick). */
+    fun candidates(requirement: ModelRequirement = ModelRequirement()): List<ModelDescriptor> =
+        when (val picked = pick(requirement)) {
+            is Outcome.Success -> listOf(picked.value)
+            is Outcome.Failure -> emptyList()
+        }
 }
 
 /** Picks the first usable model in preference order; fails honestly when none is ready. */
@@ -65,8 +72,8 @@ class FallbackModelRouter(
 ) : ModelRouter {
     private val usable = setOf(ModelStatus.READY, ModelStatus.LOADED, ModelStatus.AVAILABLE)
 
-    override fun pick(requirement: ModelRequirement): Outcome<ModelDescriptor> {
-        val sorted = registry.all()
+    override fun candidates(requirement: ModelRequirement): List<ModelDescriptor> =
+        registry.all()
             .filter { it.status in usable }
             .sortedWith(
                 compareBy<ModelDescriptor> {
@@ -76,7 +83,9 @@ class FallbackModelRouter(
                     if (index < 0) Int.MAX_VALUE else index
                 },
             )
-        return sorted.firstOrNull()?.let { Outcome.Success(it) }
+
+    override fun pick(requirement: ModelRequirement): Outcome<ModelDescriptor> {
+        return candidates(requirement).firstOrNull()?.let { Outcome.Success(it) }
             ?: Outcome.Failure(
                 AppError("MODEL_NONE_READY", "no model is ready (registry holds ${registry.all().size})"),
             )

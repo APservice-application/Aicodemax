@@ -2,6 +2,7 @@ package com.aicodemax.app
 
 import android.content.Context
 import com.aicodemax.ai.agents.LlmBrain
+import com.aicodemax.ai.agents.RoutedChatBrain
 import com.aicodemax.ai.agents.LocalAgentRunner
 import com.aicodemax.ai.core.BootstrapOrchestrator
 import com.aicodemax.ai.core.EditingPlanner
@@ -13,6 +14,9 @@ import com.aicodemax.ai.models.FallbackModelRouter
 import com.aicodemax.ai.models.InMemoryModelRegistry
 import com.aicodemax.ai.models.JavaNetModelDownloader
 import com.aicodemax.ai.models.LlmProvider
+import com.aicodemax.ai.models.ModelDescriptor
+import com.aicodemax.ai.models.ModelKind
+import com.aicodemax.ai.models.ModelStatus
 import com.aicodemax.ai.models.ModelInstaller
 import com.aicodemax.ai.models.ModelRegistry
 import com.aicodemax.ai.models.ModelRouter
@@ -153,10 +157,41 @@ class ServiceLocator(context: Context) {
     @Volatile var llmProvider: LlmProvider? = null
     @Volatile var llmModel: String = "gpt-4o-mini"
 
-    fun setLlm(provider: LlmProvider?, model: String) {
+    /** CP-107: connected endpoints by registry model id (memory-only). */
+    private val connectedProviders = mutableMapOf<String, LlmProvider>()
+
+    /**
+     * CP-107: connecting also registers a router-visible model (local-first
+     * kind comes from the endpoint address; disconnect marks it UNKNOWN).
+     */
+    fun setLlm(provider: LlmProvider?, model: String, baseUrl: String = "") {
         llmProvider = provider
         llmModel = model.ifBlank { "default" }
+        val id = "manual"
+        if (provider == null) {
+            connectedProviders.remove(id)
+            models.get(id)?.let { models.update(it.copy(status = ModelStatus.UNKNOWN)) }
+            return
+        }
+        connectedProviders[id] = provider
+        val host = baseUrl.lowercase()
+        val local = host.contains("localhost") || host.contains("127.0.0.1") ||
+            host.contains("192.168.") || host.contains("10.") ||
+            host.contains(".local") || host.startsWith("http://10.") ||
+            Regex("http://172\.(1[6-9]|2[0-9]|3[01])\.").containsMatchIn(host)
+        val descriptor = ModelDescriptor(
+            id = id,
+            name = llmModel,
+            kind = if (local) ModelKind.LOCAL_FULL else ModelKind.EXTERNAL,
+            provider = provider.id,
+            status = ModelStatus.READY,
+            capabilities = listOf("chat"),
+        )
+        if (models.get(id) == null) models.register(descriptor) else models.update(descriptor)
     }
+
+    /** CP-107: current brain route for the Models screen. */
+    fun brainRoute(): String = routedBrain.routeLine()
 
     private fun llmSystemPrompt(): String {
         val tools = BuiltinSkills.all.firstOrNull { it.meta.id == "aicode-tools" }?.content.orEmpty()
@@ -177,6 +212,8 @@ class ServiceLocator(context: Context) {
     val builds: PipelineBuildEngine = PipelineBuildEngine(emptyList())
     val artifacts: ArtifactStore = ArtifactStore(File(appContext.filesDir, "artifacts"))
     val library: BrowserLibrary = BrowserLibrary(File(appContext.filesDir, "browser"))
+
+    private lateinit var routedBrain: RoutedChatBrain
 
     val orchestrator: Orchestrator
 
@@ -225,12 +262,21 @@ class ServiceLocator(context: Context) {
         capabilities = StandardCapabilities.overRegistry(toolRegistry)
 
         agent = LocalAgentRunner(gateway)
-        val brain = LlmBrain({ llmProvider }, { llmModel }, gateway, llmSystemPrompt())
+        val manualBrain = LlmBrain({ llmProvider }, { llmModel }, gateway, llmSystemPrompt())
+        routedBrain = RoutedChatBrain(
+            router,
+            resolve = { descriptor ->
+                connectedProviders[descriptor.id]?.let { provider ->
+                    LlmBrain({ provider }, { descriptor.name }, gateway, llmSystemPrompt())
+                }
+            },
+            manual = { if (llmProvider == null) null else manualBrain },
+        )
         orchestrator = BootstrapOrchestrator(
             tasks, RuleBasedPlanner(capabilities, EditingPlanner(media, capabilities)), agent, RuleVerifier(), checkpoints, conversations,
             recovery = RecoveryLadderPolicy(),
             questionnaires = InMemoryQuestionnaireStore(),
-            brain = brain,
+            brain = routedBrain,
         )
     }
 
