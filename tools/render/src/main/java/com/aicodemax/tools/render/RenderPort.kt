@@ -23,6 +23,27 @@ interface RenderPort {
     suspend fun retry(jobId: String): Outcome<RenderJob>
     suspend fun approve(jobId: String): Outcome<RenderJob>
     suspend fun export(jobId: String): Outcome<RenderJob>
+    /** CP-102: cache usage (render temps + generated files). */
+    suspend fun cacheStatus(): Outcome<CacheStatus>
+    /** CP-102: deletes render temps + old generated files (keeps finals). */
+    suspend fun cacheClear(olderThanDays: Int = 7): Outcome<CacheCleared>
+}
+
+/** CP-102: cache usage report. */
+data class CacheStatus(
+    val renderOutBytes: Long,
+    val renderFiles: Int,
+    val genBytes: Long,
+    val genFiles: Int,
+) {
+    val totalBytes: Long get() = renderOutBytes + genBytes
+    val summary: String get() =
+        "เรนเดอร์ ${"%.1f".format(renderOutBytes / 1048576.0)}MB ($renderFiles ไฟล์) + สร้างไว้ ${"%.1f".format(genBytes / 1048576.0)}MB ($genFiles ไฟล์)"
+}
+
+/** CP-102: cleanup result. */
+data class CacheCleared(val deletedFiles: Int, val freedBytes: Long) {
+    val summary: String get() = "ลบ $deletedFiles ไฟล์ คืน ${"%.1f".format(freedBytes / 1048576.0)}MB"
 }
 
 /**
@@ -95,6 +116,12 @@ class InMemoryRender : RenderPort {
         if (enqueued is Outcome.Failure) return enqueued
         return run((enqueued as Outcome.Success).value.id)
     }
+
+    override suspend fun cacheStatus(): Outcome<CacheStatus> =
+        Outcome.Success(CacheStatus(0, 0, 0, 0))
+
+    override suspend fun cacheClear(olderThanDays: Int): Outcome<CacheCleared> =
+        Outcome.Success(CacheCleared(0, 0))
 
     override suspend fun run(jobId: String): Outcome<RenderJob> {
         val job = jobs[jobId] ?: return Outcome.Failure(AppError("RENDER_NO_JOB", "ไม่มีงาน $jobId"))

@@ -240,6 +240,17 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp102ProxyCachePlans() = runBlocking {
+        val px = (planner.plan(UserIntent(IntentType.VIDEO_PROXY, "t", mapOf("path" to "v.mp4"))) as Outcome.Success<Plan>).value
+        assertEquals("proxy", px.steps[0].action)
+        assertEquals("video", px.steps[0].toolId)
+        val st = (planner.plan(UserIntent(IntentType.CACHE_STATUS, "t", emptyMap())) as Outcome.Success<Plan>).value
+        assertEquals("cache.status", st.steps[0].action)
+        val cl = (planner.plan(UserIntent(IntentType.CACHE_CLEAR, "t", emptyMap())) as Outcome.Success<Plan>).value
+        assertEquals("cache.clear", cl.steps[0].action)
+    }
+
+    @Test
     fun cp100BrandPackageBatchPlans() = runBlocking {
         val save = (planner.plan(UserIntent(IntentType.BRAND_SAVE, "t", mapOf("name" to "x"))) as Outcome.Success<Plan>).value
         assertEquals("brand.save", save.steps[0].action)

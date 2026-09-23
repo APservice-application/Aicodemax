@@ -69,6 +69,58 @@ class AndroidRenderPort(
     private val queue = FileRenderQueue(mediaRoot)
     private val outDir = File(mediaRoot, "render-out").also { it.mkdirs() }
 
+    override suspend fun cacheStatus(): Outcome<CacheStatus> = withContext(Dispatchers.IO) {
+        fun dirUsage(dir: File): Pair<Long, Int> {
+            var bytes = 0L
+            var count = 0
+            if (dir.isDirectory) {
+                dir.walkTopDown().filter { it.isFile }.forEach {
+                    bytes += it.length()
+                    count++
+                }
+            }
+            return bytes to count
+        }
+        val (renderBytes, renderFiles) = dirUsage(outDir)
+        val (genBytes, genFiles) = dirUsage(File(appContext.filesDir, "gen"))
+        Outcome.Success(CacheStatus(renderBytes, renderFiles, genBytes, genFiles))
+    }
+
+    override suspend fun cacheClear(olderThanDays: Int): Outcome<CacheCleared> = withContext(Dispatchers.IO) {
+        var deleted = 0
+        var freed = 0L
+        fun deleteIf(file: File, ok: Boolean) {
+            if (ok && file.isFile) {
+                val size = file.length()
+                if (file.delete()) {
+                    deleted++
+                    freed += size
+                }
+            }
+        }
+        // Render temps (finals <jobId>.mp4 are kept).
+        if (outDir.isDirectory) {
+            outDir.walkTopDown().filter { it.isFile }.toList().forEach { file ->
+                val name = file.name
+                val temp = name.startsWith("render-v-") || name.startsWith("render-a-") ||
+                    name.startsWith("rev-") || Regex("-pv\\d+\\.jpg$").containsMatchIn(name) ||
+                    name.endsWith(".cut.wav") || name.endsWith(".norm.wav")
+                deleteIf(file, temp)
+            }
+            outDir.walkTopDown().filter { it.isDirectory && it.name.startsWith("rev-") }.toList()
+                .sortedByDescending { it.path.length }.forEach { it.delete() }
+        }
+        // Generated files older than N days.
+        val cutoff = System.currentTimeMillis() - olderThanDays.coerceAtLeast(0) * 86_400_000L
+        val genDir = File(appContext.filesDir, "gen")
+        if (genDir.isDirectory) {
+            genDir.walkTopDown().filter { it.isFile }.toList().forEach { file ->
+                deleteIf(file, file.lastModified() < cutoff)
+            }
+        }
+        Outcome.Success(CacheCleared(deleted, freed))
+    }
+
     override suspend fun enqueue(projectId: String, presetName: String?): Outcome<RenderJob> =
         withContext(Dispatchers.IO) {
             when (media.openProject(projectId)) {

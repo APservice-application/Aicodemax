@@ -43,6 +43,17 @@ class VideoToolExecutorTest {
     }
 
     @Test
+    fun proxyFlow() {
+        val p = port()
+        val r = run(p, "proxy", mapOf("src" to "/tmp/a.mp4", "maxDim" to "640"))
+        assertTrue(r.output.ifBlank { r.error }, r.ok && r.output.contains("พร็อกซี"))
+        val out = p.get("/tmp/a-proxy.mp4")!!
+        assertEquals(640, out.width)
+        assertEquals(360, out.height)
+        assertTrue(!out.hasAudio)
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         val p = port()
         assertTrue(!run(p, "info", emptyMap()).ok)

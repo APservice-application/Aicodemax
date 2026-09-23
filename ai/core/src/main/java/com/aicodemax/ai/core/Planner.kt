@@ -685,6 +685,21 @@ class RuleBasedPlanner(
                 intent.parameters["projectIds"]?.let { args["projectIds"] = it }
                 listOf("render.batch" to args)
             }
+            IntentType.VIDEO_PROXY -> {
+                val src = intent.parameters["path"] ?: intent.parameters["src"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "ทำพร็อกซีจากวิดีโอไหนครับ? เช่น พร็อกซี v.mp4"),
+                    )
+                val args = mutableMapOf("src" to src)
+                intent.parameters["maxDim"]?.let { args["maxDim"] = it }
+                listOf("video.proxy" to args)
+            }
+            IntentType.CACHE_STATUS -> listOf("render.cache.status" to emptyMap())
+            IntentType.CACHE_CLEAR -> {
+                val args = mutableMapOf<String, String>()
+                intent.parameters["days"]?.let { args["days"] = it }
+                listOf("render.cache.clear" to args)
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

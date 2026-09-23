@@ -257,6 +257,16 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp102ProxyCacheIntents() {
+        val px = IntentParser.parse("พร็อกซี v.mp4")
+        assertEquals(IntentType.VIDEO_PROXY, px.type)
+        val st = IntentParser.parse("ดูพื้นที่แคช")
+        assertEquals(IntentType.CACHE_STATUS, st.type)
+        val cl = IntentParser.parse("ล้างแคช")
+        assertEquals(IntentType.CACHE_CLEAR, cl.type)
+    }
+
+    @Test
     fun cp101ThumbnailIntent() {
         val th = IntentParser.parse("ทำปกคลิป v.mp4 เปิดร้าน")
         assertEquals(IntentType.GEN_MAKE, th.type)

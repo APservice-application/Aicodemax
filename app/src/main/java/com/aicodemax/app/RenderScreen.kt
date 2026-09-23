@@ -206,6 +206,34 @@ fun RenderScreen(services: ServiceLocator) {
                 }
             }
         }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                OutlinedButton(onClick = {
+                    runCall {
+                        val call = com.aicodemax.tools.gateway.ToolCall(
+                            com.aicodemax.core.common.Ids.newId("ui"), "render", "cache.status",
+                            emptyMap(), actor = "HUMAN",
+                        )
+                        services.gateway.call(call).fold(
+                            onSuccess = { message = if (it.ok) it.output else it.error },
+                            onFailure = { message = it.message },
+                        )
+                    }
+                }, enabled = !busy) { Text("ดูแคช") }
+                OutlinedButton(onClick = {
+                    runCall {
+                        val call = com.aicodemax.tools.gateway.ToolCall(
+                            com.aicodemax.core.common.Ids.newId("ui"), "render", "cache.clear",
+                            emptyMap(), actor = "HUMAN",
+                        )
+                        services.gateway.call(call).fold(
+                            onSuccess = { message = if (it.ok) it.output else it.error },
+                            onFailure = { message = it.message },
+                        )
+                    }
+                }, enabled = !busy) { Text("ล้างแคช") }
+            }
+        }
         item { Text("งานเรนเดอร์ (${jobs.size})", style = MaterialTheme.typography.titleMedium) }
         items(jobs) { job ->
             Surface(tonalElevation = spacing.xs) {

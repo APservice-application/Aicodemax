@@ -74,6 +74,23 @@ class RenderToolExecutorTest {
     }
 
     @Test
+    fun cacheFlow() = runBlocking {
+        val media = InMemoryMediaProject()
+        (media.createProject("c") as Outcome.Success<com.aicodemax.data.media.Project>)
+        val exec = RenderToolExecutor(InMemoryRender(), media)
+        val st = exec.execute(call("cache.status")).fold(
+            onSuccess = { it },
+            onFailure = { throw AssertionError("cache.status failed") },
+        )
+        assertTrue(st.output, st.ok && st.output.contains("แคช"))
+        val cl = exec.execute(call("cache.clear")).fold(
+            onSuccess = { it },
+            onFailure = { throw AssertionError("cache.clear failed") },
+        )
+        assertTrue(cl.ok)
+    }
+
+    @Test
     fun batchFlow() = runBlocking {
         val media = InMemoryMediaProject()
         val p1 = ((media.createProject("one") as Outcome.Success<com.aicodemax.data.media.Project>).value.id)

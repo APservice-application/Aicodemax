@@ -96,7 +96,20 @@ class RenderToolExecutor(
                     }
                     done(true, "เรนเดอร์ทีละโปรเจกต์ ${ids.size} งาน:\n" + lines.joinToString("\n"))
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: enqueue/runNow/run/status/list/retry/approve/export/batch)")
+                "cache.status" -> {
+                    port.cacheStatus().fold(
+                        onSuccess = { done(true, "แคช: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "cache.clear" -> {
+                    val days = call.args["days"]?.toIntOrNull() ?: 7
+                    port.cacheClear(days).fold(
+                        onSuccess = { done(true, "ล้างแคชแล้ว: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: enqueue/runNow/run/status/list/retry/approve/export/batch/cache.status/cache.clear)")
             }
         }
 

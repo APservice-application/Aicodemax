@@ -58,7 +58,17 @@ class VideoToolExecutor(private val video: VideoPort = InMemoryVideoPort()) : To
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/thumbnail/trim/extractAudio)")
+                "proxy" -> {
+                    val src = call.args["src"] ?: call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: src")
+                    val dst = call.args["dst"] ?: replaceExt(src, "mp4", "proxy")
+                    val maxDim = call.args["maxDim"]?.toIntOrNull() ?: 640
+                    video.proxy(src, dst, maxDim).fold(
+                        onSuccess = { done(true, "พร็อกซีแล้ว ${it.path}: ${it.summary} (ภาพอย่างเดียว ไม่มีเสียง)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/thumbnail/trim/extractAudio/proxy)")
             }
         }
 

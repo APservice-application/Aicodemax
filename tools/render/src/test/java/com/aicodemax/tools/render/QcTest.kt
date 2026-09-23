@@ -23,6 +23,8 @@ class QcTest {
             Outcome.Success(info)
         override suspend fun extractAudio(src: String, dst: String): Outcome<VideoInfo> =
             Outcome.Success(info)
+        override suspend fun proxy(src: String, dst: String, maxDim: Int): Outcome<VideoInfo> =
+            Outcome.Success(info)
     }
 
     @Test

@@ -122,6 +122,9 @@ enum class IntentType {
     BRAND_APPLY,
     PROJECT_PACKAGE,
     RENDER_BATCH,
+    VIDEO_PROXY,
+    CACHE_STATUS,
+    CACHE_CLEAR,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -749,6 +752,13 @@ object IntentParser {
         if (containsAny(t, ThaiVocabulary.batchWords)) {
             val all = t.contains("ทั้งหมด") || t.contains("ทุกโปรเจกต์")
             return UserIntent(IntentType.RENDER_BATCH, text, params("all" to if (all) "true" else null))
+        }
+        if (containsAny(t, ThaiVocabulary.proxyWords)) {
+            return UserIntent(IntentType.VIDEO_PROXY, text, params("path" to file))
+        }
+        if (containsAny(t, ThaiVocabulary.cacheWords)) {
+            val clear = t.contains("ล้าง") || t.contains("ลบ") || t.contains("clear")
+            return UserIntent(if (clear) IntentType.CACHE_CLEAR else IntentType.CACHE_STATUS, text)
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value

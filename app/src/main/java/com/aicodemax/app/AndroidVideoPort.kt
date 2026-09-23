@@ -2,6 +2,7 @@ package com.aicodemax.app
 
 import android.graphics.Bitmap
 import android.media.MediaCodec
+import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
@@ -39,6 +40,269 @@ class AndroidVideoPort : VideoPort {
                 is Outcome.Failure -> retrieverInfo(path, file.length())
             }
         }
+
+    override suspend fun proxy(src: String, dst: String, maxDim: Int): Outcome<VideoInfo> =
+        withContext(Dispatchers.IO) {
+            if (!File(src).isFile) {
+                return@withContext Outcome.Failure(AppError("VIDEO_NO_FILE", "ไม่พบไฟล์ $src"))
+            }
+            if (maxDim < 160) {
+                return@withContext Outcome.Failure(AppError("VIDEO_PROXY", "maxDim ต้อง ≥ 160"))
+            }
+            try {
+                proxyImpl(src, dst, maxDim)
+            } catch (e: Exception) {
+                Outcome.Failure(AppError("VIDEO_PROXY", "ทำพร็อกซีไม่ได้: ${e.message}"))
+            }
+        }
+
+    /**
+     * CP-102: decode → downscale → AVC re-encode (video only; proxies drop
+     * audio by design). Supports planar / semi-planar(NV12) / flexible YUV.
+     */
+    private fun proxyImpl(src: String, dst: String, maxDim: Int): Outcome<VideoInfo> {
+        val extractor = MediaExtractor()
+        extractor.setDataSource(src)
+        val track = (0 until extractor.trackCount).firstOrNull {
+            extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true
+        }
+        if (track == null) {
+            extractor.release()
+            return Outcome.Failure(AppError("VIDEO_PROXY", "ไฟล์นี้ไม่มีแทร็กวิดีโอ"))
+        }
+        extractor.selectTrack(track)
+        val format = extractor.getTrackFormat(track)
+        val w = format.getInteger(MediaFormat.KEY_WIDTH)
+        val h = format.getInteger(MediaFormat.KEY_HEIGHT)
+        val mime = format.getString(MediaFormat.KEY_MIME)!!
+        val longer = maxOf(w, h)
+        val scale = if (longer <= maxDim) 1.0 else maxDim.toDouble() / longer
+        val w2 = ((w * scale).toInt().coerceAtLeast(2)) and 1.inv()
+        val h2 = ((h * scale).toInt().coerceAtLeast(2)) and 1.inv()
+        val decoder = MediaCodec.createDecoderByType(mime)
+        decoder.configure(format, null, null, 0)
+        decoder.start()
+        val fps = if (format.containsKey(MediaFormat.KEY_FRAME_RATE)) {
+            format.getInteger(MediaFormat.KEY_FRAME_RATE).coerceIn(1, 120)
+        } else {
+            30
+        }
+        val encFormat = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, w2, h2)
+        encFormat.setInteger(MediaFormat.KEY_BIT_RATE, 1_200_000)
+        encFormat.setInteger(MediaFormat.KEY_FRAME_RATE, fps)
+        encFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar)
+        encFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        val encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+        encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+        encoder.start()
+        File(dst).parentFile?.mkdirs()
+        val muxer = MediaMuxer(dst, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        var muxTrack = -1
+        var muxStarted = false
+        var decColor = -1
+        var stride = w
+        var sliceH = h
+        val decInfo = MediaCodec.BufferInfo()
+        val encInfo = MediaCodec.BufferInfo()
+        var decInputDone = false
+        var decOutputDone = false
+        var encDone = false
+        var encEosQueued = false
+        var durationUs = 0L
+        try {
+            while (!encDone) {
+                if (!decInputDone) {
+                    val inIdx = decoder.dequeueInputBuffer(10_000)
+                    if (inIdx >= 0) {
+                        val buf = decoder.getInputBuffer(inIdx)!!
+                        val n = extractor.readSampleData(buf, 0)
+                        if (n < 0) {
+                            decoder.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            decInputDone = true
+                        } else {
+                            decoder.queueInputBuffer(inIdx, 0, n, extractor.sampleTime, 0)
+                            extractor.advance()
+                        }
+                    }
+                }
+                val outIdx = decoder.dequeueOutputBuffer(decInfo, 10_000)
+                when {
+                    outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        val f = decoder.outputFormat
+                        decColor = f.getInteger(MediaFormat.KEY_COLOR_FORMAT)
+                        stride = if (f.containsKey("stride")) f.getInteger("stride") else w
+                        sliceH = if (f.containsKey("slice-height")) f.getInteger("slice-height") else h
+                        val ok = decColor == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar ||
+                            decColor == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar ||
+                            decColor == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
+                        if (!ok) {
+                            return Outcome.Failure(AppError("VIDEO_PROXY", "รูปแบบสี decoder ไม่รองรับ ($decColor)"))
+                        }
+                    }
+                    outIdx >= 0 -> {
+                        val buf = decoder.getOutputBuffer(outIdx)
+                        if (buf != null && decInfo.size > 0) {
+                            durationUs = maxOf(durationUs, decInfo.presentationTimeUs)
+                            val i420 = toI420(buf, decColor, stride, sliceH, w, h)
+                            val small = downscaleI420(i420, w, h, w2, h2)
+                            var fed = false
+                            while (!fed) {
+                                val einIdx = encoder.dequeueInputBuffer(10_000)
+                                if (einIdx >= 0) {
+                                    val ebuf = encoder.getInputBuffer(einIdx)!!
+                                    ebuf.clear()
+                                    ebuf.put(small)
+                                    encoder.queueInputBuffer(einIdx, 0, small.size, decInfo.presentationTimeUs, 0)
+                                    fed = true
+                                }
+                            }
+                        }
+                        if (decInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                            decOutputDone = true
+                        }
+                        decoder.releaseOutputBuffer(outIdx, false)
+                    }
+                }
+                if (decOutputDone && !encEosQueued) {
+                    var queued = false
+                    while (!queued) {
+                        val einIdx = encoder.dequeueInputBuffer(10_000)
+                        if (einIdx >= 0) {
+                            encoder.queueInputBuffer(einIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            queued = true
+                            encEosQueued = true
+                        }
+                    }
+                }
+                val eoutIdx = encoder.dequeueOutputBuffer(encInfo, 10_000)
+                when {
+                    eoutIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        muxTrack = muxer.addTrack(encoder.outputFormat)
+                        muxer.start()
+                        muxStarted = true
+                    }
+                    eoutIdx >= 0 -> {
+                        val ebuf = encoder.getOutputBuffer(eoutIdx)
+                        if (ebuf != null && encInfo.size > 0 && encInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0) {
+                            if (!muxStarted) {
+                                muxTrack = muxer.addTrack(encoder.outputFormat)
+                                muxer.start()
+                                muxStarted = true
+                            }
+                            muxer.writeSampleData(muxTrack, ebuf, encInfo)
+                        }
+                        if (encInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                            encDone = true
+                        }
+                        encoder.releaseOutputBuffer(eoutIdx, false)
+                    }
+                }
+            }
+        } finally {
+            try {
+                decoder.stop()
+            } catch (_: Exception) {
+            }
+            try {
+                decoder.release()
+            } catch (_: Exception) {
+            }
+            try {
+                encoder.stop()
+            } catch (_: Exception) {
+            }
+            try {
+                encoder.release()
+            } catch (_: Exception) {
+            }
+            try {
+                extractor.release()
+            } catch (_: Exception) {
+            }
+            try {
+                if (muxStarted) muxer.stop()
+            } catch (_: Exception) {
+            }
+            try {
+                muxer.release()
+            } catch (_: Exception) {
+            }
+        }
+        if (!muxStarted) {
+            return Outcome.Failure(AppError("VIDEO_PROXY", "เข้ารหัสพร็อกซีไม่ได้ (ไม่มีเฟรมออก)"))
+        }
+        return Outcome.Success(VideoInfo(dst, "MP4", durationUs / 1000, w2, h2, hasAudio = false, sizeBytes = File(dst).length()))
+    }
+
+    /** Decoder YUV (planar/NV12/flexible) → I420 at visible [w]x[h]. */
+    private fun toI420(buf: java.nio.ByteBuffer, color: Int, stride: Int, sliceH: Int, w: Int, h: Int): ByteArray {
+        val planar = color == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar
+        val ySize = stride * sliceH
+        val uvSize = (stride / 2) * (sliceH / 2)
+        val out = ByteArray(w * h * 3 / 2)
+        val dup = buf.duplicate()
+        dup.clear()
+        // Y.
+        for (row in 0 until h) {
+            dup.position(row * stride)
+            dup.get(out, row * w, w)
+        }
+        if (planar) {
+            for (row in 0 until h / 2) {
+                dup.position(ySize + row * (stride / 2))
+                dup.get(out, w * h + row * (w / 2), w / 2)
+            }
+            for (row in 0 until h / 2) {
+                dup.position(ySize + uvSize + row * (stride / 2))
+                dup.get(out, w * h + (w * h / 4) + row * (w / 2), w / 2)
+            }
+        } else {
+            // NV12 interleaved UV.
+            val uv = ByteArray((stride / 2) * (sliceH / 2) * 2)
+            for (row in 0 until sliceH / 2) {
+                dup.position(ySize + row * stride)
+                dup.get(uv, row * stride, stride)
+            }
+            for (row in 0 until h / 2) {
+                for (col in 0 until w / 2) {
+                    out[w * h + row * (w / 2) + col] = uv[row * stride + col * 2]
+                    out[w * h + (w * h / 4) + row * (w / 2) + col] = uv[row * stride + col * 2 + 1]
+                }
+            }
+        }
+        return out
+    }
+
+    /** Bilinear-ish I420 downscale (box-sampled Y, nearest UV). */
+    private fun downscaleI420(src: ByteArray, w: Int, h: Int, w2: Int, h2: Int): ByteArray {
+        if (w == w2 && h == h2) return src
+        val out = ByteArray(w2 * h2 * 3 / 2)
+        val xRatio = w.toDouble() / w2
+        val yRatio = h.toDouble() / h2
+        for (y in 0 until h2) {
+            val sy = (y * yRatio).toInt().coerceIn(0, h - 1)
+            for (x in 0 until w2) {
+                out[y * w2 + x] = src[sy * w + (x * xRatio).toInt().coerceIn(0, w - 1)]
+            }
+        }
+        val uw = w / 2
+        val uh = h / 2
+        val uw2 = w2 / 2
+        val uh2 = h2 / 2
+        val uOff = w * h
+        val vOff = w * h + uw * uh
+        val ouOff = w2 * h2
+        val ovOff = w2 * h2 + uw2 * uh2
+        for (y in 0 until uh2) {
+            val sy = (y * uh / uh2).coerceIn(0, uh - 1)
+            for (x in 0 until uw2) {
+                val sx = (x * uw / uw2).coerceIn(0, uw - 1)
+                out[ouOff + y * uw2 + x] = src[uOff + sy * uw + sx]
+                out[ovOff + y * uw2 + x] = src[vOff + sy * uw + sx]
+            }
+        }
+        return out
+    }
 
     override suspend fun thumbnail(src: String, dst: String, timeMs: Long): Outcome<VideoInfo> =
         withContext(Dispatchers.IO) {

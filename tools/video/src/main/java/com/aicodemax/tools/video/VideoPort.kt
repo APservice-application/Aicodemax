@@ -29,6 +29,8 @@ interface VideoPort {
     suspend fun thumbnail(src: String, dst: String, timeMs: Long): Outcome<VideoInfo>
     suspend fun trim(src: String, dst: String, startMs: Long, endMs: Long): Outcome<VideoInfo>
     suspend fun extractAudio(src: String, dst: String): Outcome<VideoInfo>
+    /** CP-102: low-res editing proxy (long side ≤ [maxDim], video only). */
+    suspend fun proxy(src: String, dst: String, maxDim: Int = 640): Outcome<VideoInfo>
 }
 
 /**
@@ -75,6 +77,22 @@ class InMemoryVideoPort : VideoPort {
             return Outcome.Failure(AppError("VIDEO_TRIM", "ช่วงเวลาไม่ถูกต้อง ($startMs..$endMs ms)"))
         }
         val out = clip.copy(path = dst, durationMs = endMs - startMs)
+        store[dst] = out
+        return Outcome.Success(out)
+    }
+
+    override suspend fun proxy(src: String, dst: String, maxDim: Int): Outcome<VideoInfo> {
+        val clip = store[src]
+            ?: return Outcome.Failure(AppError("VIDEO_PROXY", "ไม่พบวิดีโอ $src (fake นี้ต้อง put() ก่อน)"))
+        if (maxDim < 160) return Outcome.Failure(AppError("VIDEO_PROXY", "maxDim ต้อง ≥ 160"))
+        val longer = maxOf(clip.width, clip.height).coerceAtLeast(1)
+        val scale = if (longer <= maxDim) 1.0 else maxDim.toDouble() / longer
+        val out = clip.copy(
+            path = dst,
+            width = (clip.width * scale).toInt().coerceAtLeast(2) and 1.inv(),
+            height = (clip.height * scale).toInt().coerceAtLeast(2) and 1.inv(),
+            hasAudio = false,
+        )
         store[dst] = out
         return Outcome.Success(out)
     }
