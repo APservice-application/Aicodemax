@@ -24,6 +24,7 @@ dependencies {
     api(project(":core:common"))
     api(project(":ai:core"))
     implementation(project(":tools:gateway"))
+    implementation(project(":tools:capability"))
     implementation(project(":ai:tasks"))
     implementation(project(":ai:models"))
     implementation(project(":ai:runtime"))

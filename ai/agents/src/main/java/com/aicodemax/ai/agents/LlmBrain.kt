@@ -26,6 +26,11 @@ class LlmBrain(
     private val gateway: ToolGateway,
     private val systemPrompt: String,
     private val maxSteps: Int = 8,
+    /** CP-131: per-turn candidate-tools section (null = static prompt only). */
+    private val toolsSection: ((String) -> String)? = null,
+    private val bindings: List<com.aicodemax.tools.capability.CapabilityBinding>? = null,
+    private val promptBuilder: ToolPromptBuilder? = null,
+    private val preconditionsMet: (String) -> Boolean = { true },
 ) : ChatBrain {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -33,7 +38,10 @@ class LlmBrain(
         val active = provider()
             ?: return Outcome.Failure(AppError("BRAIN_OFF", "ยังไม่ต่อ LLM (ตั้งค่าที่หน้า Models)"))
         val activeModel = model().ifBlank { "default" }
-        val messages = mutableListOf(LlmMessage("system", systemPrompt))
+        val system = toolsSection?.let { systemPrompt + "\n\n" + it(text) } ?: systemPrompt
+        val messages = mutableListOf(LlmMessage("system", system))
+        // CP-131: self-correction budget per tool call (spec Phase 19).
+        val failCounts = mutableMapOf<String, Int>()
         history.takeLast(10).forEach { messages.add(LlmMessage(it.role, it.content)) }
         messages.add(LlmMessage("user", text))
 
@@ -50,20 +58,49 @@ class LlmBrain(
             }
             messages.add(LlmMessage("assistant", content))
             actions.forEach { action ->
-                val outcome = gateway.call(
-                    ToolCall(Ids.newId("llm"), action.toolId, action.action, action.args, actor = "AI"),
-                )
-                val line = outcome.fold(
-                    onSuccess = {
-                        if (it.ok) "TOOL_RESULT ${action.toolId}.${action.action} OK ${it.output.take(1500)}"
-                        else "TOOL_RESULT ${action.toolId}.${action.action} FAIL ${it.error.take(500)}"
-                    },
-                    onFailure = { "TOOL_RESULT ${action.toolId}.${action.action} ERROR ${it.message.take(500)}" },
-                )
+                val line = executeWithCorrection(text, action, failCounts)
                 messages.add(LlmMessage("user", line))
             }
         }
         return Outcome.Success(stripActionLines(lastContent).trim() + "\n(ถึงขีดจำกัด $maxSteps ขั้นตอน)")
+    }
+
+    /** Validate → call → record. Invalid calls never reach the gateway. */
+    private suspend fun executeWithCorrection(
+        userText: String,
+        action: ParsedAction,
+        failCounts: MutableMap<String, Int>,
+    ): String {
+        val id = "${action.toolId}.${action.action}"
+        val known = bindings
+        if (known != null) {
+            val verdict = com.aicodemax.tools.capability.ToolCallValidator.validate(
+                action.toolId, action.action, action.args, known, preconditionsMet,
+            )
+            if (verdict is com.aicodemax.tools.capability.ToolCallValidator.Result.Invalid) {
+                val attempt = (failCounts[id] ?: 0) + 1
+                failCounts[id] = attempt
+                val feedback = com.aicodemax.tools.capability.ValidationRetry.feedback(verdict, attempt)
+                val extra = if (com.aicodemax.tools.capability.ValidationRetry.shouldRetry(attempt)) ""
+                else " — เลิกใช้ $id แล้วเลือก tool อื่น"
+                return "TOOL_RESULT $id FAIL $feedback$extra"
+            }
+        }
+        val outcome = gateway.call(
+            ToolCall(Ids.newId("llm"), action.toolId, action.action, action.args, actor = "AI"),
+        )
+        return outcome.fold(
+            onSuccess = {
+                if (it.ok) {
+                    failCounts.remove(id)
+                    promptBuilder?.recordSuccess(userText, id, action.args)
+                    "TOOL_RESULT $id OK ${it.output.take(1500)}"
+                } else {
+                    "TOOL_RESULT $id FAIL ${it.error.take(500)}"
+                }
+            },
+            onFailure = { "TOOL_RESULT $id ERROR ${it.message.take(500)}" },
+        )
     }
 
     companion object {

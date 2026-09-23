@@ -251,15 +251,32 @@ class ServiceLocator(context: Context) {
         }
     }
 
+    // CP-131: one shared builder — per-turn candidates + few-shot (never all tools).
+    private val toolPrompts = com.aicodemax.ai.agents.ToolPromptBuilder(
+        bindings = com.aicodemax.tools.capability.StandardCapabilities.bindings(),
+    )
+
     private fun llmSystemPrompt(): String {
-        val tools = BuiltinSkills.all.firstOrNull { it.meta.id == "aicode-tools" }?.content.orEmpty()
         return "You are Aicodemax, a Thai-speaking AI that DOES work with tools. " +
-            "Reply in Thai unless the user writes English.\n\n" + tools + "\n" +
+            "Reply in Thai unless the user writes English.\n\n" +
             "Tool-call format: emit lines `ACTION toolId.action {\"arg\":\"value\"}` " +
             "(one JSON object per line), then STOP and wait for TOOL_RESULT. " +
             "Example: ACTION files.read {\"path\":\"notes.txt\"}. " +
+            "Use ONLY tools listed in ## Candidate tools (or found via debug.tools). " +
             "Never invent tool results. If no tool fits, answer directly."
     }
+
+    private fun makeLlmBrain(provider: () -> LlmProvider?, model: () -> String): LlmBrain =
+        LlmBrain(
+            provider, model, gateway, llmSystemPrompt(),
+            toolsSection = { query -> toolPrompts.section(query) },
+            bindings = com.aicodemax.tools.capability.StandardCapabilities.bindings(),
+            promptBuilder = toolPrompts,
+            preconditionsMet = { precondition ->
+                precondition != "native.ffmpeg" ||
+                    java.io.File(appContext.applicationInfo.nativeLibraryDir, "libffmpeg.so").exists()
+            },
+        )
     val router: ModelRouter = FallbackModelRouter(models)
     val installer: ModelInstaller =
         ModelInstaller(models, JavaNetModelDownloader(), File(appContext.filesDir, "models"))
@@ -366,12 +383,12 @@ class ServiceLocator(context: Context) {
         }
 
         agent = LocalAgentRunner(gateway)
-        val manualBrain = LlmBrain({ llmProvider }, { llmModel }, gateway, llmSystemPrompt())
+        val manualBrain = makeLlmBrain({ llmProvider }, { llmModel })
         routedBrain = RoutedChatBrain(
             router,
             resolve = { descriptor ->
                 connectedProviders[descriptor.id]?.let { provider ->
-                    LlmBrain({ provider }, { descriptor.name }, gateway, llmSystemPrompt())
+                    makeLlmBrain({ provider }, { descriptor.name })
                 }
             },
             manual = { if (llmProvider == null) null else manualBrain },

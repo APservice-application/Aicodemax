@@ -72,6 +72,45 @@ class LlmBrainTest {
     }
 
     @Test
+    fun invalidActionNeverReachesGateway() = runBlocking {
+        // CP-131: pre-validation + self-correction feedback, no gateway call.
+        val gateway = FakeGateway()
+        val bindings = com.aicodemax.tools.capability.StandardCapabilities.bindings()
+        val brain = LlmBrain(
+            { ScriptProvider(listOf("ACTION files.frobnicate {}", "ขอโทษครับ ไม่มีคำสั่งนั้น")) },
+            { "m" }, gateway, "sys", bindings = bindings,
+        )
+        val reply = (brain.reply("ทำอะไรแปลกๆ", emptyList()) as Outcome.Success<String>).value
+        assertTrue(gateway.seen.isEmpty())
+        assertTrue(reply.contains("ขอโทษครับ"))
+    }
+
+    @Test
+    fun successIsRecordedAsFewShot() = runBlocking {
+        val gateway = FakeGateway(mapOf("files.read" to ToolResult(ok = true, output = "data")))
+        val bindings = com.aicodemax.tools.capability.StandardCapabilities.bindings()
+        val builder = ToolPromptBuilder(bindings)
+        val brain = LlmBrain(
+            { ScriptProvider(listOf("ACTION files.read {\"path\":\"a.txt\"}", "เสร็จครับ")) },
+            { "m" }, gateway, "sys", bindings = bindings, promptBuilder = builder,
+        )
+        brain.reply("อ่านไฟล์ a", emptyList())
+        val examples = builder.fewShot.relevant("อ่านไฟล์ a")
+        assertEquals(1, examples.size)
+        assertEquals("files.read", examples.single().capabilityId)
+    }
+
+    @Test
+    fun toolsSectionIsInjectedPerTurn() {
+        val builder = ToolPromptBuilder(com.aicodemax.tools.capability.StandardCapabilities.bindings())
+        val section = builder.section("export วิดีโอให้หน่อย")
+        assertTrue(section.contains("## Candidate tools"))
+        assertTrue(section.contains("media."))
+        val empty = builder.section("และ ใน ให้")
+        assertTrue(empty.contains("debug.tools"))
+    }
+
+    @Test
     fun malformedActionIsTreatedAsText() {
         assertTrue(LlmBrain.parseActions("ACTION nope").isEmpty())
         assertTrue(LlmBrain.parseActions("ACTION files.read {oops").isEmpty())

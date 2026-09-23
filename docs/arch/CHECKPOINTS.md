@@ -168,9 +168,10 @@
 | CP-127 | P9+P18–19 ResourceManager | DONE | adaptive ctx/threads + RAM gate + pressure + Android reader (CI GREEN) |
 | CP-128 | P10–11 local chat + localhost removed | DONE | LocalChatBrain+Fallback wired; installActiveModel; serve/ask/.so deleted (CI GREEN) |
 | CP-129 | P12–13 registry metadata + retrieval | DONE | risk/preconditions/schema + ToolRetriever + debug.tools (CI GREEN) |
-| CP-130 | P14–16 validator + retry + few-shot + GBNF | DONE | ToolCallValidator live in gateway; ValidationRetry; FewShotStore; GbnfExport (CI pending) |
+| CP-130 | P14–16 validator + retry + few-shot + GBNF | DONE | ToolCallValidator live in gateway; ValidationRetry; FewShotStore; GbnfExport (CI GREEN) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)
 - DONE ได้เมื่อผ่าน §59 ครบ 13 ข้อ + ไม่มีงานค้างของ CP นั้น
 - ห้ามทำหลาย CP พร้อมกัน — ทำทีละตัวตาม §57
+| CP-131 | P17–19 agent retrieval + self-correction | DONE | ToolPromptBuilder; LlmBrain validate+record+few-shot (CI pending) |
