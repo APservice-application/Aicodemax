@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.aicodemax.core.state.AutonomyLevel
 import com.aicodemax.core.state.ThemeMode
+import com.aicodemax.core.state.UiMode
 import com.aicodemax.data.settings.SettingsRepository
 import com.aicodemax.ui.designsystem.LocalSpacing
 import kotlinx.coroutines.launch
@@ -38,14 +39,17 @@ fun SettingsRoute(
     val theme by repository.theme.collectAsState(initial = ThemeMode.SYSTEM)
     val autonomy by repository.autonomy.collectAsState(initial = AutonomyLevel.ASK_ALWAYS)
     val model by repository.activeModelId.collectAsState(initial = null)
+    val uiMode by repository.uiMode.collectAsState(initial = UiMode.PRO)
     val scope = rememberCoroutineScope()
     var revokedTick by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
     SettingsScreen(
         theme = theme,
         autonomy = autonomy,
         activeModel = model,
+        uiMode = uiMode,
         onTheme = { scope.launch { repository.setTheme(it) } },
         onAutonomy = { scope.launch { repository.setAutonomy(it) } },
+        onUiMode = { scope.launch { repository.setUiMode(it) } },
         onOpenAbout = onOpenAbout,
         permissionLine = permissionLine,
         denies = denies,
@@ -60,8 +64,10 @@ fun SettingsScreen(
     theme: ThemeMode,
     autonomy: AutonomyLevel,
     activeModel: String?,
+    uiMode: UiMode = UiMode.PRO,
     onTheme: (ThemeMode) -> Unit,
     onAutonomy: (AutonomyLevel) -> Unit,
+    onUiMode: (UiMode) -> Unit = {},
     onOpenAbout: () -> Unit,
     permissionLine: String = "",
     denies: List<String> = emptyList(),
@@ -84,6 +90,17 @@ fun SettingsScreen(
                 },
                 selected = theme == option,
                 onClick = { onTheme(option) },
+            )
+        }
+        Text("โหมดหน้าจอ", style = MaterialTheme.typography.titleMedium)
+        for (option in UiMode.values()) {
+            RadioRow(
+                label = when (option) {
+                    UiMode.SIMPLE -> "ง่าย (มือใหม่ — เมนูหลักเท่านั้น)"
+                    UiMode.PRO -> "โปร (เต็มทุกเมนู)"
+                },
+                selected = uiMode == option,
+                onClick = { onUiMode(option) },
             )
         }
         Text("ความเป็นอิสระของ AI", style = MaterialTheme.typography.titleMedium)

@@ -16,6 +16,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.aicodemax.core.common.fold
+import com.aicodemax.core.state.UiMode
 import com.aicodemax.core.resources.ResourceModes
 import com.aicodemax.ui.designsystem.LocalSpacing
 import kotlinx.coroutines.launch
@@ -116,6 +118,13 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             }
         }
 
+        // CP-117: Simple mode shows essentials only (full list in Pro).
+        val uiMode by services.settings.uiMode.collectAsState(initial = UiMode.PRO)
+        val showPro = uiMode == UiMode.PRO
+        if (!showPro) {
+            Text("โหมดง่าย — เปิดเมนูเต็มได้ที่ ตั้งค่า > โหมดหน้าจอ", style = MaterialTheme.typography.bodySmall)
+        }
+
         StatusCard(title = "AI", line = modelLine, action = "ดู" to { onOpen(Routes.MODELS) })
         StatusCard(
             title = "เครื่องมือ",
@@ -127,31 +136,39 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             line = if (tasks.isEmpty()) "ยังไม่มีงาน" else "กำลังทำ $activeTasks งาน (ทั้งหมด ${tasks.size})",
             action = "ดู" to { onOpen(Routes.TASKS) },
         )
-        StatusCard(
-            title = "เบราว์เซอร์",
-            line = if (browserTabs == 0) "ยังไม่มีแท็บ" else "$browserTabs แท็บ",
-            action = "เปิด" to { onOpen(Routes.BROWSER) },
-        )
+        if (showPro) {
+            StatusCard(
+                title = "เบราว์เซอร์",
+                line = if (browserTabs == 0) "ยังไม่มีแท็บ" else "$browserTabs แท็บ",
+                action = "เปิด" to { onOpen(Routes.BROWSER) },
+            )
+        }
         StatusCard(
             title = "โปรเจกต์",
             line = projectLine(services),
             action = "เปิด" to { onOpen(Routes.PROJECTS) },
         )
-        StatusCard(
-            title = "เรนเดอร์",
-            line = "คิวเรนเดอร์ / QC / อนุมัติ / เอ็กซ์พอร์ต",
-            action = "เปิด" to { onOpen(Routes.RENDER) },
-        )
-        StatusCard(
-            title = "ไทม์ไลน์",
-            line = "คลิป / ครอป-หมุน-พลิก / ฟรีซ / เลิกทำ",
-            action = "เปิด" to { onOpen(Routes.TIMELINE) },
-        )
-        StatusCard(
-            title = "เทมเพลต",
-            line = "เทมเพลตโปรเจกต์ + คลัง asset",
-            action = "เปิด" to { onOpen(Routes.TEMPLATES) },
-        )
+        if (showPro) {
+            StatusCard(
+                title = "เรนเดอร์",
+                line = "คิวเรนเดอร์ / QC / อนุมัติ / เอ็กซ์พอร์ต",
+                action = "เปิด" to { onOpen(Routes.RENDER) },
+            )
+        }
+        if (showPro) {
+            StatusCard(
+                title = "ไทม์ไลน์",
+                line = "คลิป / ครอป-หมุน-พลิก / ฟรีซ / เลิกทำ",
+                action = "เปิด" to { onOpen(Routes.TIMELINE) },
+            )
+        }
+        if (showPro) {
+            StatusCard(
+                title = "เทมเพลต",
+                line = "เทมเพลตโปรเจกต์ + คลัง asset",
+                action = "เปิด" to { onOpen(Routes.TEMPLATES) },
+            )
+        }
         StatusCard(
             title = "สร้างมีเดีย",
             line = "โปสเตอร์ / พื้นหลัง / แต่งรูป / เสียงพูด",
@@ -168,30 +185,45 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             action = "เปิด" to { onOpen(Routes.SUBTITLE) },
         )
         StatusCard(
-            title = "เทอร์มินัล (dev)",
-            line = terminalLine(services),
-            action = "เปิด" to { onOpen(Routes.TERMINAL) },
+            title = "ความจำ",
+            line = "จำ/ทวน + บทเรียนที่ AI เรียนรู้",
+            action = "เปิด" to { onOpen(Routes.MEMORY) },
         )
-        StatusCard(
-            title = "Git",
-            line = "สถานะ / branch / commit ของ workspace",
-            action = "เปิด" to { onOpen(Routes.GIT) },
-        )
-        StatusCard(
-            title = "Build & Test",
-            line = "pipeline / suites / artifacts",
-            action = "เปิด" to { onOpen(Routes.BUILD) },
-        )
-        StatusCard(
-            title = "เอเจนต์",
-            line = agentLine(services),
-            action = "เปิด" to { onOpen(Routes.AGENTS) },
-        )
-        StatusCard(
-            title = "ตรวจสอบ",
-            line = "$auditCount รายการ",
-            action = "ดู" to { onOpen(Routes.AUDIT) },
-        )
+        if (showPro) {
+            StatusCard(
+                title = "เทอร์มินัล (dev)",
+                line = terminalLine(services),
+                action = "เปิด" to { onOpen(Routes.TERMINAL) },
+            )
+        }
+        if (showPro) {
+            StatusCard(
+                title = "Git",
+                line = "สถานะ / branch / commit ของ workspace",
+                action = "เปิด" to { onOpen(Routes.GIT) },
+            )
+        }
+        if (showPro) {
+            StatusCard(
+                title = "Build & Test",
+                line = "pipeline / suites / artifacts",
+                action = "เปิด" to { onOpen(Routes.BUILD) },
+            )
+        }
+        if (showPro) {
+            StatusCard(
+                title = "เอเจนต์",
+                line = agentLine(services),
+                action = "เปิด" to { onOpen(Routes.AGENTS) },
+            )
+        }
+        if (showPro) {
+            StatusCard(
+                title = "ตรวจสอบ",
+                line = "$auditCount รายการ",
+                action = "ดู" to { onOpen(Routes.AUDIT) },
+            )
+        }
         StatusCard(title = "เครื่อง", line = resourceLine, action = null)
     }
 }

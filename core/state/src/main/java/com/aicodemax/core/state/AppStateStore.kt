@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.update
 
 enum class ThemeMode { LIGHT, DARK, SYSTEM }
 enum class AutonomyLevel { ASK_ALWAYS, AUTO_SAFE, AUTO_ALL }
+/** CP-117: Simple (Phase 24) vs Pro (Phase 25) UI density. Default PRO (no behavior change). */
+enum class UiMode { SIMPLE, PRO }
 
 data class AppState(
     val theme: ThemeMode = ThemeMode.SYSTEM,

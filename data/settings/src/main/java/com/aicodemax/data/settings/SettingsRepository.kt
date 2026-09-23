@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.aicodemax.core.state.AutonomyLevel
 import com.aicodemax.core.state.ThemeMode
+import com.aicodemax.core.state.UiMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -18,6 +19,7 @@ class DataStoreSettingsRepository(private val context: Context) : SettingsReposi
         val THEME = stringPreferencesKey("theme")
         val AUTONOMY = stringPreferencesKey("autonomy")
         val MODEL = stringPreferencesKey("active_model")
+        val UIMODE = stringPreferencesKey("ui_mode")
     }
 
     override val theme: Flow<ThemeMode> = context.settingsDataStore.data.map { prefs ->
@@ -33,6 +35,10 @@ class DataStoreSettingsRepository(private val context: Context) : SettingsReposi
         prefs[Keys.MODEL]
     }
 
+    override val uiMode: Flow<UiMode> = context.settingsDataStore.data.map { prefs ->
+        prefs[Keys.UIMODE]?.let { runCatching { UiMode.valueOf(it) }.getOrNull() } ?: UiMode.PRO
+    }
+
     override suspend fun setTheme(theme: ThemeMode) {
         context.settingsDataStore.edit { it[Keys.THEME] = theme.name }
     }
@@ -45,5 +51,9 @@ class DataStoreSettingsRepository(private val context: Context) : SettingsReposi
         context.settingsDataStore.edit {
             if (modelId == null) it.remove(Keys.MODEL) else it[Keys.MODEL] = modelId
         }
+    }
+
+    override suspend fun setUiMode(mode: UiMode) {
+        context.settingsDataStore.edit { it[Keys.UIMODE] = mode.name }
     }
 }
