@@ -166,6 +166,20 @@ class ServiceLocator(context: Context) {
     val aiResources: com.aicodemax.ai.runtime.ResourceManager =
         com.aicodemax.ai.runtime.ResourceManager(AndroidResourceReader(appContext))
 
+    /** CP-128: app-wide background scope (AI init, downloads — never the UI thread). */
+    val appScope: kotlinx.coroutines.CoroutineScope =
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+
+    /** CP-128: local AI lifecycle (JNI runtime + active model + RAM gate). */
+    val aiRuntime: com.aicodemax.ai.runtime.AiRuntimeManager =
+        com.aicodemax.ai.runtime.AiRuntimeManager(
+            appScope,
+            com.aicodemax.ai.runtime.JniAiRuntime(),
+            modelManager,
+            storage.runtime.path,
+            resources = aiResources,
+        )
+
     val workspaceDir: File = storage.workspaces
     val files: FilePort = SandboxFileStore(workspaceDir)
     val editor: EditorPort = FileBackedEditor(files)
@@ -330,25 +344,9 @@ class ServiceLocator(context: Context) {
             }
         }
         gateway.registerExecutor(MediaToolExecutor(media, AndroidTrackingPort(), AndroidColorPort(), AndroidGenPort(appContext.filesDir, voice, cloudGen), androidAudio, nativeLibDir, ffmpegRunner))
-        // CP-120: on-device bootstrap model (filesDir/models) + llama-server control.
-        val llamaProcs = java.util.concurrent.ConcurrentHashMap<Long, Process>()
-        val llamaId = java.util.concurrent.atomic.AtomicLong(0)
+        // CP-128: model files only — inference is in-process JNI (no localhost).
         gateway.registerExecutor(
-            com.aicodemax.tools.debug_runtime.ModelToolExecutor(
-                modelsDir = storage.modelsDefault.path,
-                nativeLibDir = nativeLibDir,
-                proc = object : com.aicodemax.tools.runtime.LlamaServer.ProcCtl {
-                    override fun start(exe: String, args: List<String>): Long {
-                        val id = llamaId.incrementAndGet()
-                        llamaProcs[id] = ProcessBuilder(listOf(exe) + args).redirectErrorStream(true).start()
-                        return id
-                    }
-                    override fun stop(id: Long) {
-                        llamaProcs.remove(id)?.destroy()
-                    }
-                    override fun alive(id: Long): Boolean = llamaProcs[id]?.isAlive == true
-                },
-            ),
+            com.aicodemax.tools.debug_runtime.ModelToolExecutor(modelsDir = storage.modelsDefault.path),
         )
         gateway.registerExecutor(RenderToolExecutor(render, media))
 
@@ -371,9 +369,14 @@ class ServiceLocator(context: Context) {
             tasks, RuleBasedPlanner(capabilities, EditingPlanner(media, capabilities)), agent, RuleVerifier(), checkpoints, conversations,
             recovery = RecoveryLadderPolicy(),
             questionnaires = InMemoryQuestionnaireStore(),
-            brain = routedBrain,
+            brain = com.aicodemax.ai.agents.FallbackChatBrain(
+                com.aicodemax.ai.agents.LocalChatBrain(aiRuntime),
+                routedBrain,
+            ),
             learner = learn,
         )
+        // CP-128: background AI init (§21 — returns immediately, never blocks startup).
+        aiRuntime.initialize()
     }
 
     fun refreshAutonomy(level: AutonomyLevel) {

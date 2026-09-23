@@ -14,16 +14,15 @@ class NativeToolchainTest {
     @Test
     fun resolvePointsIntoNativeLibDir() {
         val paths = NativeToolchain.resolve("/data/app/lib/arm64")
-        assertEquals(3, paths.size)
+        assertEquals(2, paths.size)
         assertEquals(File("/data/app/lib/arm64/libffmpeg.so"), paths["ffmpeg"])
         assertEquals(File("/data/app/lib/arm64/libffprobe.so"), paths["ffprobe"])
-        assertEquals(File("/data/app/lib/arm64/libllama-server.so"), paths["llama-server"])
     }
 
     @Test
     fun missingDirReportsHonestly() {
         val report = NativeToolchain.detect(null) { _, _ -> "x" }
-        assertEquals(3, report.size)
+        assertEquals(2, report.size)
         assertTrue(report.values.all { it.startsWith("missing:") })
     }
 
@@ -31,7 +30,6 @@ class NativeToolchainTest {
     fun missingFilesReportPerTool() {
         val report = NativeToolchain.detect(tmp.root.path) { _, _ -> "x" }
         assertTrue(report["ffmpeg"]!!.startsWith("missing:"))
-        assertTrue(report["llama-server"]!!.startsWith("missing:"))
     }
 
     @Test

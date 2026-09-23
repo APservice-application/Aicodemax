@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":tools:gateway"))
     implementation(project(":ai:tasks"))
     implementation(project(":ai:models"))
+    implementation(project(":ai:runtime"))
     implementation(libs.coroutines.android)
     implementation(libs.serialization.json)
     testImplementation(libs.junit4)

@@ -5,10 +5,9 @@ import com.aicodemax.core.common.Outcome
 /**
  * CP-121 (spec Phase 2): abstraction over the local inference engine.
  *
- * Implementations: [FakeAiRuntime] (tests/UI previews),
- * [InterimLlamaServerRuntime] (CP-120 localhost transport — INTERIM ONLY,
- * violates spec §42.4/42.5 as a main path, removed at CP-128),
- * JniAiRuntime (CP-123, in-process JNI — the real architecture).
+ * Implementations: [FakeAiRuntime] (tests/UI previews) and JniAiRuntime
+ * (CP-123, in-process JNI — the real architecture). The CP-120 localhost
+ * transport was removed at CP-128 per spec §42.4/42.5.
  *
  * All calls are blocking-friendly (implementations run inference on their own
  * threads); callers must never invoke [loadModel]/[generate] on the UI thread.

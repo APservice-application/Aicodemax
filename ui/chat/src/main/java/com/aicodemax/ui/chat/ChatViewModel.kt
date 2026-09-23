@@ -28,6 +28,7 @@ class ChatViewModel(
     private val workingSet: com.aicodemax.core.state.WorkingSetStore? = null,
     private val monitor: com.aicodemax.core.resources.ResourceMonitor? = null,
     private val voice: com.aicodemax.tools.voice.VoicePort? = null,
+    private val onStopAi: (() -> Unit)? = null,
 ) : ViewModel() {
     private var sendJob: kotlinx.coroutines.Job? = null
 
@@ -111,6 +112,10 @@ class ChatViewModel(
         sendJob?.cancel()
         sendJob = null
         stopVoice()
+        try {
+            onStopAi?.invoke()
+        } catch (_: Exception) {
+        }
         val taskId = _state.value.lastTaskId
         if (taskId != null) {
             tasks?.cancel(taskId, "stopped from chat")

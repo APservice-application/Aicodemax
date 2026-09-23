@@ -128,6 +128,31 @@ class AiRuntimeManagerTest {
     }
 
     @Test
+    fun installActiveModelDownloadsThenLoads(): Unit = runBlocking {
+        val scope = CoroutineScope(Dispatchers.Unconfined)
+        try {
+            var progress = 0L
+            val profile = profile("fresh")
+            val models = ModelManager(
+                File(tmp.root, "models/default").path,
+                File(tmp.root, "models/optional").path,
+                downloader = ModelStore.Downloader { _, dest, onProgress ->
+                    dest.writeBytes(ggufBytes())
+                    onProgress(69, 69)
+                },
+                profiles = listOf(profile),
+            )
+            val mgr = AiRuntimeManager(scope, FakeAiRuntime(), models, File(tmp.root, "runtime").path)
+            mgr.installActiveModel { dn, _ -> progress = dn }.join()
+            assertEquals(AiRuntimeState.READY, mgr.state.value)
+            assertEquals(69L, progress)
+            assertEquals("fresh", models.activeId())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun sessionMarkerDetectsCrash(): Unit = runBlocking {
         val dir = File(tmp.root, "runtime").path
         assertTrue(!SessionMarker.begin(dir))

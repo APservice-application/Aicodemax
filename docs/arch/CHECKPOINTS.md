@@ -165,7 +165,8 @@
 | CP-124 | P6+P9 ModelProvider abstraction | DONE | Local/Cloud/Remote/Hybrid + registry + ChatML (CI GREEN) |
 | CP-125 | P7+P23–25 ModelManager + storage | DONE | profiles/license/GGUF-validate + StorageLayout migrate (CI GREEN) |
 | CP-126 | P8+P20–22 AiRuntimeManager | DONE | lifecycle + bg init + session-marker recovery (CI GREEN) |
-| CP-127 | P9+P18–19 ResourceManager | DONE | adaptive ctx/threads + RAM gate + pressure + Android reader (CI pending) |
+| CP-127 | P9+P18–19 ResourceManager | DONE | adaptive ctx/threads + RAM gate + pressure + Android reader (CI GREEN) |
+| CP-128 | P10–11 local chat + localhost removed | DONE | LocalChatBrain+Fallback wired; installActiveModel; serve/ask/.so deleted (CI pending) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)

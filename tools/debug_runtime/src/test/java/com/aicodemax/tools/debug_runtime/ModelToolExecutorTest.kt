@@ -3,7 +3,6 @@ package com.aicodemax.tools.debug_runtime
 import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.gateway.ToolResult
 import com.aicodemax.core.common.Outcome
-import com.aicodemax.tools.runtime.LlamaServer
 import com.aicodemax.tools.runtime.ModelStore
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
@@ -18,7 +17,6 @@ class ModelToolExecutorTest {
     private fun exec(): ModelToolExecutor = ModelToolExecutor(
         modelsDir = tmp.root.path,
         downloader = ModelStore.Downloader { _, _, _ -> throw IllegalStateException("no net in tests") },
-        proc = LlamaServer.ProcCtl { _, _ -> 1 },
     )
 
     private fun run(exec: ModelToolExecutor, action: String, args: Map<String, String> = emptyMap()): ToolResult =
@@ -27,37 +25,23 @@ class ModelToolExecutorTest {
         }
 
     @Test
-    fun statusReportsThreeLines() {
+    fun statusReportsRuntimeAndModel() {
         val res = run(exec(), "status")
         assertTrue(res.ok)
-        assertTrue(res.output.contains("llama-server"))
+        assertTrue(res.output.contains("JNI"))
         assertTrue(res.output.contains("โมเดล"))
-        assertTrue(res.output.contains("เซิร์ฟเวอร์"))
     }
 
     @Test
-    fun askWithoutServeIsHonest() {
-        val res = run(exec(), "ask", mapOf("prompt" to "hi"))
+    fun downloadErrorIsHonest() {
+        val res = run(exec(), "download")
         assertTrue(!res.ok)
-        assertTrue(res.error.contains("model.serve"))
-    }
-
-    @Test
-    fun serveWithoutModelIsHonest() {
-        val res = run(exec(), "serve")
-        assertTrue(!res.ok)
-        assertTrue(res.error.contains("model.download"))
-    }
-
-    @Test
-    fun stopWhenIdleIsOk() {
-        val res = run(exec(), "stop")
-        assertTrue(res.ok)
+        assertTrue(res.error.contains("no net"))
     }
 
     @Test
     fun unknownActionIsHonest() {
-        val res = run(exec(), "fly")
+        val res = run(exec(), "ask")
         assertTrue(!res.ok)
         assertTrue(res.error.contains("unknown action"))
     }

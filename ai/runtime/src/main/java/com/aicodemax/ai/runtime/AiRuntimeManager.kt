@@ -181,6 +181,40 @@ class AiRuntimeManager(
         }
     }
 
+    /**
+     * CP-128 first-run delivery: download the active (or default) model, then
+     * activate and load it. Safe to call from UI (all work in background).
+     */
+    fun installActiveModel(onProgress: (done: Long, total: Long?) -> Unit = { _, _ -> }): Job =
+        scope.launch(Dispatchers.IO) {
+            if (_state.value == AiRuntimeState.GENERATING || _state.value == AiRuntimeState.LOADING_MODEL) return@launch
+            val target = models.active()
+                ?: models.list().firstOrNull { it.pack == ModelPack.DEFAULT }
+            if (target == null) {
+                _error.value = "ไม่มีโมเดลใน catalog"
+                return@launch
+            }
+            _state.value = AiRuntimeState.INITIALIZING
+            _error.value = null
+            when (val res = models.install(target, onProgress)) {
+                is Outcome.Failure -> {
+                    _error.value = res.error.message
+                    _state.value = AiRuntimeState.OFFLINE
+                }
+                is Outcome.Success -> {
+                    models.setActive(target.id)
+                    when (val st = models.status(target)) {
+                        is ModelInstallStatus.Ready -> loadWithResources(st)
+                        is ModelInstallStatus.Missing -> setOff("ติดตั้งแล้วแต่ไม่เจอไฟล์")
+                        is ModelInstallStatus.Invalid -> {
+                            _error.value = st.reason
+                            _state.value = AiRuntimeState.ERROR
+                        }
+                    }
+                }
+            }
+        }
+
     /** Attempt recovery from ERROR: unload + reload the active model. */
     fun recover(): Job = scope.launch(Dispatchers.IO) {
         if (_state.value != AiRuntimeState.ERROR && _state.value != AiRuntimeState.OFFLINE) return@launch

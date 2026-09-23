@@ -4,12 +4,16 @@ import java.io.File
 
 /**
  * CP-118: prebuilt native tools embedded in the APK (ported from the owner's
- * previous app — arm64: ffmpeg + ffprobe + llama-server).
+ * previous app — arm64: ffmpeg + ffprobe).
  *
  * Build-time: CI downloads the .so files from release `archive/oldai-workspace`
  * into app/src/main/jniLibs/arm64-v8a/ (repo stays lean, no binaries in git).
  * Runtime: Android extracts them to nativeLibraryDir (exec bit set via
  * useLegacyPackaging) — this object resolves paths + detects versions.
+ *
+ * CP-128: llama-server was REMOVED (spec §42.4/42.5 bans localhost inference).
+ * AI runs via libaicode_jni.so, which is loadLibrary-loaded (not executed),
+ * so it is not listed here — see AicodeJni.available.
  *
  * Pure JVM (testable): pass [nativeLibDir] + a [runner]; Android wires the real
  * nativeLibraryDir + ProcessRunner. Missing dir/files → honest "missing" lines.
@@ -20,7 +24,6 @@ object NativeToolchain {
     val TOOLS: List<NativeTool> = listOf(
         NativeTool("ffmpeg", "libffmpeg.so", listOf("-version")),
         NativeTool("ffprobe", "libffprobe.so", listOf("-version")),
-        NativeTool("llama-server", "libllama-server.so", listOf("--version")),
     )
 
     /** Resolve expected executable paths (files may legitimately not exist). */

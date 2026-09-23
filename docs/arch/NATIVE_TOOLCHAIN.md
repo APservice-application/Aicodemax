@@ -6,8 +6,10 @@ Prebuilt arm64 tools embedded in the APK (ported from the owner's previous app):
 |---|---|---|
 | ffmpeg | `libffmpeg.so` (20MB) | release `archive/oldai-workspace` asset `libffmpeg-arm64.so` |
 | ffprobe | `libffprobe.so` (20MB) | asset `libffprobe-arm64.so` |
-| llama-server | `libllama-server.so` (13MB) | asset `libllama-server-arm64.so` — INTERIM, removed at CP-128 |
-| llama.cpp | `libllama.so` | **built from source in CI** (CP-122, see below) |
+| AI runtime | `libaicode_jni.so` (~5MB) | llama.cpp v0.4.1 + JNI, **built from source in CI** (CP-122/123) |
+
+(CP-128 removed `libllama-server.so`: spec §42.4/42.5 bans localhost/CLI
+inference — AI now runs in-process via JNI.)
 
 ## llama.cpp from source (CP-122) + JNI bridge (CP-123)
 

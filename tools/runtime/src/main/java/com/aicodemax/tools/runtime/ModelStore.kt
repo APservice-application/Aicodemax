@@ -9,8 +9,8 @@ import java.net.URL
 /**
  * CP-120: on-device bootstrap LLM (Qwen2.5-0.5B Q4_K_M, same as the owner's
  * previous app). The ~400MB .gguf is NEVER in git nor in the APK — the app
- * downloads it once into filesDir/models on user request, then serves it via
- * the embedded llama-server binary ([LlamaServer]).
+ * downloads it once into filesDir/models on user request; inference runs
+ * in-process via JNI (CP-123+; the old llama-server binary was removed).
  *
  * Pure JVM: [Downloader] is injected (HttpURLConnection impl included).
  */

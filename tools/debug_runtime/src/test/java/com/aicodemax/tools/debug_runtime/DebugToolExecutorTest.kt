@@ -49,11 +49,11 @@ class DebugToolExecutorTest {
 
     @Test
     fun nativeReportsToolchainHonestly() = runBlocking {
-        // CP-118: no native dir in unit tests → 3 honest missing lines.
+        // CP-118: no native dir in unit tests → honest missing lines (CP-128: ffmpeg+ffprobe only).
         val result = executor.execute(ToolCall("4", "debug", "native"))
         val value = (result as Outcome.Success<ToolResult>).value
         assertTrue(value.ok)
         assertTrue(value.output.contains("ffmpeg"))
-        assertTrue(value.output.contains("llama-server"))
+        assertTrue(value.output.contains("ffprobe"))
     }
 }
