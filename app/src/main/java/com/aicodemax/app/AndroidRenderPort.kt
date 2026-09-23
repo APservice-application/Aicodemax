@@ -36,6 +36,8 @@ import com.aicodemax.data.media.Project
 import com.aicodemax.data.media.Timeline
 import com.aicodemax.tools.audio.PcmAudio
 import com.aicodemax.tools.media.MediaProjectPort
+import com.aicodemax.tools.render.CacheCleared
+import com.aicodemax.tools.render.CacheStatus
 import com.aicodemax.tools.render.CodecInfo
 import com.aicodemax.tools.render.FileRenderQueue
 import com.aicodemax.tools.render.GpuReport
