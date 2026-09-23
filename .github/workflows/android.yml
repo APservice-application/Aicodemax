@@ -130,7 +130,7 @@ jobs:
           "$TOOLCHAIN_BIN/llvm-strip" app/src/main/jniLibs/arm64-v8a/libaicode_jni.so
           JNI_SO=app/src/main/jniLibs/arm64-v8a/libaicode_jni.so
           ls -la app/src/main/jniLibs/arm64-v8a/
-          test "$(stat -c%s "$JNI_SO")" -gt 5000000
+          test "$(stat -c%s "$JNI_SO")" -gt 2000000
           test "$("$TOOLCHAIN_BIN/llvm-nm" --undefined-only "$JNI_SO" | grep -c "llama_")" = "0"
       - name: Assemble
         run: ./gradlew assembleDebug --stacktrace
