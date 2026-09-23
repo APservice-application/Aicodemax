@@ -19,6 +19,12 @@ class MediaToolExecutorTest {
         }
 
     @Test
+    fun shortcutsHelp() {
+        val r = run("timeline.shortcuts")
+        assertTrue(r.ok && r.output.contains("Ctrl+Z"))
+    }
+
+    @Test
     fun projectLifecycle() {
         val created = run("project.create", mapOf("name" to "demo"))
         assertTrue(created.ok)

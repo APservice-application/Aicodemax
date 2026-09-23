@@ -201,6 +201,7 @@ object ThaiVocabulary {
     val hwWords: List<String> = listOf("จีพียู", "ฮาร์ดแวร์", "ตัวเร่ง", "gpu", "hw", "เอนโค้ดเดอร์")
     val multicamWords: List<String> = listOf("มัลติแคม", "หลายกล้อง", "หลายมุม", "ซิงก์กล้อง", "multicam", "multi-cam")
     val scopesWords: List<String> = listOf("สโคป", "เวฟฟอร์ม", "เวกเตอร์สโคป", "ฮิสโตแกรม", "พาเหรด", "waveform", "vectorscope", "scopes")
+    val shortcutWords: List<String> = listOf("คีย์ลัด", "ปุ่มลัด", "ชอร์ตคัต", "shortcut", "hotkey")
     val aiModeWords: Map<String, String> = mapOf(
         "โฆษณา" to "commercial", "commercial" to "commercial",
         "เล่าเรื่อง" to "story", "สตอรี่" to "story",

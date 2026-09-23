@@ -130,6 +130,7 @@ enum class IntentType {
     MULTICAM_CUT,
     MULTICAM_EDL,
     VIDEO_SCOPES,
+    TIMELINE_SHORTCUTS,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -773,6 +774,9 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.hwWords)) {
             return UserIntent(IntentType.HW_INFO, text)
+        }
+        if (containsAny(t, ThaiVocabulary.shortcutWords)) {
+            return UserIntent(IntentType.TIMELINE_SHORTCUTS, text)
         }
         if (containsAny(t, ThaiVocabulary.scopesWords)) {
             val atMs = Regex("(\\d+)\\s*(?:ms|มิลลิ)").find(t)?.groupValues?.get(1)

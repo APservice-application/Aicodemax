@@ -277,6 +277,8 @@ object StandardCapabilities {
             metadata = meta("media", "แทร็กวัตถุในคลิป", listOf("clipIndex,x?,y?,w?,h?,startMs?,endMs?,stepMs?,target?"), listOf("ok"), listOf("fs.write"), false, "path applied", "fix rect", true, "edit.undo")),
         CapabilityBinding("media.timeline.stabilize", "media", "timeline.stabilize", AdapterKind.NATIVE,
             metadata = meta("media", "กันสั่นคลิป", listOf("clipIndex,startMs?,endMs?,stepMs?,smoothMs?,zoom?"), listOf("ok"), listOf("fs.write"), false, "stab applied", "fix range", true, "edit.undo")),
+        CapabilityBinding("media.timeline.shortcuts", "media", "timeline.shortcuts", AdapterKind.NATIVE,
+            metadata = meta("media", "ดูคีย์ลัดไทม์ไลน์", emptyList(), listOf("help"), emptyList(), false, "help shown", "retry")),
         CapabilityBinding("media.timeline.lut", "media", "timeline.lut", AdapterKind.NATIVE,
             metadata = meta("media", "ใส่ LUT (.cube) ให้คลิป", listOf("clipIndex,path,strength?"), listOf("ok"), listOf("fs.write"), false, "lut shown", "fix .cube", true, "edit.undo")),
         CapabilityBinding("media.timeline.lutClear", "media", "timeline.lutClear", AdapterKind.NATIVE,

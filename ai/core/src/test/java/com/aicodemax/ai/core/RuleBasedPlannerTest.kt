@@ -240,6 +240,13 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp106ShortcutPlan() = runBlocking {
+        val sc = (planner.plan(UserIntent(IntentType.TIMELINE_SHORTCUTS, "t", emptyMap())) as Outcome.Success<Plan>).value
+        assertEquals("timeline.shortcuts", sc.steps[0].action)
+        assertEquals("media", sc.steps[0].toolId)
+    }
+
+    @Test
     fun cp105ScopesPlan() = runBlocking {
         val sc = (planner.plan(UserIntent(IntentType.VIDEO_SCOPES, "t", mapOf("path" to "v.mp4"))) as Outcome.Success<Plan>).value
         assertEquals("scopes", sc.steps[0].action)

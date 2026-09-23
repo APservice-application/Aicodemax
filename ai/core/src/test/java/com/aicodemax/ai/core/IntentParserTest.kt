@@ -257,6 +257,11 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp106ShortcutIntent() {
+        assertEquals(IntentType.TIMELINE_SHORTCUTS, IntentParser.parse("มีคีย์ลัดอะไรบ้าง").type)
+    }
+
+    @Test
     fun cp105ScopesIntents() {
         val v = IntentParser.parse("ดูสโคป v.mp4")
         assertEquals(IntentType.VIDEO_SCOPES, v.type)

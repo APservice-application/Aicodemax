@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
@@ -24,7 +25,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import com.aicodemax.core.common.fold
+import com.aicodemax.data.media.TimelineShortcut
+import com.aicodemax.data.media.TimelineShortcuts
 import com.aicodemax.data.media.Clip
 import com.aicodemax.data.media.ClipTransform
 import com.aicodemax.data.media.Project
@@ -113,6 +128,50 @@ fun TimelineScreen(services: ServiceLocator) {
         runCall { projectId -> block(projectId, clip.id) }
     }
 
+    val ordered = timeline?.orderedClips().orEmpty()
+
+    fun stepSelection(dir: Int) {
+        val ids = ordered.map { it.second.id }
+        if (ids.isEmpty()) return
+        val cur = ids.indexOf(selectedId)
+        selectedId = if (cur < 0) ids[0] else ids[(cur + dir + ids.size) % ids.size]
+    }
+
+    // CP-106 expert keyboard shortcuts + TalkBack announcements via [message].
+    fun handleShortcut(code: TimelineShortcut): Boolean {
+        when (code) {
+            TimelineShortcut.UNDO -> runCall { projectId ->
+                services.media.undo(projectId, "HUMAN").fold(
+                    onSuccess = { message = it },
+                    onFailure = { message = it.message },
+                )
+            }
+            TimelineShortcut.REDO -> runCall { projectId ->
+                services.media.redo(projectId, "HUMAN").fold(
+                    onSuccess = { message = it },
+                    onFailure = { message = it.message },
+                )
+            }
+            TimelineShortcut.NEXT_CLIP -> stepSelection(1)
+            TimelineShortcut.PREV_CLIP -> stepSelection(-1)
+            TimelineShortcut.DELETE_CLIP -> keyCall { projectId, clipId ->
+                services.media.deleteClip(projectId, clipId, "HUMAN").fold(
+                    onSuccess = { selectedId = null },
+                    onFailure = { message = it.message },
+                )
+            }
+        }
+        return true
+    }
+
+    val shortcutFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        try {
+            shortcutFocus.requestFocus()
+        } catch (_: Exception) {
+        }
+    }
+
     fun adjustClip(mutate: (ClipTransform) -> ClipTransform) {
         val clip = selectedClip()?.second ?: return
         val next = mutate(clip.transform ?: ClipTransform())
@@ -125,7 +184,18 @@ fun TimelineScreen(services: ServiceLocator) {
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(spacing.md),
+        modifier = Modifier.fillMaxSize().padding(spacing.md)
+            .focusRequester(shortcutFocus).focusable()
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) {
+                    false
+                } else {
+                    val code = TimelineShortcuts.resolve(
+                        event.key.keyCode.toInt(), event.isCtrlPressed, event.isShiftPressed,
+                    ) ?: return@onKeyEvent false
+                    handleShortcut(code)
+                }
+            },
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         item {
@@ -149,7 +219,7 @@ fun TimelineScreen(services: ServiceLocator) {
                                     }
                                 },
                                 enabled = !busy,
-                            ) { Text("เลิกทำ ($undoCount)") }
+                            ) { Text("เลิกทำ Ctrl+Z ($undoCount)") }
                             OutlinedButton(
                                 onClick = {
                                     runCall { projectId ->
@@ -160,19 +230,34 @@ fun TimelineScreen(services: ServiceLocator) {
                                     }
                                 },
                                 enabled = !busy,
-                            ) { Text("ทำซ้ำ") }
+                            ) { Text("ทำซ้ำ Ctrl+Y") }
                         }
                     }
-                    message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    Text(
+                        TimelineShortcuts.help,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    message?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                        )
+                    }
                 }
             }
         }
-        val ordered = timeline?.orderedClips().orEmpty()
         item { Text("คลิป (${ordered.size})", style = MaterialTheme.typography.titleMedium) }
         itemsIndexed(ordered) { index, (track, clip) ->
+            val clipSelected = clip.id == selectedId
             Surface(
                 tonalElevation = spacing.xs,
                 onClick = { selectedId = clip.id },
+                modifier = Modifier.semantics {
+                    contentDescription =
+                        "คลิปที่ ${index + 1} แทร็ก ${track.id} ${clip.startMs} ถึง ${clip.endMs} มิลลิวินาที" +
+                            if (clipSelected) " เลือกแล้ว" else ""
+                },
             ) {
                 Column(modifier = Modifier.padding(spacing.md).fillMaxWidth()) {
                     Text(

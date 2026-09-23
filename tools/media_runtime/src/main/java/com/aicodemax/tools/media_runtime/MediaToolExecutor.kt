@@ -618,6 +618,9 @@ class MediaToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "timeline.shortcuts" -> {
+                    done(true, com.aicodemax.data.media.TimelineShortcuts.help)
+                }
                 "timeline.lutClear" -> {
                     val projectId = call.args["projectId"] ?: latestProject()
                         ?: return@withContext done(false, error = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ใหม่ก่อนครับ")

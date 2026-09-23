@@ -701,6 +701,7 @@ class RuleBasedPlanner(
                 listOf("render.cache.clear" to args)
             }
             IntentType.HW_INFO -> listOf("render.hwinfo" to emptyMap())
+            IntentType.TIMELINE_SHORTCUTS -> listOf("media.timeline.shortcuts" to emptyMap())
             IntentType.VIDEO_SCOPES -> {
                 val path = intent.parameters["path"] ?: intent.parameters["src"]
                     ?: return Outcome.Failure(
