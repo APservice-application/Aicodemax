@@ -10,6 +10,8 @@ import android.media.MediaMuxer
 import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
 import com.aicodemax.tools.audio.Beats
+import com.aicodemax.tools.image.ScopesReport
+import com.aicodemax.tools.image.VideoScopes
 import com.aicodemax.tools.video.Mp4Probe
 import com.aicodemax.tools.video.MulticamGroup
 import com.aicodemax.tools.video.MulticamSync
@@ -43,6 +45,43 @@ class AndroidVideoPort : VideoPort {
                     ),
                 )
                 is Outcome.Failure -> retrieverInfo(path, file.length())
+            }
+        }
+
+    override suspend fun scopes(path: String, atMs: Long): Outcome<ScopesReport> =
+        withContext(Dispatchers.IO) {
+            if (!File(path).isFile) {
+                return@withContext Outcome.Failure(AppError("VIDEO_NO_FILE", "ไม่พบไฟล์ $path"))
+            }
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(path)
+                val wantUs = if (atMs < 0) {
+                    val durMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                    (durMs / 2).coerceAtLeast(0) * 1000
+                } else {
+                    atMs.coerceAtLeast(0) * 1000
+                }
+                val frame = retriever.getFrameAtTime(wantUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                    ?: return@withContext Outcome.Failure(
+                        AppError("VIDEO_SCOPES", "จับเฟรมที่ ${wantUs / 1000} ms ไม่ได้ (ไฟล์อาจเสีย)"),
+                    )
+                try {
+                    val w = frame.width
+                    val h = frame.height
+                    val pixels = IntArray(w * h)
+                    frame.getPixels(pixels, 0, w, 0, 0, w, h)
+                    Outcome.Success(VideoScopes.report(pixels, w, h))
+                } finally {
+                    frame.recycle()
+                }
+            } catch (e: Exception) {
+                Outcome.Failure(AppError("VIDEO_SCOPES", "วิเคราะห์สโคปไม่ได้: ${e.message}"))
+            } finally {
+                try {
+                    retriever.release()
+                } catch (_: Exception) {
+                }
             }
         }
 

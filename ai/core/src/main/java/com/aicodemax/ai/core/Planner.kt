@@ -701,6 +701,15 @@ class RuleBasedPlanner(
                 listOf("render.cache.clear" to args)
             }
             IntentType.HW_INFO -> listOf("render.hwinfo" to emptyMap())
+            IntentType.VIDEO_SCOPES -> {
+                val path = intent.parameters["path"] ?: intent.parameters["src"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "ดูสโคปวิดีโอไหนครับ? เช่น ดูสโคป v.mp4"),
+                    )
+                val args = mutableMapOf("path" to path)
+                intent.parameters["atMs"]?.let { args["atMs"] = it }
+                listOf("video.scopes" to args)
+            }
             IntentType.MULTICAM_SYNC -> {
                 val paths = intent.parameters["paths"] ?: intent.parameters["path"]
                     ?: return Outcome.Failure(

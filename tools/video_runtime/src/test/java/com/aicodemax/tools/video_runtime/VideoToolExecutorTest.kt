@@ -43,6 +43,15 @@ class VideoToolExecutorTest {
     }
 
     @Test
+    fun scopesFlow() {
+        val p = port()
+        p.putFrame("/tmp/a.mp4", IntArray(64) { (0xFF shl 24) or (100 shl 16) or (120 shl 8) or 140 }, 8, 8)
+        val r = run(p, "scopes", mapOf("path" to "/tmp/a.mp4"))
+        assertTrue(r.output.ifBlank { r.error }, r.ok && r.output.contains("เวฟฟอร์ม"))
+        assertTrue(!run(p, "scopes", mapOf("path" to "/tmp/silent.mp4")).ok)
+    }
+
+    @Test
     fun multicamFlow() {
         val p = port()
         p.put("/tmp/b.mp4", VideoInfo("/tmp/b.mp4", "MP4", 30000, 1280, 720, hasAudio = true))

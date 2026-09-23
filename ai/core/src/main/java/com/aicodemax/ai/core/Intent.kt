@@ -129,6 +129,7 @@ enum class IntentType {
     MULTICAM_SYNC,
     MULTICAM_CUT,
     MULTICAM_EDL,
+    VIDEO_SCOPES,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -609,6 +610,12 @@ object IntentParser {
             )
         }
         if (containsAny(t, ThaiVocabulary.imageScopesWords)) {
+            // CP-105: video files route to video scopes (waveform/vectorscope/parade).
+            val ext = file?.substringAfterLast('.', "")?.lowercase()
+            if (ext in setOf("mp4", "mov", "mkv", "webm", "3gp", "m4v", "avi", "ts")) {
+                val atMs = Regex("(\\d+)\\s*(?:ms|มิลลิ)").find(t)?.groupValues?.get(1)
+                return UserIntent(IntentType.VIDEO_SCOPES, text, params("path" to file, "atMs" to atMs))
+            }
             return UserIntent(IntentType.IMAGE_SCOPES, text, params("path" to file))
         }
         if (containsAny(t, ThaiVocabulary.genListWords)) {
@@ -766,6 +773,10 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.hwWords)) {
             return UserIntent(IntentType.HW_INFO, text)
+        }
+        if (containsAny(t, ThaiVocabulary.scopesWords)) {
+            val atMs = Regex("(\\d+)\\s*(?:ms|มิลลิ)").find(t)?.groupValues?.get(1)
+            return UserIntent(IntentType.VIDEO_SCOPES, text, params("path" to file, "atMs" to atMs))
         }
         if (containsAny(t, ThaiVocabulary.multicamWords)) {
             val files = fileNamePattern.findAll(t).map { it.value }.toList()

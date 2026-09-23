@@ -1019,6 +1019,28 @@ fun TimelineScreen(services: ServiceLocator) {
                                 }
                             }
                         }, enabled = !busy) { Text("ซิงก์มัลติแคม") }
+                        OutlinedButton(onClick = {
+                            keyCall { projectId, clipId ->
+                                val clip = selectedClip()?.second ?: return@keyCall
+                                val asset = services.media.assetPath(projectId, clip.assetId).fold(
+                                    onSuccess = { it },
+                                    onFailure = { null },
+                                )
+                                if (asset == null) {
+                                    message = "หาไฟล์คลิปที่เลือกไม่เจอ"
+                                } else {
+                                    val mid = (clip.startMs + clip.endMs) / 2
+                                    val call = com.aicodemax.tools.gateway.ToolCall(
+                                        com.aicodemax.core.common.Ids.newId("ui"), "video", "scopes",
+                                        mapOf("path" to asset, "atMs" to mid.toString()), actor = "HUMAN",
+                                    )
+                                    services.gateway.call(call).fold(
+                                        onSuccess = { message = if (it.ok) it.output else it.error },
+                                        onFailure = { message = it.message },
+                                    )
+                                }
+                            }
+                        }, enabled = !busy) { Text("สโคปคลิปที่เลือก") }
                     }
                     Text("ตัดมุม/รายการตัด สั่งในแชทได้ เช่น ตัดมัลติแคม mc_1 ที่ 5000 มุม 2")
                     message?.let { Text(it) }

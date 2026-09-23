@@ -38,6 +38,8 @@ class QcTest {
             Outcome.Failure(com.aicodemax.core.common.AppError("NO", "no"))
         override suspend fun multicamEdl(groupId: String): Outcome<String> =
             Outcome.Failure(com.aicodemax.core.common.AppError("NO", "no"))
+        override suspend fun scopes(path: String, atMs: Long): Outcome<com.aicodemax.tools.image.ScopesReport> =
+            Outcome.Failure(com.aicodemax.core.common.AppError("NO", "no"))
     }
 
     @Test

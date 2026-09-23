@@ -180,6 +180,8 @@ object StandardCapabilities {
             metadata = meta("video", "ตัดมุมมัลติแคม", listOf("group", "atMs", "angle"), listOf("group"), emptyList(), false, "cut added", "retry")),
         CapabilityBinding("video.multicam.edl", "video", "multicam.edl", AdapterKind.NATIVE,
             metadata = meta("video", "ออกรายการตัดมัลติแคม", listOf("group"), listOf("edl"), emptyList(), false, "edl ready", "retry")),
+        CapabilityBinding("video.scopes", "video", "scopes", AdapterKind.NATIVE,
+            metadata = meta("video", "ดูสโคปวิดีโอ", listOf("path", "atMs?"), listOf("scopes"), listOf("fs.read"), false, "scopes shown", "retry")),
         // Media projects (native, file stores).
         CapabilityBinding("media.project.create", "media", "project.create", AdapterKind.NATIVE,
             metadata = meta("media", "สร้างโปรเจกต์ใหม่", listOf("name?"), listOf("project"), emptyList(), false, "id listed", "retry", true, "edit.undo")),

@@ -98,7 +98,16 @@ class VideoToolExecutor(private val video: VideoPort = InMemoryVideoPort()) : To
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/thumbnail/trim/extractAudio/proxy/multicam.sync/multicam.cut/multicam.edl)")
+                "scopes" -> {
+                    val path = call.args["path"] ?: call.args["src"]
+                        ?: return@withContext done(false, error = "missing arg: path")
+                    val atMs = call.args["atMs"]?.toLongOrNull() ?: -1
+                    video.scopes(path, atMs).fold(
+                        onSuccess = { done(true, "สโคป $path:\n" + it.fullText()) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/thumbnail/trim/extractAudio/proxy/multicam.sync/multicam.cut/multicam.edl/scopes)")
             }
         }
 

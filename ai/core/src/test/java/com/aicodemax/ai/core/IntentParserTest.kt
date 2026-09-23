@@ -257,6 +257,18 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp105ScopesIntents() {
+        val v = IntentParser.parse("ดูสโคป v.mp4")
+        assertEquals(IntentType.VIDEO_SCOPES, v.type)
+        assertEquals("v.mp4", v.parameters["path"])
+        val w = IntentParser.parse("ดูเวฟฟอร์ม v.mp4 ที่ 2000ms")
+        assertEquals(IntentType.VIDEO_SCOPES, w.type)
+        assertEquals("2000", w.parameters["atMs"])
+        val img = IntentParser.parse("ดูสโคป beach.jpg")
+        assertEquals(IntentType.IMAGE_SCOPES, img.type)
+    }
+
+    @Test
     fun cp104MulticamIntents() {
         val sync = IntentParser.parse("ซิงก์มัลติแคม a.mp4 b.mp4")
         assertEquals(IntentType.MULTICAM_SYNC, sync.type)

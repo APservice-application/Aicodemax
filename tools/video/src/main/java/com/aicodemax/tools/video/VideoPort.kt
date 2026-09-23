@@ -2,6 +2,8 @@ package com.aicodemax.tools.video
 
 import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
+import com.aicodemax.tools.image.ScopesReport
+import com.aicodemax.tools.image.VideoScopes
 
 /** Result of a video operation. */
 data class VideoInfo(
@@ -37,6 +39,8 @@ interface VideoPort {
     suspend fun multicamCut(groupId: String, atMs: Long, angle: Int): Outcome<MulticamGroup>
     /** CP-104: cut list (EDL) for the group. */
     suspend fun multicamEdl(groupId: String): Outcome<String>
+    /** CP-105: waveform/vectorscope/parade for one frame ([atMs] < 0 = middle). */
+    suspend fun scopes(path: String, atMs: Long = -1): Outcome<ScopesReport>
 }
 
 /**
@@ -47,6 +51,12 @@ class InMemoryVideoPort : VideoPort {
     private val store = mutableMapOf<String, VideoInfo>()
     private val groups = mutableMapOf<String, MulticamGroup>()
     private var groupSeq = 0
+    private val frames = mutableMapOf<String, Triple<IntArray, Int, Int>>()
+
+    /** Test hook: registers decoded pixels for [scopes]. */
+    fun putFrame(path: String, pixels: IntArray, w: Int, h: Int) {
+        frames[path] = Triple(pixels, w, h)
+    }
 
     fun put(path: String, info: VideoInfo) {
         store[path] = info
@@ -136,6 +146,12 @@ class InMemoryVideoPort : VideoPort {
         val group = groups[groupId]
             ?: return Outcome.Failure(AppError("VIDEO_MULTICAM", "ไม่พบกลุ่ม $groupId"))
         return Outcome.Success(group.edl())
+    }
+
+    override suspend fun scopes(path: String, atMs: Long): Outcome<ScopesReport> {
+        val frame = frames[path]
+            ?: return Outcome.Failure(AppError("VIDEO_SCOPES", "ไม่มีเฟรมของ $path (fake นี้ต้อง putFrame() ก่อน)"))
+        return Outcome.Success(VideoScopes.report(frame.first, frame.second, frame.third))
     }
 
     override suspend fun extractAudio(src: String, dst: String): Outcome<VideoInfo> {
