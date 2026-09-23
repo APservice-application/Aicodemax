@@ -123,6 +123,7 @@ class RuleBasedPlanner(
                 }
                 listOf("debug.analyze" to mapOf("error" to error))
             }
+            IntentType.DEBUG_BENCH -> listOf("debug.bench" to emptyMap())
             IntentType.MEMORY_SAVE -> {
                 val key = intent.parameters["key"]?.trim().orEmpty()
                 val value = intent.parameters["value"]?.trim().orEmpty()

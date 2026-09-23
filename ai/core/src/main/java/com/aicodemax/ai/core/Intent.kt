@@ -21,6 +21,7 @@ enum class IntentType {
     BROWSER_CLOSE,
     BROWSER_LIST,
     DEBUG_CODE,
+    DEBUG_BENCH,
     MEDIA_EDIT,
     SHARE_MEDIA,
     OPEN_SETTINGS,
@@ -1009,6 +1010,9 @@ object IntentParser {
                 IntentType.AUDIO_FADE, text,
                 params("path" to file, "inMs" to nums.getOrNull(0), "outMs" to nums.getOrNull(1)),
             )
+        }
+        if (containsAny(t, ThaiVocabulary.benchWords)) {
+            return UserIntent(IntentType.DEBUG_BENCH, text)
         }
         if (containsAny(t, ThaiVocabulary.debugWords)) {
             val error = t.substringAfter(":", t).trim()

@@ -37,6 +37,8 @@ fun BuildScreen(services: ServiceLocator) {
     var testLine by remember { mutableStateOf("(ยังไม่เคยรัน)") }
     var artifacts by remember { mutableStateOf<List<Artifact>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
+    var benchLine by remember { mutableStateOf("(ยังไม่เคยวัด)") }
+    var benchBusy by remember { mutableStateOf(false) }
 
     fun activeProjectId(): String? =
         services.projects.getActive().fold(
@@ -76,6 +78,20 @@ fun BuildScreen(services: ServiceLocator) {
                     )
                 }
             }) { Text("รัน test") }
+            TextButton(onClick = {
+                scope.launch {
+                    benchBusy = true
+                    val call = com.aicodemax.tools.gateway.ToolCall(
+                        com.aicodemax.core.common.Ids.newId("ui"), "debug", "bench",
+                        mapOf("quick" to "true"), actor = "HUMAN",
+                    )
+                    services.gateway.call(call).fold(
+                        onSuccess = { benchLine = if (it.ok) it.output else it.error },
+                        onFailure = { benchLine = it.message },
+                    )
+                    benchBusy = false
+                }
+            }, enabled = !benchBusy) { Text("วัดความเร็ว") }
         }
         if (error != null) {
             Text(error!!, color = MaterialTheme.colorScheme.error)
@@ -89,6 +105,7 @@ fun BuildScreen(services: ServiceLocator) {
             )
         }
         Text("ผล test: $testLine", style = MaterialTheme.typography.bodyMedium)
+        Text("เบนช์มาร์ก: $benchLine", style = MaterialTheme.typography.bodyMedium)
         Text("Artifacts (โปรเจกต์ที่เลือก):", style = MaterialTheme.typography.labelSmall)
         LazyColumn(
             modifier = Modifier.weight(1f),

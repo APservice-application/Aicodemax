@@ -32,7 +32,12 @@ class DebugToolExecutor(private val debug: DebugSession = DebugSession()) : Tool
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: analyze)")
+                "bench" -> {
+                    val quick = call.args["quick"]?.lowercase() != "false"
+                    val results = com.aicodemax.tools.debug.PerfBench.suite(quick)
+                    done(true, com.aicodemax.tools.debug.PerfBench.format(results))
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: analyze/bench)")
             }
         }
 

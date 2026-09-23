@@ -240,6 +240,13 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp109BenchPlan() = runBlocking {
+        val b = (planner.plan(UserIntent(IntentType.DEBUG_BENCH, "t", emptyMap())) as Outcome.Success<Plan>).value
+        assertEquals("bench", b.steps[0].action)
+        assertEquals("debug", b.steps[0].toolId)
+    }
+
+    @Test
     fun cp106ShortcutPlan() = runBlocking {
         val sc = (planner.plan(UserIntent(IntentType.TIMELINE_SHORTCUTS, "t", emptyMap())) as Outcome.Success<Plan>).value
         assertEquals("timeline.shortcuts", sc.steps[0].action)

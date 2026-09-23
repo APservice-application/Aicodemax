@@ -25,6 +25,13 @@ class DebugToolExecutorTest {
     }
 
     @Test
+    fun benchReports() = runBlocking {
+        val result = executor.execute(ToolCall("9", "debug", "bench", mapOf("quick" to "true")))
+        val value = (result as Outcome.Success<ToolResult>).value
+        assertTrue(value.output.ifBlank { value.error }, value.ok && value.output.contains("เบนช์มาร์ก"))
+    }
+
+    @Test
     fun missingArgIsHonest() = runBlocking {
         val result = executor.execute(ToolCall("2", "debug", "analyze"))
         val value = (result as Outcome.Success<ToolResult>).value

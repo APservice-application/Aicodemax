@@ -257,6 +257,11 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp109BenchIntent() {
+        assertEquals(IntentType.DEBUG_BENCH, IntentParser.parse("วัดความเร็วเครื่องหน่อย").type)
+    }
+
+    @Test
     fun cp106ShortcutIntent() {
         assertEquals(IntentType.TIMELINE_SHORTCUTS, IntentParser.parse("มีคีย์ลัดอะไรบ้าง").type)
     }

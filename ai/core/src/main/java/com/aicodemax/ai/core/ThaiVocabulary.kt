@@ -75,6 +75,7 @@ object ThaiVocabulary {
 
     /** Debug verbs. */
     val debugWords: List<String> = listOf("แก้บั๊ก", "แก้ bug", "ดีบั๊ก")
+    val benchWords: List<String> = listOf("เบนช์มาร์ก", "วัดความเร็ว", "ทดสอบความเร็ว", "benchmark", "bench")
 
     /** Search verbs. */
     val searchWords: List<String> = listOf("ค้นหา")

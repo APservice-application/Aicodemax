@@ -227,6 +227,7 @@ class AndroidRenderPort(
                 progress(5)
                 val outPath = File(outDir, "${job.id}.mp4").path
                 val notes = mutableListOf<String>()
+                val wallT0 = System.currentTimeMillis()
                 var exposure: FrameScopes? = null
                 if (plan.fast) {
                     val seg = plan.segments[0]
@@ -246,6 +247,11 @@ class AndroidRenderPort(
                         notes += "สโคป: ${exposure.summary()}"
                     }
                 }
+                // CP-109: honest wall-time + realtime factor.
+                val wallSec = (System.currentTimeMillis() - wallT0).coerceAtLeast(1) / 1000.0
+                val outSec = plan.timeline.durationMs.coerceAtLeast(1) / 1000.0
+                val frames = (plan.timeline.durationMs * 30 / 1000).coerceAtLeast(1)
+                notes += "ใช้เวลา %.1f วินาที วิดีโอ %.1f วินาที (≈%d เฟรม, %.2f× realtime)".format(wallSec, outSec, frames, outSec / wallSec)
                 val report = Qc.check(
                     plan.timeline.durationMs, plan.wantAudio, outPath,
                     job.preset.maxHeight, video, exposure,
