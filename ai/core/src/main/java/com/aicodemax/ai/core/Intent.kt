@@ -126,6 +126,9 @@ enum class IntentType {
     CACHE_STATUS,
     CACHE_CLEAR,
     HW_INFO,
+    MULTICAM_SYNC,
+    MULTICAM_CUT,
+    MULTICAM_EDL,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -763,6 +766,26 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.hwWords)) {
             return UserIntent(IntentType.HW_INFO, text)
+        }
+        if (containsAny(t, ThaiVocabulary.multicamWords)) {
+            val files = fileNamePattern.findAll(t).map { it.value }.toList()
+            val group = Regex("mc_[\\w-]+").find(t)?.value
+            if (t.contains("edl") || t.contains("รายการตัด")) {
+                return UserIntent(IntentType.MULTICAM_EDL, text, params("group" to group))
+            }
+            if (t.contains("ตัด") || t.contains("มุม")) {
+                val angle = Regex("มุม\\s*(\\d+)").find(t)?.groupValues?.get(1)
+                val noGroup = if (group == null) t else t.replace(group, " ")
+                val atMs = Regex("(\\d+)\\s*(?:ms|มิลลิ)").find(noGroup)?.groupValues?.get(1)
+                    ?: Regex("(\\d+)\\s*วินาที").find(noGroup)?.groupValues?.get(1)?.let { (it.toLongOrNull() ?: 0L) * 1000L }?.toString()
+                    ?: digitsPattern.findAll(noGroup).map { it.value }.filter { it != angle }.mapNotNull { it.toLongOrNull() }.maxOrNull()?.toString()
+                return UserIntent(IntentType.MULTICAM_CUT, text, params("group" to group, "atMs" to atMs, "angle" to angle))
+            }
+            val method = if (t.contains("manual") || t.contains("มือ")) "manual" else null
+            return UserIntent(
+                IntentType.MULTICAM_SYNC, text,
+                params("paths" to files.joinToString(",").ifEmpty { null }, "method" to method),
+            )
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value

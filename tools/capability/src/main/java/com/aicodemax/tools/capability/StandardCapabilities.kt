@@ -174,6 +174,12 @@ object StandardCapabilities {
             metadata = meta("video", "ดึงแทร็กเสียงจากวิดีโอ", listOf("src"), listOf("dst"), listOf("fs.write"), false, "audio track out", "retry")),
         CapabilityBinding("video.proxy", "video", "proxy", AdapterKind.NATIVE,
             metadata = meta("video", "ทำไฟล์พร็อกซีตัดต่อ", listOf("src,maxDim?,dst?"), listOf("dst"), listOf("fs.write"), false, "proxy ready", "fix file")),
+        CapabilityBinding("video.multicam.sync", "video", "multicam.sync", AdapterKind.NATIVE,
+            metadata = meta("video", "ซิงก์มัลติแคม", listOf("paths", "method?"), listOf("group"), listOf("fs.read"), false, "synced", "retry")),
+        CapabilityBinding("video.multicam.cut", "video", "multicam.cut", AdapterKind.NATIVE,
+            metadata = meta("video", "ตัดมุมมัลติแคม", listOf("group", "atMs", "angle"), listOf("group"), emptyList(), false, "cut added", "retry")),
+        CapabilityBinding("video.multicam.edl", "video", "multicam.edl", AdapterKind.NATIVE,
+            metadata = meta("video", "ออกรายการตัดมัลติแคม", listOf("group"), listOf("edl"), emptyList(), false, "edl ready", "retry")),
         // Media projects (native, file stores).
         CapabilityBinding("media.project.create", "media", "project.create", AdapterKind.NATIVE,
             metadata = meta("media", "สร้างโปรเจกต์ใหม่", listOf("name?"), listOf("project"), emptyList(), false, "id listed", "retry", true, "edit.undo")),

@@ -25,6 +25,19 @@ class QcTest {
             Outcome.Success(info)
         override suspend fun proxy(src: String, dst: String, maxDim: Int): Outcome<VideoInfo> =
             Outcome.Success(info)
+        override suspend fun multicamSync(
+            paths: List<String>,
+            method: String,
+        ): Outcome<com.aicodemax.tools.video.MulticamGroup> =
+            Outcome.Failure(com.aicodemax.core.common.AppError("NO", "no"))
+        override suspend fun multicamCut(
+            groupId: String,
+            atMs: Long,
+            angle: Int,
+        ): Outcome<com.aicodemax.tools.video.MulticamGroup> =
+            Outcome.Failure(com.aicodemax.core.common.AppError("NO", "no"))
+        override suspend fun multicamEdl(groupId: String): Outcome<String> =
+            Outcome.Failure(com.aicodemax.core.common.AppError("NO", "no"))
     }
 
     @Test

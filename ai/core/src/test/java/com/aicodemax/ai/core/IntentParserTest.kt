@@ -257,6 +257,21 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp104MulticamIntents() {
+        val sync = IntentParser.parse("ซิงก์มัลติแคม a.mp4 b.mp4")
+        assertEquals(IntentType.MULTICAM_SYNC, sync.type)
+        assertEquals("a.mp4,b.mp4", sync.parameters["paths"])
+        val cut = IntentParser.parse("ตัดมัลติแคม mc_1 ที่ 5000 มุม 2")
+        assertEquals(IntentType.MULTICAM_CUT, cut.type)
+        assertEquals("mc_1", cut.parameters["group"])
+        assertEquals("5000", cut.parameters["atMs"])
+        assertEquals("2", cut.parameters["angle"])
+        val edl = IntentParser.parse("ขอดูรายการตัด mc_1 มัลติแคม")
+        assertEquals(IntentType.MULTICAM_EDL, edl.type)
+        assertEquals("mc_1", edl.parameters["group"])
+    }
+
+    @Test
     fun cp103HwIntent() {
         assertEquals(IntentType.HW_INFO, IntentParser.parse("ใช้จีพียูเอนโค้ดได้ไหม").type)
     }

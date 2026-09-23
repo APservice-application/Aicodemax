@@ -31,6 +31,12 @@ interface VideoPort {
     suspend fun extractAudio(src: String, dst: String): Outcome<VideoInfo>
     /** CP-102: low-res editing proxy (long side ≤ [maxDim], video only). */
     suspend fun proxy(src: String, dst: String, maxDim: Int = 640): Outcome<VideoInfo>
+    /** CP-104: group angles + align by audio onsets (method clap|manual). */
+    suspend fun multicamSync(paths: List<String>, method: String = "clap"): Outcome<MulticamGroup>
+    /** CP-104: record an angle cut on the group timeline. */
+    suspend fun multicamCut(groupId: String, atMs: Long, angle: Int): Outcome<MulticamGroup>
+    /** CP-104: cut list (EDL) for the group. */
+    suspend fun multicamEdl(groupId: String): Outcome<String>
 }
 
 /**
@@ -39,6 +45,8 @@ interface VideoPort {
  */
 class InMemoryVideoPort : VideoPort {
     private val store = mutableMapOf<String, VideoInfo>()
+    private val groups = mutableMapOf<String, MulticamGroup>()
+    private var groupSeq = 0
 
     fun put(path: String, info: VideoInfo) {
         store[path] = info
@@ -95,6 +103,39 @@ class InMemoryVideoPort : VideoPort {
         )
         store[dst] = out
         return Outcome.Success(out)
+    }
+
+    override suspend fun multicamSync(paths: List<String>, method: String): Outcome<MulticamGroup> {
+        if (paths.size < 2) {
+            return Outcome.Failure(AppError("VIDEO_MULTICAM", "มัลติแคมต้องมีอย่างน้อย 2 มุม"))
+        }
+        for (p in paths) {
+            if (store[p] == null) {
+                return Outcome.Failure(AppError("VIDEO_MULTICAM", "ไม่พบวิดีโอ $p (fake นี้ต้อง put() ก่อน)"))
+            }
+        }
+        val id = "mc_${++groupSeq}"
+        val group = MulticamGroup(id, paths, List(paths.size) { 0L }, method.ifEmpty { "manual" }, 0.0, 0)
+        groups[id] = group
+        return Outcome.Success(group)
+    }
+
+    override suspend fun multicamCut(groupId: String, atMs: Long, angle: Int): Outcome<MulticamGroup> {
+        val group = groups[groupId]
+            ?: return Outcome.Failure(AppError("VIDEO_MULTICAM", "ไม่พบกลุ่ม $groupId"))
+        if (angle < 1 || angle > group.angles.size) {
+            return Outcome.Failure(AppError("VIDEO_MULTICAM", "มุม $angle เกินจำนวนมุม (${group.angles.size})"))
+        }
+        if (atMs < 0) return Outcome.Failure(AppError("VIDEO_MULTICAM", "เวลา $atMs ms ใช้ไม่ได้"))
+        val next = group.copy(cuts = (group.cuts + MulticamCut(atMs, angle - 1)).sortedBy { it.atMs })
+        groups[groupId] = next
+        return Outcome.Success(next)
+    }
+
+    override suspend fun multicamEdl(groupId: String): Outcome<String> {
+        val group = groups[groupId]
+            ?: return Outcome.Failure(AppError("VIDEO_MULTICAM", "ไม่พบกลุ่ม $groupId"))
+        return Outcome.Success(group.edl())
     }
 
     override suspend fun extractAudio(src: String, dst: String): Outcome<VideoInfo> {

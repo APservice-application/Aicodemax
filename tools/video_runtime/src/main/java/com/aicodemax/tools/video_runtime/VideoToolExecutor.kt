@@ -68,7 +68,37 @@ class VideoToolExecutor(private val video: VideoPort = InMemoryVideoPort()) : To
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/thumbnail/trim/extractAudio/proxy)")
+                "multicam.sync" -> {
+                    val raw = call.args["paths"] ?: call.args["srcs"]
+                        ?: return@withContext done(false, error = "missing arg: paths (คั่นด้วย ,)")
+                    val paths = raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                    val method = call.args["method"] ?: "clap"
+                    video.multicamSync(paths, method).fold(
+                        onSuccess = { done(true, it.summary()) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "multicam.cut" -> {
+                    val group = call.args["group"] ?: call.args["groupId"]
+                        ?: return@withContext done(false, error = "missing arg: group")
+                    val atMs = call.args["atMs"]?.toLongOrNull()
+                        ?: return@withContext done(false, error = "missing arg: atMs")
+                    val angle = call.args["angle"]?.toIntOrNull()
+                        ?: return@withContext done(false, error = "missing arg: angle")
+                    video.multicamCut(group, atMs, angle).fold(
+                        onSuccess = { done(true, it.summary()) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "multicam.edl" -> {
+                    val group = call.args["group"] ?: call.args["groupId"]
+                        ?: return@withContext done(false, error = "missing arg: group")
+                    video.multicamEdl(group).fold(
+                        onSuccess = { done(true, it) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/thumbnail/trim/extractAudio/proxy/multicam.sync/multicam.cut/multicam.edl)")
             }
         }
 

@@ -240,6 +240,18 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp104MulticamPlans() = runBlocking {
+        val sync = (planner.plan(UserIntent(IntentType.MULTICAM_SYNC, "t", mapOf("paths" to "a.mp4,b.mp4"))) as Outcome.Success<Plan>).value
+        assertEquals("multicam.sync", sync.steps[0].action)
+        assertEquals("video", sync.steps[0].toolId)
+        val cut = (planner.plan(UserIntent(IntentType.MULTICAM_CUT, "t", mapOf("group" to "mc_1", "atMs" to "5000", "angle" to "2"))) as Outcome.Success<Plan>).value
+        assertEquals("multicam.cut", cut.steps[0].action)
+        val edl = (planner.plan(UserIntent(IntentType.MULTICAM_EDL, "t", mapOf("group" to "mc_1"))) as Outcome.Success<Plan>).value
+        assertEquals("multicam.edl", edl.steps[0].action)
+        assertTrue(planner.plan(UserIntent(IntentType.MULTICAM_SYNC, "t", emptyMap())) is Outcome.Failure)
+    }
+
+    @Test
     fun cp103HwPlan() = runBlocking {
         val hw = (planner.plan(UserIntent(IntentType.HW_INFO, "t", emptyMap())) as Outcome.Success<Plan>).value
         assertEquals("hwinfo", hw.steps[0].action)

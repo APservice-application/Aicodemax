@@ -701,6 +701,33 @@ class RuleBasedPlanner(
                 listOf("render.cache.clear" to args)
             }
             IntentType.HW_INFO -> listOf("render.hwinfo" to emptyMap())
+            IntentType.MULTICAM_SYNC -> {
+                val paths = intent.parameters["paths"] ?: intent.parameters["path"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_FILE", "ซิงก์มุมไหนบ้างครับ? เช่น ซิงก์มัลติแคม a.mp4 b.mp4"),
+                    )
+                val args = mutableMapOf("paths" to paths)
+                intent.parameters["method"]?.let { args["method"] = it }
+                listOf("video.multicam.sync" to args)
+            }
+            IntentType.MULTICAM_CUT -> {
+                val group = intent.parameters["group"] ?: intent.parameters["groupId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_GROUP", "ตัดกลุ่มไหนครับ? เช่น ตัดมัลติแคม mc_1 ที่ 5000 มุม 2"),
+                    )
+                val atMs = intent.parameters["atMs"]
+                    ?: return Outcome.Failure(AppError("PLAN_NO_TIME", "ตัดที่เวลาเท่าไหร่ครับ? (ms)"))
+                val angle = intent.parameters["angle"]
+                    ?: return Outcome.Failure(AppError("PLAN_NO_ANGLE", "ตัดไปมุมที่เท่าไหร่ครับ?"))
+                listOf("video.multicam.cut" to mapOf("group" to group, "atMs" to atMs, "angle" to angle))
+            }
+            IntentType.MULTICAM_EDL -> {
+                val group = intent.parameters["group"] ?: intent.parameters["groupId"]
+                    ?: return Outcome.Failure(
+                        AppError("PLAN_NO_GROUP", "ออกรายการตัดกลุ่มไหนครับ? เช่น รายการตัด mc_1"),
+                    )
+                listOf("video.multicam.edl" to mapOf("group" to group))
+            }
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

@@ -43,6 +43,20 @@ class VideoToolExecutorTest {
     }
 
     @Test
+    fun multicamFlow() {
+        val p = port()
+        p.put("/tmp/b.mp4", VideoInfo("/tmp/b.mp4", "MP4", 30000, 1280, 720, hasAudio = true))
+        val synced = run(p, "multicam.sync", mapOf("paths" to "/tmp/a.mp4,/tmp/b.mp4", "method" to "manual"))
+        assertTrue(synced.output.ifBlank { synced.error }, synced.ok && synced.output.contains("mc_1"))
+        val cut = run(p, "multicam.cut", mapOf("group" to "mc_1", "atMs" to "5000", "angle" to "2"))
+        assertTrue(cut.output.ifBlank { cut.error }, cut.ok && cut.output.contains("ตัด 1 จุด"))
+        val edl = run(p, "multicam.edl", mapOf("group" to "mc_1"))
+        assertTrue(edl.ok && edl.output.contains("TITLE: mc_1"))
+        assertTrue(!run(p, "multicam.sync", mapOf("paths" to "/tmp/a.mp4")).ok)
+        assertTrue(!run(p, "multicam.cut", mapOf("group" to "mc_9", "atMs" to "1", "angle" to "1")).ok)
+    }
+
+    @Test
     fun proxyFlow() {
         val p = port()
         val r = run(p, "proxy", mapOf("src" to "/tmp/a.mp4", "maxDim" to "640"))

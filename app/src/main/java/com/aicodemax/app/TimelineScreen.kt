@@ -55,6 +55,7 @@ fun TimelineScreen(services: ServiceLocator) {
     var keyPropIndex by remember { mutableStateOf(0) }
     var keyValue by remember { mutableStateOf(100f) }
     var keyEaseIndex by remember { mutableStateOf(0) }
+    var mcPaths by remember { mutableStateOf("") }
 
     suspend fun refresh() {
         val project = projects.getOrNull(projectIndex) ?: return
@@ -979,6 +980,48 @@ fun TimelineScreen(services: ServiceLocator) {
                             }, enabled = !busy) { Text("ล้างแทร็ก") }
                         }
                     }
+                }
+            }
+        }
+        // CP-104 multicam (§30).
+        item {
+            Surface(tonalElevation = spacing.xs) {
+                Column(modifier = Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    Text("มัลติแคม", style = MaterialTheme.typography.titleMedium)
+                    TextField(
+                        value = mcPaths,
+                        onValueChange = { mcPaths = it },
+                        label = { Text("ไฟล์แต่ละมุม คั่นด้วย ,") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        OutlinedButton(onClick = {
+                            val paths = mcPaths.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                            if (paths.size < 2) {
+                                message = "ใส่อย่างน้อย 2 มุมครับ"
+                            } else {
+                                scope.launch {
+                                    busy = true
+                                    message = null
+                                    try {
+                                        val call = com.aicodemax.tools.gateway.ToolCall(
+                                            com.aicodemax.core.common.Ids.newId("ui"), "video", "multicam.sync",
+                                            mapOf("paths" to paths.joinToString(",")), actor = "HUMAN",
+                                        )
+                                        services.gateway.call(call).fold(
+                                            onSuccess = { message = if (it.ok) it.output else it.error },
+                                            onFailure = { message = it.message },
+                                        )
+                                    } finally {
+                                        busy = false
+                                    }
+                                }
+                            }
+                        }, enabled = !busy) { Text("ซิงก์มัลติแคม") }
+                    }
+                    Text("ตัดมุม/รายการตัด สั่งในแชทได้ เช่น ตัดมัลติแคม mc_1 ที่ 5000 มุม 2")
+                    message?.let { Text(it) }
                 }
             }
         }

@@ -9,7 +9,10 @@ import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
 import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
+import com.aicodemax.tools.audio.Beats
 import com.aicodemax.tools.video.Mp4Probe
+import com.aicodemax.tools.video.MulticamGroup
+import com.aicodemax.tools.video.MulticamSync
 import com.aicodemax.tools.video.VideoInfo
 import com.aicodemax.tools.video.VideoPort
 import java.io.File
@@ -24,6 +27,8 @@ import kotlinx.coroutines.withContext
  * MediaExtractor + MediaMuxer stream-copy (no re-encode — fast, HW-free).
  */
 class AndroidVideoPort : VideoPort {
+    private val multicamGroups = mutableMapOf<String, MulticamGroup>()
+    private var multicamSeq = 0
     override suspend fun info(path: String): Outcome<VideoInfo> =
         withContext(Dispatchers.IO) {
             val file = File(path)
@@ -40,6 +45,57 @@ class AndroidVideoPort : VideoPort {
                 is Outcome.Failure -> retrieverInfo(path, file.length())
             }
         }
+
+    override suspend fun multicamSync(paths: List<String>, method: String): Outcome<MulticamGroup> =
+        withContext(Dispatchers.IO) {
+            if (paths.size < 2) {
+                return@withContext Outcome.Failure(AppError("VIDEO_MULTICAM", "มัลติแคมต้องมีอย่างน้อย 2 มุม"))
+            }
+            for (p in paths) {
+                if (!java.io.File(p).isFile) {
+                    return@withContext Outcome.Failure(AppError("VIDEO_NO_FILE", "ไม่พบไฟล์ $p"))
+                }
+            }
+            val audio = AndroidAudioPort()
+            if (method == "manual") {
+                val id = "mc_${++multicamSeq}"
+                val group = MulticamGroup(id, paths, List(paths.size) { 0L }, "manual", 0.0, 0)
+                multicamGroups[id] = group
+                return@withContext Outcome.Success(group)
+            }
+            val onsetLists = mutableListOf<List<Long>>()
+            for (p in paths) {
+                when (val decoded = audio.decodeToPcm(p)) {
+                    is Outcome.Failure -> return@withContext Outcome.Failure(
+                        AppError("VIDEO_MULTICAM", "ถอดเสียง $p ไม่ได้: ${decoded.error.message}"),
+                    )
+                    is Outcome.Success -> onsetLists.add(Beats.onsets(decoded.value).take(400))
+                }
+            }
+            val synced = MulticamSync.sync(onsetLists)
+            val id = "mc_${++multicamSeq}"
+            val group = MulticamGroup(id, paths, synced.offsetsMs, "clap", synced.confidence, synced.refAngle)
+            multicamGroups[id] = group
+            Outcome.Success(group)
+        }
+
+    override suspend fun multicamCut(groupId: String, atMs: Long, angle: Int): Outcome<MulticamGroup> {
+        val group = multicamGroups[groupId]
+            ?: return Outcome.Failure(AppError("VIDEO_MULTICAM", "ไม่พบกลุ่ม $groupId"))
+        if (angle < 1 || angle > group.angles.size) {
+            return Outcome.Failure(AppError("VIDEO_MULTICAM", "มุม $angle เกินจำนวนมุม (${group.angles.size})"))
+        }
+        if (atMs < 0) return Outcome.Failure(AppError("VIDEO_MULTICAM", "เวลา $atMs ใช้ไม่ได้"))
+        val next = group.copy(cuts = (group.cuts + com.aicodemax.tools.video.MulticamCut(atMs, angle - 1)).sortedBy { it.atMs })
+        multicamGroups[groupId] = next
+        return Outcome.Success(next)
+    }
+
+    override suspend fun multicamEdl(groupId: String): Outcome<String> {
+        val group = multicamGroups[groupId]
+            ?: return Outcome.Failure(AppError("VIDEO_MULTICAM", "ไม่พบกลุ่ม $groupId"))
+        return Outcome.Success(group.edl())
+    }
 
     override suspend fun proxy(src: String, dst: String, maxDim: Int): Outcome<VideoInfo> =
         withContext(Dispatchers.IO) {
