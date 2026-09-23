@@ -19,6 +19,7 @@ include(
     ":core:state",
     ":core:resources",
     ":ai:core",
+    ":ai:runtime",
     ":ai:tasks",
     ":ai:agents",
     ":ai:models",

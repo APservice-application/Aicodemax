@@ -28,7 +28,7 @@ jobs:
           :tools:project:test :tools:tester:test :tools:debug:test
           :tools:github:test :tools:voice:test :tools:image:test :tools:audio:test
           :tools:video:test :tools:media:test :tools:subtitle:test :tools:render:test
-          :ai:tasks:test
+          :ai:tasks:test :ai:runtime:test
           :data:checkpoint:test :data:audit:test :data:memory:test :data:conversations:test
           :data:backup:test :data:skills:test :data:media:test
           --stacktrace

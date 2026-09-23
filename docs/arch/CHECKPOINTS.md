@@ -159,7 +159,7 @@
 | CP-119 | ffmpeg-backed media ops (probe/export) | DONE | Ffmpeg probe/export + media.asset.probe + media.timeline.export (CI GREEN) |
 | CP-120 | On-device model (download + llama-server) | DONE | ModelStore + LlamaServer + model.* gateway (CI GREEN) |
 | AUDIT-AI | Phase 1 audit (embedded-native-ai §0–43) | DONE | EMBEDDED_AI_AUDIT.md + CP-121..132 plan (localhost=interim) |
-| CP-121 | P2 AiRuntime abstraction | NEXT | AiRuntime + Fake + interim server adapter |
+| CP-121 | P2 AiRuntime abstraction | DONE | AiRuntime + FakeAiRuntime + InterimLlamaServerRuntime (CI blocked: PAT) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)
