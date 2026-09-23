@@ -161,7 +161,7 @@ class ServiceLocator(context: Context) {
     /** Live WebView registered by BrowserScreen (null when the screen is closed). */
     var activeWebView: WebView? = null
     /** CP-115: tab state + page automation on the visible WebView. */
-    val browserPage: BrowserPort = AndroidBrowserPort(browser) { activeWebView }
+    val browserPage: BrowserPort = AndroidBrowserPort(browser, view = { activeWebView })
 
     val tasks: TaskEngine = DefaultTaskEngine(bus)
     val models: ModelRegistry = InMemoryModelRegistry()
