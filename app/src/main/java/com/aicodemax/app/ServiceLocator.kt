@@ -298,6 +298,7 @@ class ServiceLocator(context: Context) {
         toolRegistry.register(mediaDescriptorToday())
         toolRegistry.register(renderDescriptorToday())
 
+        val nativeDir = appContext.applicationInfo.nativeLibraryDir
         gateway = DefaultToolGateway(
             toolRegistry,
             AutonomyPermissionGate({ autonomyLevel }, permissionGrants, { call ->
@@ -305,6 +306,16 @@ class ServiceLocator(context: Context) {
             }),
             audit,
             bus,
+            // CP-130: validate AI calls against the capability registry.
+            validateAgainst = com.aicodemax.tools.capability.StandardCapabilities.bindings(),
+            preconditionsMet = { precondition ->
+                when (precondition) {
+                    // Honest check: real .so presence in this APK.
+                    "native.ffmpeg" -> java.io.File(nativeDir, "libffmpeg.so").exists()
+                    // No network monitor yet: do not block, executor fails honestly.
+                    else -> true
+                }
+            },
         )
         gateway.registerExecutor(FilesToolExecutor(files))
         gateway.registerExecutor(EditorToolExecutor(editor))

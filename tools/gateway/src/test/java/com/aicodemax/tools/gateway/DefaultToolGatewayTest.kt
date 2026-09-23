@@ -89,6 +89,42 @@ class DefaultToolGatewayTest {
     }
 
     @Test
+    fun validationRejectsUnknownActionWithSuggestions() = runBlocking {
+        // CP-130: opt-in registry validation.
+        val registry: ToolRegistry = InMemoryToolRegistry()
+        registry.register(descriptor("files", true))
+        val audit: AuditLog = FileAuditLog(tmp.root, FakeClock())
+        val bus = RecordingBus()
+        val gateway: ToolGateway = DefaultToolGateway(
+            registry, AutonomyPermissionGate({ AutonomyLevel.AUTO_ALL }), audit, bus,
+            validateAgainst = com.aicodemax.tools.capability.StandardCapabilities.bindings(),
+        )
+        gateway.registerExecutor(FakeExecutor("files"))
+        val result = gateway.call(ToolCall("c1", "files", "frobnicate"))
+        assertTrue(result is Outcome.Failure)
+        val error = (result as Outcome.Failure).error
+        assertEquals("TOOL_CALL_INVALID", error.code)
+        assertTrue(error.message.contains("read"))
+    }
+
+    @Test
+    fun validationPassesValidCall() = runBlocking {
+        val registry: ToolRegistry = InMemoryToolRegistry()
+        registry.register(descriptor("files", true))
+        val audit: AuditLog = FileAuditLog(tmp.root, FakeClock())
+        val bus = RecordingBus()
+        val gateway: ToolGateway = DefaultToolGateway(
+            registry, AutonomyPermissionGate({ AutonomyLevel.AUTO_ALL }), audit, bus,
+            validateAgainst = com.aicodemax.tools.capability.StandardCapabilities.bindings(),
+        )
+        val exec = FakeExecutor("files")
+        gateway.registerExecutor(exec)
+        val result = gateway.call(ToolCall("c1", "files", "read", mapOf("path" to "a.txt")))
+        assertTrue(result is Outcome.Success)
+        assertEquals(1, exec.calls.size)
+    }
+
+    @Test
     fun unknownToolFails() = runBlocking {
         val (gateway, _, _) = gateway()
         val result = gateway.call(ToolCall("c1", "nope", "run"))

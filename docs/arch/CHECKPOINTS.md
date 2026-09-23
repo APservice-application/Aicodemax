@@ -167,7 +167,8 @@
 | CP-126 | P8+P20–22 AiRuntimeManager | DONE | lifecycle + bg init + session-marker recovery (CI GREEN) |
 | CP-127 | P9+P18–19 ResourceManager | DONE | adaptive ctx/threads + RAM gate + pressure + Android reader (CI GREEN) |
 | CP-128 | P10–11 local chat + localhost removed | DONE | LocalChatBrain+Fallback wired; installActiveModel; serve/ask/.so deleted (CI GREEN) |
-| CP-129 | P12–13 registry metadata + retrieval | DONE | risk/preconditions/schema + ToolRetriever + debug.tools (CI pending) |
+| CP-129 | P12–13 registry metadata + retrieval | DONE | risk/preconditions/schema + ToolRetriever + debug.tools (CI GREEN) |
+| CP-130 | P14–16 validator + retry + few-shot + GBNF | DONE | ToolCallValidator live in gateway; ValidationRetry; FewShotStore; GbnfExport (CI pending) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)

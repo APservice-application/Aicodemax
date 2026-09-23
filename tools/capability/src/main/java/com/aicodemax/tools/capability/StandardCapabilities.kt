@@ -16,6 +16,10 @@ object StandardCapabilities {
         // File engine (native).
         CapabilityBinding("files.read", "files", "read", AdapterKind.NATIVE,
             metadata = meta("files", "อ่านไฟล์ใน workspace", listOf("path"), listOf("content"), emptyList(), false, "canonical-path containment", "re-read")),
+        CapabilityBinding("files.write", "files", "write", AdapterKind.NATIVE,
+            metadata = meta("files", "เขียนไฟล์ใน workspace", listOf("path,content?"), listOf("bytes"), listOf("fs.write"), false, "read-back bytes", "restore backup")),
+        CapabilityBinding("files.exists", "files", "exists", AdapterKind.NATIVE,
+            metadata = meta("files", "ตรวจว่าไฟล์มีอยู่", listOf("path"), listOf("bool"), emptyList(), false, "canonical-path containment", "re-check")),
         CapabilityBinding("files.list", "files", "list", AdapterKind.NATIVE,
             metadata = meta("files", "list ไฟล์ในโฟลเดอร์", listOf("path?"), listOf("entries"), emptyList(), false, "canonical-path containment", "re-list")),
         CapabilityBinding("files.mkdir", "files", "mkdir", AdapterKind.NATIVE,
@@ -35,6 +39,10 @@ object StandardCapabilities {
         CapabilityBinding("files.metadata", "files", "metadata", AdapterKind.NATIVE,
             metadata = meta("files", "ข้อมูลไฟล์", listOf("path"), listOf("size,modified"), emptyList(), false, "stat", "re-stat")),
         // Code engine (native).
+        CapabilityBinding("editor.open", "editor", "open", AdapterKind.NATIVE,
+            metadata = meta("editor", "เปิดไฟล์เข้าบัฟเฟอร์แก้ไข", listOf("path"), listOf("buffer"), emptyList(), false, "file exists", "re-open")),
+        CapabilityBinding("editor.close", "editor", "close", AdapterKind.NATIVE,
+            metadata = meta("editor", "ปิดบัฟเฟอร์แก้ไข", listOf("path"), listOf("ok"), emptyList(), false, "ok", "re-open")),
         CapabilityBinding("editor.set", "editor", "set", AdapterKind.NATIVE,
             metadata = meta("editor", "เปิด/ตั้งค่าบัฟเฟอร์แก้ไข", listOf("path"), listOf("buffer"), emptyList(), false, "file exists", "re-open")),
         CapabilityBinding("editor.save", "editor", "save", AdapterKind.NATIVE,

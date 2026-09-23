@@ -19,12 +19,15 @@ interface ToolGateway {
     suspend fun call(call: ToolCall): Outcome<ToolResult>
 }
 
-/** Registry → permission → executor → audit pipeline (MASTER ARCHITECTURE §202). */
+/** Registry → validate → permission → executor → audit pipeline (MASTER ARCHITECTURE §202 + CP-130). */
 class DefaultToolGateway(
     private val registry: ToolRegistry,
     private val permissionGate: PermissionGate,
     private val audit: AuditLog,
     private val bus: EventBus,
+    /** When set, AI calls are schema+precondition validated before dispatch. */
+    private val validateAgainst: List<com.aicodemax.tools.capability.CapabilityBinding>? = null,
+    private val preconditionsMet: (String) -> Boolean = { true },
 ) : ToolGateway {
     private val executors = mutableMapOf<String, ToolExecutor>()
 
@@ -41,6 +44,22 @@ class DefaultToolGateway(
             return Outcome.Failure(
                 AppError("TOOL_NOT_RUNNABLE", "'${call.toolId}' is not runnable: $reasons"),
             )
+        }
+        validateAgainst?.let { bindings ->
+            when (val verdict = com.aicodemax.tools.capability.ToolCallValidator.validate(
+                call.toolId, call.action, call.args, bindings, preconditionsMet,
+            )) {
+                is com.aicodemax.tools.capability.ToolCallValidator.Result.Invalid -> {
+                    val message = verdict.errors.joinToString("; ")
+                    audit.append(
+                        actor = call.actor, action = "tool.call", toolId = call.toolId,
+                        detail = "${call.action} invalid: $message", allowed = false,
+                    )
+                    return Outcome.Failure(AppError("TOOL_CALL_INVALID", message))
+                }
+                // NeedsApproval is advisory: the PermissionGate below decides.
+                else -> Unit
+            }
         }
         val permission = permissionGate.check(call)
         if (permission is Outcome.Failure) {
