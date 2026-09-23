@@ -286,13 +286,12 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(GitToolExecutor(git, workspaceDir.path))
         gateway.registerExecutor(BrowserToolExecutor(browserPage))
         // CP-118: native toolchain detection (ffmpeg/ffprobe/llama-server in nativeLibraryDir).
-        val processRunner = com.aicodemax.tools.runtime.ProcessRunner()
         val nativeLibDir = appContext.applicationInfo.nativeLibraryDir
         gateway.registerExecutor(
             DebugToolExecutor(
                 nativeLibDir = nativeLibDir,
                 nativeRunner = { exe, args ->
-                    processRunner.run(exe, args, timeoutMs = 15_000).fold(
+                    com.aicodemax.tools.runtime.ProcessRunner.run(exe, args, timeoutMs = 15_000).fold(
                         onSuccess = { (it.stdout.ifBlank { it.stderr }).lineSequence().firstOrNull().orEmpty() },
                         onFailure = { "" },
                     )
