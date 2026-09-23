@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory
 import android.media.ImageReader
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
@@ -35,7 +36,9 @@ import com.aicodemax.data.media.Project
 import com.aicodemax.data.media.Timeline
 import com.aicodemax.tools.audio.PcmAudio
 import com.aicodemax.tools.media.MediaProjectPort
+import com.aicodemax.tools.render.CodecInfo
 import com.aicodemax.tools.render.FileRenderQueue
+import com.aicodemax.tools.render.GpuReport
 import com.aicodemax.tools.render.Qc
 import com.aicodemax.tools.render.RenderJob
 import com.aicodemax.tools.render.RenderPort
@@ -68,6 +71,59 @@ class AndroidRenderPort(
 ) : RenderPort {
     private val queue = FileRenderQueue(mediaRoot)
     private val outDir = File(mediaRoot, "render-out").also { it.mkdirs() }
+
+    override suspend fun hwinfo(): Outcome<GpuReport> = withContext(Dispatchers.IO) {
+        try {
+            val wanted = setOf(MediaFormat.MIMETYPE_VIDEO_AVC, MediaFormat.MIMETYPE_VIDEO_HEVC)
+            val encoders = mutableListOf<CodecInfo>()
+            val decoders = mutableListOf<CodecInfo>()
+            for (info in MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos) {
+                for (mime in info.supportedTypes) {
+                    if (mime !in wanted) continue
+                    val hw = if (android.os.Build.VERSION.SDK_INT >= 29) {
+                        !info.isSoftwareOnly
+                    } else {
+                        !(info.name.startsWith("OMX.google.") || info.name.startsWith("c2.android."))
+                    }
+                    val entry = CodecInfo(info.name, mime, info.isEncoder, hw)
+                    if (info.isEncoder) encoders.add(entry) else decoders.add(entry)
+                }
+            }
+            encoders.sortWith(compareByDescending<CodecInfo> { it.hw }.thenBy { it.name })
+            decoders.sortWith(compareByDescending<CodecInfo> { it.hw }.thenBy { it.name })
+            Outcome.Success(GpuReport(encoders, decoders))
+        } catch (e: Exception) {
+            Outcome.Failure(AppError("RENDER_HW", "อ่านข้อมูลโค้ดเดกไม่ได้: ${e.message}"))
+        }
+    }
+
+    /** CP-103: preferred AVC encoder (hardware first, software fallback). */
+    private fun pickAvcEncoder(): Triple<String, Boolean, MediaCodec> {
+        var name = ""
+        var hw = false
+        try {
+            val infos = MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
+                .filter { it.isEncoder && it.supportedTypes.contains(MediaFormat.MIMETYPE_VIDEO_AVC) }
+            fun isHw(info: MediaCodecInfo): Boolean =
+                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    !info.isSoftwareOnly
+                } else {
+                    !(info.name.startsWith("OMX.google.") || info.name.startsWith("c2.android."))
+                }
+            val pick = infos.firstOrNull { isHw(it) } ?: infos.firstOrNull()
+            if (pick != null) {
+                name = pick.name
+                hw = isHw(pick)
+            }
+        } catch (_: Exception) {
+        }
+        val codec = try {
+            if (name.isNotEmpty()) MediaCodec.createByCodecName(name) else MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+        } catch (_: Exception) {
+            MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+        }
+        return Triple(if (name.isNotEmpty()) name else "default", hw, codec)
+    }
 
     override suspend fun cacheStatus(): Outcome<CacheStatus> = withContext(Dispatchers.IO) {
         fun dirUsage(dir: File): Pair<Long, Int> {
@@ -478,7 +534,7 @@ class AndroidRenderPort(
             val planar = colorFormat == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar
             val videoTemp = File.createTempFile("render-v-", ".mp4", outDir)
             try {
-                encodeVideo(plan, videoTemp.path, outW, outH, preset, colorFormat, planar, progress, scopes).fold(
+                encodeVideo(plan, videoTemp.path, outW, outH, preset, colorFormat, planar, progress, scopes, notes).fold(
                     onSuccess = { Unit },
                     onFailure = { return@withContext Outcome.Failure(it) },
                 )
@@ -517,6 +573,7 @@ class AndroidRenderPort(
         planar: Boolean,
         progress: (Int) -> Unit,
         scopes: RenderScopes,
+        notes: MutableList<String>,
     ): Outcome<Unit> {
         val totalMs = plan.timeline.durationMs.coerceAtLeast(1)
         val frameStepUs = 1_000_000L / 30
@@ -529,7 +586,8 @@ class AndroidRenderPort(
             encFormat.setInteger(MediaFormat.KEY_BIT_RATE, preset.videoBitrate)
             encFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30)
             encFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2)
-            val encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+            val (encName, encHw, encoder) = pickAvcEncoder()
+            notes += "เอนโค้ดเดอร์: $encName (${if (encHw) "HW" else "SW"})"
             try {
                 encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                 encoder.start()
@@ -2101,7 +2159,7 @@ class AndroidRenderPort(
     }
 
     private fun pickEncoderColorFormat(): Int? {
-        val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+        val (_, _, codec) = pickAvcEncoder()
         try {
             val caps = codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
             val formats = caps.colorFormats.toSet()

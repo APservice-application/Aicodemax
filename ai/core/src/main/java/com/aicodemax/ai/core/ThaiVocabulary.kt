@@ -198,6 +198,7 @@ object ThaiVocabulary {
     val batchWords: List<String> = listOf("เรนเดอร์หลาย", "เอ็กซ์พอร์ตหลาย", "เรนเดอร์ทั้งหมด", "batch")
     val proxyWords: List<String> = listOf("พร็อกซี", "ไฟล์พร็อกซี", "ไฟล์ตัดต่อเบา", "proxy")
     val cacheWords: List<String> = listOf("แคช", "พื้นที่แคช", "ล้างแคช", "cache")
+    val hwWords: List<String> = listOf("จีพียู", "ฮาร์ดแวร์", "ตัวเร่ง", "gpu", "hw", "เอนโค้ดเดอร์")
     val aiModeWords: Map<String, String> = mapOf(
         "โฆษณา" to "commercial", "commercial" to "commercial",
         "เล่าเรื่อง" to "story", "สตอรี่" to "story",

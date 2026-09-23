@@ -125,6 +125,7 @@ enum class IntentType {
     VIDEO_PROXY,
     CACHE_STATUS,
     CACHE_CLEAR,
+    HW_INFO,
     MARKER_ADD,
     MARKER_REMOVE,
     TRACK_FLAGS,
@@ -759,6 +760,9 @@ object IntentParser {
         if (containsAny(t, ThaiVocabulary.cacheWords)) {
             val clear = t.contains("ล้าง") || t.contains("ลบ") || t.contains("clear")
             return UserIntent(if (clear) IntentType.CACHE_CLEAR else IntentType.CACHE_STATUS, text)
+        }
+        if (containsAny(t, ThaiVocabulary.hwWords)) {
+            return UserIntent(IntentType.HW_INFO, text)
         }
         if (containsAny(t, ThaiVocabulary.reframeWords)) {
             val aspect = Regex("(9:16|16:9|1:1|4:5)").find(t)?.value

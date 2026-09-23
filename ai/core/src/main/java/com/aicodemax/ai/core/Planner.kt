@@ -700,6 +700,7 @@ class RuleBasedPlanner(
                 intent.parameters["days"]?.let { args["days"] = it }
                 listOf("render.cache.clear" to args)
             }
+            IntentType.HW_INFO -> listOf("render.hwinfo" to emptyMap())
             IntentType.CLIP_MASK -> {
                 val clip = intent.parameters["clipIndex"] ?: intent.parameters["clipId"]
                     ?: return Outcome.Failure(

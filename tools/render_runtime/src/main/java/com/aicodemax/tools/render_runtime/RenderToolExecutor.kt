@@ -109,7 +109,13 @@ class RenderToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: enqueue/runNow/run/status/list/retry/approve/export/batch/cache.status/cache.clear)")
+                "hwinfo" -> {
+                    port.hwinfo().fold(
+                        onSuccess = { done(true, "ตัวเร่งฮาร์ดแวร์: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: enqueue/runNow/run/status/list/retry/approve/export/batch/cache.status/cache.clear/hwinfo)")
             }
         }
 

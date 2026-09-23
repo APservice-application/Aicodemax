@@ -257,6 +257,11 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp103HwIntent() {
+        assertEquals(IntentType.HW_INFO, IntentParser.parse("ใช้จีพียูเอนโค้ดได้ไหม").type)
+    }
+
+    @Test
     fun cp102ProxyCacheIntents() {
         val px = IntentParser.parse("พร็อกซี v.mp4")
         assertEquals(IntentType.VIDEO_PROXY, px.type)

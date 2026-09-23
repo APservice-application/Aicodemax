@@ -333,6 +333,8 @@ object StandardCapabilities {
             metadata = meta("render", "ดูพื้นที่แคช", emptyList(), listOf("usage"), emptyList(), false, "usage shown", "retry")),
         CapabilityBinding("render.cache.clear", "render", "cache.clear", AdapterKind.NATIVE,
             metadata = meta("render", "ล้างแคช", listOf("days?"), listOf("freed"), listOf("fs.write"), false, "cache cleared", "retry")),
+        CapabilityBinding("render.hwinfo", "render", "hwinfo", AdapterKind.NATIVE,
+            metadata = meta("render", "ดูตัวเร่งฮาร์ดแวร์", emptyList(), listOf("codecs"), emptyList(), false, "codecs shown", "retry")),
 CapabilityBinding("media.timeline.enhance", "media", "timeline.enhance", AdapterKind.NATIVE,
             metadata = meta("media", "ปรับปรุงคลิปอัตโนมัติ", listOf("clipIndex,strength?"), listOf("ok"), listOf("fs.write"), false, "enhanced", "fix file", true, "edit.undo")),
         CapabilityBinding("media.text.ideas", "media", "text.ideas", AdapterKind.NATIVE,

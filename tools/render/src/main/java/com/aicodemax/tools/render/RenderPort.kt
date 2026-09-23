@@ -27,6 +27,8 @@ interface RenderPort {
     suspend fun cacheStatus(): Outcome<CacheStatus>
     /** CP-102: deletes render temps + old generated files (keeps finals). */
     suspend fun cacheClear(olderThanDays: Int = 7): Outcome<CacheCleared>
+    /** CP-103: hardware codec inventory (partial GPU: encode/decode offload). */
+    suspend fun hwinfo(): Outcome<GpuReport>
 }
 
 /** CP-102: cache usage report. */
@@ -39,6 +41,30 @@ data class CacheStatus(
     val totalBytes: Long get() = renderOutBytes + genBytes
     val summary: String get() =
         "เรนเดอร์ ${"%.1f".format(renderOutBytes / 1048576.0)}MB ($renderFiles ไฟล์) + สร้างไว้ ${"%.1f".format(genBytes / 1048576.0)}MB ($genFiles ไฟล์)"
+}
+
+/** CP-103: one codec entry. */
+data class CodecInfo(
+    val name: String,
+    val mime: String,
+    val encoder: Boolean,
+    val hw: Boolean,
+) {
+    fun short(): String = "$name (${if (hw) "HW" else "SW"})"
+}
+
+/** CP-103: hardware codec inventory. */
+data class GpuReport(
+    val encoders: List<CodecInfo>,
+    val decoders: List<CodecInfo>,
+) {
+    val hwEncoder: String? get() = encoders.firstOrNull { it.hw }?.name
+    val summary: String get() = buildString {
+        append("เอนโค้ด:")
+        append(if (encoders.isEmpty()) " ไม่มี" else " " + encoders.take(4).joinToString(" / ") { it.short() })
+        append(" ถอดรหัส:")
+        append(if (decoders.isEmpty()) " ไม่มี" else " " + decoders.take(4).joinToString(" / ") { it.short() })
+    }
 }
 
 /** CP-102: cleanup result. */
@@ -122,6 +148,14 @@ class InMemoryRender : RenderPort {
 
     override suspend fun cacheClear(olderThanDays: Int): Outcome<CacheCleared> =
         Outcome.Success(CacheCleared(0, 0))
+
+    override suspend fun hwinfo(): Outcome<GpuReport> =
+        Outcome.Success(
+            GpuReport(
+                listOf(CodecInfo("fake-avc-enc", "video/avc", true, false)),
+                listOf(CodecInfo("fake-avc-dec", "video/avc", false, false)),
+            ),
+        )
 
     override suspend fun run(jobId: String): Outcome<RenderJob> {
         val job = jobs[jobId] ?: return Outcome.Failure(AppError("RENDER_NO_JOB", "ไม่มีงาน $jobId"))

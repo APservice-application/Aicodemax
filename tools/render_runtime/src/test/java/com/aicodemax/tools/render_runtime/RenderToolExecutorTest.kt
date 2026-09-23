@@ -6,6 +6,7 @@ import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.tools.media.InMemoryMediaProject
 import com.aicodemax.tools.render.InMemoryRender
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -71,6 +72,22 @@ class RenderToolExecutorTest {
             onFailure = { throw AssertionError("explode failed") },
         )
         assertTrue(!unknown.ok && unknown.error.contains("unknown action"))
+    }
+
+    @Test
+    fun cp103hwinfoFlow() = runBlocking {
+        val out = RenderToolExecutor(InMemoryRender(), InMemoryMediaProject()).execute(call("hwinfo")).fold(
+            onSuccess = { it },
+            onFailure = { throw AssertionError("hwinfo failed") },
+        )
+        assertTrue(out.output, out.ok)
+        assertTrue(out.output.contains("เอนโค้ด"))
+        val report = com.aicodemax.tools.render.GpuReport(
+            listOf(com.aicodemax.tools.render.CodecInfo("OMX.qcom.enc", "video/avc", true, true)),
+            listOf(com.aicodemax.tools.render.CodecInfo("OMX.google.dec", "video/avc", false, false)),
+        )
+        assertEquals("OMX.qcom.enc", report.hwEncoder)
+        assertTrue(report.summary.contains("HW") && report.summary.contains("SW"))
     }
 
     @Test

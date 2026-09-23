@@ -240,6 +240,13 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp103HwPlan() = runBlocking {
+        val hw = (planner.plan(UserIntent(IntentType.HW_INFO, "t", emptyMap())) as Outcome.Success<Plan>).value
+        assertEquals("hwinfo", hw.steps[0].action)
+        assertEquals("render", hw.steps[0].toolId)
+    }
+
+    @Test
     fun cp102ProxyCachePlans() = runBlocking {
         val px = (planner.plan(UserIntent(IntentType.VIDEO_PROXY, "t", mapOf("path" to "v.mp4"))) as Outcome.Success<Plan>).value
         assertEquals("proxy", px.steps[0].action)

@@ -232,6 +232,18 @@ fun RenderScreen(services: ServiceLocator) {
                         )
                     }
                 }, enabled = !busy) { Text("ล้างแคช") }
+                OutlinedButton(onClick = {
+                    runCall {
+                        val call = com.aicodemax.tools.gateway.ToolCall(
+                            com.aicodemax.core.common.Ids.newId("ui"), "render", "hwinfo",
+                            emptyMap(), actor = "HUMAN",
+                        )
+                        services.gateway.call(call).fold(
+                            onSuccess = { message = if (it.ok) it.output else it.error },
+                            onFailure = { message = it.message },
+                        )
+                    }
+                }, enabled = !busy) { Text("ดู GPU") }
             }
         }
         item { Text("งานเรนเดอร์ (${jobs.size})", style = MaterialTheme.typography.titleMedium) }
