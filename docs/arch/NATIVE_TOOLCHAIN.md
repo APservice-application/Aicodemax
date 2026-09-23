@@ -6,7 +6,24 @@ Prebuilt arm64 tools embedded in the APK (ported from the owner's previous app):
 |---|---|---|
 | ffmpeg | `libffmpeg.so` (20MB) | release `archive/oldai-workspace` asset `libffmpeg-arm64.so` |
 | ffprobe | `libffprobe.so` (20MB) | asset `libffprobe-arm64.so` |
-| llama-server | `libllama-server.so` (13MB) | asset `libllama-server-arm64.so` |
+| llama-server | `libllama-server.so` (13MB) | asset `libllama-server-arm64.so` — INTERIM, removed at CP-128 |
+| llama.cpp | `libllama.so` | **built from source in CI** (CP-122, see below) |
+
+## llama.cpp from source (CP-122)
+
+Spec §41 P3–P4: the inference engine is compiled, never downloaded as a
+binary blob.
+
+- CI step "Build llama.cpp arm64": installs NDK `27.0.12077973` via
+  sdkmanager, clones `ggml-org/llama.cpp` at pinned tag **v0.4.1**
+  (`--depth 1`), configures with the NDK CMake toolchain
+  (`arm64-v8a`, `android-26`, Release, `BUILD_SHARED_LIBS=ON`,
+  `CURL/TESTS/EXAMPLES/SERVER/TOOLS=OFF`), builds, and copies `libllama.so`
+  into `app/src/main/jniLibs/arm64-v8a/`.
+- The built `.so` is cached (`actions/cache`, key
+  `llama-v0.4.1-ndk-27.0.12077973`) — rebuilds only when the tag/NDK changes.
+- Nothing from llama.cpp is committed to git (source too big, binary
+  reproducible from the pinned tag).
 
 ## Build flow (repo stays lean — no binaries in git)
 
