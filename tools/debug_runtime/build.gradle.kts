@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":tools:registry"))
     implementation(project(":tools:debug"))
     implementation(project(":tools:gateway"))
+    implementation(project(":tools:runtime"))
     implementation(libs.coroutines.android)
     testImplementation(libs.junit4)
 }

@@ -46,4 +46,14 @@ class DebugToolExecutorTest {
         assertTrue(!value.ok)
         assertTrue(value.error.contains("unknown action"))
     }
+
+    @Test
+    fun nativeReportsToolchainHonestly() = runBlocking {
+        // CP-118: no native dir in unit tests → 3 honest missing lines.
+        val result = executor.execute(ToolCall("4", "debug", "native"))
+        val value = (result as Outcome.Success<ToolResult>).value
+        assertTrue(value.ok)
+        assertTrue(value.output.contains("ffmpeg"))
+        assertTrue(value.output.contains("llama-server"))
+    }
 }

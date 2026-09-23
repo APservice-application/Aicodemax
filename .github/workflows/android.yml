@@ -76,6 +76,17 @@ jobs:
           :data:checkpoint:test :data:audit:test :data:memory:test :data:conversations:test
           :tools:registry:test :tools:terminal:test :tools:git:test
           --stacktrace
+      - name: Fetch embedded native tools (CP-118)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cd app/src/main/jniLibs/arm64-v8a
+          gh release download archive/oldai-workspace -R "$GITHUB_REPOSITORY" -p 'libffmpeg-arm64.so' -p 'libffprobe-arm64.so' -p 'libllama-server-arm64.so' --clobber
+          mv libffmpeg-arm64.so libffmpeg.so
+          mv libffprobe-arm64.so libffprobe.so
+          mv libllama-server-arm64.so libllama-server.so
+          ls -la
       - name: Assemble
         run: ./gradlew assembleDebug --stacktrace
       - name: Upload APK

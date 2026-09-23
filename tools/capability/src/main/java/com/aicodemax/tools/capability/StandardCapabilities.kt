@@ -96,6 +96,8 @@ object StandardCapabilities {
             metadata = meta("debug", "วิเคราะห์ stack trace หาสาเหตุ", listOf("error"), listOf("finding"), emptyList(), false, "parse confidence", "ask for full trace")),
         CapabilityBinding("debug.bench", "debug", "bench", AdapterKind.NATIVE,
             metadata = meta("debug", "วัดความเร็วเครื่อง", listOf("quick?"), listOf("bench"), emptyList(), false, "bench shown", "retry")),
+        CapabilityBinding("debug.native", "debug", "native", AdapterKind.NATIVE,
+            metadata = meta("debug", "ตรวจ native toolchain ที่ฝังในแอป (CP-118)", emptyList(), listOf("report"), emptyList(), false, "3 lines", "retry")),
         // Memory engine (native).
         CapabilityBinding("memory.save", "memory", "save", AdapterKind.NATIVE,
             metadata = meta("memory", "จำ key=value ระดับ global", listOf("key,value"), listOf("ok"), emptyList(), false, "read-back", "retry")),

@@ -9,8 +9,12 @@ import com.aicodemax.tools.gateway.ToolResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Gateway executor for debug (actions: analyze). */
-class DebugToolExecutor(private val debug: DebugSession = DebugSession()) : ToolExecutor {
+/** Gateway executor for debug (actions: analyze/bench/native). */
+class DebugToolExecutor(
+    private val debug: DebugSession = DebugSession(),
+    private val nativeLibDir: String? = null,
+    private val nativeRunner: ((executable: String, args: List<String>) -> String)? = null,
+) : ToolExecutor {
     override val toolId: String = "debug"
 
     override suspend fun execute(call: ToolCall): Outcome<ToolResult> =
@@ -37,7 +41,12 @@ class DebugToolExecutor(private val debug: DebugSession = DebugSession()) : Tool
                     val results = com.aicodemax.tools.debug.PerfBench.suite(quick)
                     done(true, com.aicodemax.tools.debug.PerfBench.format(results))
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: analyze/bench)")
+                "native" -> {
+                    val runner = nativeRunner ?: { _: String, _: List<String> -> "" }
+                    val report = com.aicodemax.tools.runtime.NativeToolchain.detect(nativeLibDir, runner)
+                    done(true, com.aicodemax.tools.runtime.NativeToolchain.format(report))
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: analyze/bench/native)")
             }
         }
 

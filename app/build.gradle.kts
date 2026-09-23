@@ -33,6 +33,18 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // CP-118: embedded native tools (.so) must extract to nativeLibraryDir with
+    // the exec bit set (same approach as the owner's previous app).
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+    androidResources {
+        // CP-120: bootstrap .gguf model must not be compressed.
+        noCompress += "gguf"
+    }
 }
 
 dependencies {
@@ -50,6 +62,7 @@ dependencies {
     implementation(project(":tools:editor"))
     implementation(project(":tools:terminal"))
     implementation(project(":tools:terminal_runtime"))
+    implementation(project(":tools:runtime"))
     implementation(project(":tools:project"))
     implementation(project(":tools:tester"))
     implementation(project(":tools:builder"))

@@ -84,6 +84,7 @@ import com.aicodemax.tools.memory_runtime.MemoryToolExecutor
 import com.aicodemax.tools.skill_runtime.SkillToolExecutor
 import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
+import com.aicodemax.core.common.fold
 import com.aicodemax.tools.media.CloudGenRegistry
 import com.aicodemax.tools.media.FileMediaProject
 import com.aicodemax.tools.media.MediaProjectPort
@@ -284,7 +285,20 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(TerminalToolExecutor(shell))
         gateway.registerExecutor(GitToolExecutor(git, workspaceDir.path))
         gateway.registerExecutor(BrowserToolExecutor(browserPage))
-        gateway.registerExecutor(DebugToolExecutor())
+        // CP-118: native toolchain detection (ffmpeg/ffprobe/llama-server in nativeLibraryDir).
+        val processRunner = com.aicodemax.tools.runtime.ProcessRunner()
+        val nativeLibDir = appContext.applicationInfo.nativeLibraryDir
+        gateway.registerExecutor(
+            DebugToolExecutor(
+                nativeLibDir = nativeLibDir,
+                nativeRunner = { exe, args ->
+                    processRunner.run(exe, args, timeoutMs = 15_000).fold(
+                        onSuccess = { (it.stdout.ifBlank { it.stderr }).lineSequence().firstOrNull().orEmpty() },
+                        onFailure = { "" },
+                    )
+                },
+            ),
+        )
         gateway.registerExecutor(MemoryToolExecutor(MemoryEngine(memory)))
         gateway.registerExecutor(SkillToolExecutor(skills, files))
         gateway.registerExecutor(VoiceToolExecutor(voice))
