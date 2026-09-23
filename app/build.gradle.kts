@@ -52,6 +52,7 @@ dependencies {
     implementation(project(":core:state"))
     implementation(project(":core:resources"))
     implementation(project(":ai:core"))
+    implementation(project(":ai:runtime"))
     implementation(project(":ai:tasks"))
     implementation(project(":ai:agents"))
     implementation(project(":ai:models"))

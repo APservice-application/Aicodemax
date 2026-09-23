@@ -94,6 +94,7 @@ object ModelStore {
             if (min == null || dest.length() >= min) return@runOutcome dest
             dest.delete()
         }
+        dest.parentFile?.mkdirs()
         val part = File(dest.path + ".part")
         downloader.fetch(spec.url, part, onProgress)
         if (!part.isFile || part.length() == 0L) throw IllegalStateException("โหลดเสร็จแต่ไม่มีไฟล์")

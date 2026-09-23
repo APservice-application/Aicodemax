@@ -162,7 +162,8 @@
 | CP-121 | P2 AiRuntime abstraction | DONE | AiRuntime + FakeAiRuntime + InterimLlamaServerRuntime (CI GREEN) |
 | CP-122 | P3+P4 NDK + llama.cpp arm64 in CI | DONE | pinned v0.4.1, source-built (CI GREEN) |
 | CP-123 | P5 JNI bridge + JniAiRuntime | DONE | aicode_jni.cpp + AicodeJni + JniAiRuntime + static link (CI GREEN) |
-| CP-124 | P6+P9 ModelProvider abstraction | DONE | Local/Cloud/Remote/Hybrid + registry + ChatML (CI pending) |
+| CP-124 | P6+P9 ModelProvider abstraction | DONE | Local/Cloud/Remote/Hybrid + registry + ChatML (CI GREEN) |
+| CP-125 | P7+P23–25 ModelManager + storage | DONE | profiles/license/GGUF-validate + StorageLayout migrate (CI pending) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)

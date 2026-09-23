@@ -154,7 +154,15 @@ class ServiceLocator(context: Context) {
     val gateway: ToolGateway
     val capabilities: CapabilityResolver
 
-    val workspaceDir: File = File(appContext.filesDir, "workspace")
+    /** CP-125: canonical storage layout (§23) + one-way legacy migration. */
+    val storage: com.aicodemax.ai.runtime.StorageLayout =
+        com.aicodemax.ai.runtime.StorageLayout(appContext.filesDir).ensureDirs().also { it.migrate() }
+
+    /** CP-125: model profiles/install/switch (default + optional packs). */
+    val modelManager: com.aicodemax.ai.runtime.ModelManager =
+        com.aicodemax.ai.runtime.ModelManager(storage.modelsDefault.path, storage.modelsOptional.path)
+
+    val workspaceDir: File = storage.workspaces
     val files: FilePort = SandboxFileStore(workspaceDir)
     val editor: EditorPort = FileBackedEditor(files)
     val git: GitPort = JGitGitPort()
@@ -323,7 +331,7 @@ class ServiceLocator(context: Context) {
         val llamaId = java.util.concurrent.atomic.AtomicLong(0)
         gateway.registerExecutor(
             com.aicodemax.tools.debug_runtime.ModelToolExecutor(
-                modelsDir = java.io.File(appContext.filesDir, "models").path,
+                modelsDir = storage.modelsDefault.path,
                 nativeLibDir = nativeLibDir,
                 proc = object : com.aicodemax.tools.runtime.LlamaServer.ProcCtl {
                     override fun start(exe: String, args: List<String>): Long {

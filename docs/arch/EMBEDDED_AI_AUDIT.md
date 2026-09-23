@@ -78,6 +78,11 @@ Legend: ✅ have / 🟡 partial / ❌ missing / ⛔ violates spec.
    `libllama.so` + `libaicode_jni.so` from nativeLibraryDir like the ffmpeg .so files.
 4. **License gate (§25):** every ModelSpec gains license+source fields; only
    Apache-2.0/MIT/equivalent models may ship as default.
+5. **Two provider types coexist (CP-124):** the older `ai:models LlmProvider`
+   (suspend, cloud-oriented, no streaming) stays for remote chat;
+   `ai:runtime ModelProvider` (blocking + TokenSink streaming, local-first
+   lifecycle) is the agent path. At wiring time (CP-131) the cloud/remote
+   providers delegate to `LlmProvider` instead of duplicating HTTP code.
 
 ## Checkpoint plan (§41 order)
 
