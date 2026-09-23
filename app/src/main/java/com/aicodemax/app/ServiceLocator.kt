@@ -180,9 +180,9 @@ class ServiceLocator(context: Context) {
         connectedProviders[id] = provider
         val host = baseUrl.lowercase()
         val local = host.contains("localhost") || host.contains("127.0.0.1") ||
-            host.contains("192.168.") || host.contains("10.") ||
-            host.contains(".local") || host.startsWith("http://10.") ||
-            Regex("http://172\.(1[6-9]|2[0-9]|3[01])\.").containsMatchIn(host)
+            host.contains("192.168.") || host.contains(".local") ||
+            Regex("""://10\.""").containsMatchIn(host) ||
+            Regex("""://172\.(1[6-9]|2[0-9]|3[01])\.""").containsMatchIn(host)
         val descriptor = ModelDescriptor(
             id = id,
             name = llmModel,
