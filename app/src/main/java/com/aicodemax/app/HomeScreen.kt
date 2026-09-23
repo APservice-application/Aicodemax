@@ -163,6 +163,11 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
             action = "เปิด" to { onOpen(Routes.RECORD) },
         )
         StatusCard(
+            title = "ซับไตเติล",
+            line = "ทำซับ เลื่อนเวลา แปลไทย↔อังกฤษ ฝังซับ",
+            action = "เปิด" to { onOpen(Routes.SUBTITLE) },
+        )
+        StatusCard(
             title = "เทอร์มินัล (dev)",
             line = terminalLine(services),
             action = "เปิด" to { onOpen(Routes.TERMINAL) },

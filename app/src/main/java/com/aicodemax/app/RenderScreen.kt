@@ -18,6 +18,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +32,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.aicodemax.core.common.fold
 import com.aicodemax.data.media.Project
+import com.aicodemax.tools.media.BrandKit
 import com.aicodemax.tools.render.RenderJob
 import com.aicodemax.tools.render.RenderPreset
 import com.aicodemax.tools.render.RenderStatus
@@ -50,6 +52,13 @@ fun RenderScreen(services: ServiceLocator) {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var historyLine by remember { mutableStateOf("") }
+    // CP-112 brand kits + package (กฎข้อ 5: brand/package ต้องมี UI).
+    var brands by remember { mutableStateOf<List<BrandKit>>(emptyList()) }
+    var brandName by remember { mutableStateOf("") }
+    var brandColor by remember { mutableStateOf("#FFFFFF") }
+    var brandLogo by remember { mutableStateOf("") }
+    var brandTagline by remember { mutableStateOf("") }
+    var packageDst by remember { mutableStateOf("") }
 
     suspend fun refreshJobs() {
         services.render.list().fold(
@@ -75,6 +84,10 @@ fun RenderScreen(services: ServiceLocator) {
         )
         refreshJobs()
         refreshHistory()
+        services.media.listBrands().fold(
+            onSuccess = { brands = it },
+            onFailure = { message = it.message },
+        )
     }
     // Live progress while anything runs.
     LaunchedEffect(jobs.any { it.status == RenderStatus.RUNNING || it.status == RenderStatus.QUEUED }) {
@@ -219,6 +232,76 @@ fun RenderScreen(services: ServiceLocator) {
                         }
                     }
                     message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+        }
+        item {
+            Surface(tonalElevation = spacing.xs) {
+                Column(modifier = Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    Text("ชุดแบรนด์ (ไตเติลเปิด+ปิดท้าย)", style = MaterialTheme.typography.titleMedium)
+                    TextField(value = brandName, onValueChange = { brandName = it }, label = { Text("ชื่อแบรนด์") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    TextField(value = brandColor, onValueChange = { brandColor = it }, label = { Text("สี #RRGGBB") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    TextField(value = brandLogo, onValueChange = { brandLogo = it }, label = { Text("พาธโลโก้ (ไม่บังคับ)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    TextField(value = brandTagline, onValueChange = { brandTagline = it }, label = { Text("สโลแกน (ไม่บังคับ)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedButton(onClick = {
+                        runCall {
+                            services.media.saveBrand(brandName.trim(), brandColor.trim(), brandLogo.trim(), brandTagline.trim()).fold(
+                                onSuccess = {
+                                    message = "บันทึกแบรนด์แล้ว: ${it.name}"
+                                    brandName = ""
+                                    services.media.listBrands().fold(
+                                        onSuccess = { brands = it },
+                                        onFailure = { },
+                                    )
+                                },
+                                onFailure = { message = it.message },
+                            )
+                        }
+                    }, enabled = !busy && brandName.isNotBlank()) { Text("บันทึกแบรนด์") }
+                    if (brands.isEmpty()) {
+                        Text("ยังไม่มีแบรนด์", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        brands.take(10).forEach { kit ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                                Text("${kit.name} (${kit.colorHex})", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                                OutlinedButton(onClick = {
+                                    runCall {
+                                        val pid = projects.getOrNull(projectIndex)?.id
+                                        if (pid == null) {
+                                            message = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ก่อน"
+                                        } else {
+                                            services.media.applyBrand(pid, kit.id, "HUMAN").fold(
+                                                onSuccess = { message = "ใช้แบรนด์ ${kit.name} แล้ว (เลิกทำได้)" },
+                                                onFailure = { message = it.message },
+                                            )
+                                        }
+                                    }
+                                }, enabled = !busy && projects.isNotEmpty()) { Text("ใช้") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Surface(tonalElevation = spacing.xs) {
+                Column(modifier = Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    Text("แพ็กโปรเจกต์ (.zip)", style = MaterialTheme.typography.titleMedium)
+                    TextField(value = packageDst, onValueChange = { packageDst = it }, label = { Text("ปลายทาง (ว่าง = ชื่อโปรเจกต์.zip)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedButton(onClick = {
+                        runCall {
+                            val pid = projects.getOrNull(projectIndex)?.id
+                            if (pid == null) {
+                                message = "ยังไม่มีโปรเจกต์ — สร้างโปรเจกต์ก่อน"
+                            } else {
+                                val dst = packageDst.trim().ifBlank { "$pid.zip" }
+                                services.media.packageProject(pid, dst).fold(
+                                    onSuccess = { message = "แพ็กแล้ว ${it.path}: ${it.summary}" },
+                                    onFailure = { message = it.message },
+                                )
+                            }
+                        }
+                    }, enabled = !busy && projects.isNotEmpty()) { Text("แพ็กโปรเจกต์") }
                 }
             }
         }

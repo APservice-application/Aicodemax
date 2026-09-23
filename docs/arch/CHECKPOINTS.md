@@ -118,18 +118,38 @@
 | CP-77 | Transitions + basic effects | DONE | edge transitions (fade/dissolve/wipe, in-bounds v0) + ClipFx blur/vignette/grain + video/still/reverse/audio render + intents + UI + เทส (381/381) |
 | CP-78 | Color engine + scopes | DONE | ClipColor basic+HSL + presets + render grade + histogram scopes (image.scopes + render QC exposure) + intents + UI + เทส (390/390) |
 | CP-79 | Mask + chroma + background | DONE | ClipMask rect/ellipse + ClipChroma key/despill + ClipBackground color/image/blur + alpha composite render + intents + UI + เทส (397/397) |
-| CP-80 | Tracking-lite + stabilize | TODO | §15 template-matching + §43 stabilize (ซื่อสัตย์ไม่มี ML) |
-| CP-81 | Audio pro + voice + beat | TODO | §28 pro + §29 voice changer + §31 beat/BPM |
-| CP-82 | STT + auto captions + transcript | TODO | §24–27 SpeechRecognizer + word timing + แปล + filler |
-| CP-83 | Templates + brand + safe zone + export presets | TODO | §51–52/§64–65/§69–71 batch + social presets |
-| CP-84 | AI Director + QC loop + autonomy | TODO | §83–85 + §125–129 context/memory/planner/executor |
-| CP-85 | Studio UI + Simple/Pro modes + AI panel | TODO | §94 + §3 + §96 + §4 home |
-| CP-86 | Proxy + cache + background jobs | TODO | §74–76 |
-| CP-87 | AI modes (autocut/shorts/reframe/commercial/…) | TODO | §32/§40–41/§50/§57–63/§66–68 |
-| CP-88 | Media library + smart search | TODO | §8–10 tags/fav/search + signals + provider vision |
-| CP-89 | Generative media (provider-wired) | TODO | §45–46 เท่าที่ provider มีจริง + interface §47–49 |
-| CP-90 | Recording + mixer UI + multicam-lite | TODO | §54–56 + §102 + §103–104 |
-| CP-91 | Polish + privacy + release | TODO | §99–100/§115–119 + §122/§134 audit |
+| CP-80 | Tracking-lite (§15) + Stabilize (§43) | DONE | template-match motion path → text-follow/clip keyframes + stabilizer auto-zoom + Human+AI + Undo (CI GREEN) |
+| CP-81 | Color complete (§42) | DONE | exposure/whites/blacks + .cube LUT + Auto Color (gray-world+levels, offline) + Human+AI + Undo (CI GREEN) |
+| CP-82 | Template Engine (§51–53) | DONE | project-graph templates + slots/replace + searchable asset library + builtins + Human+AI + Undo (CI GREEN) |
+| CP-83 | Generative Media (§46) | DONE | provider abstraction + offline poster/background/stylize/TTS → assets + Human+AI (CI GREEN) |
+| CP-84 | Ken Burns + Slideshow (§45) | DONE | per-clip motion on stills+video + slideshow builder + Human+AI + Undo (CI GREEN) |
+| CP-85 | Beats + Mixer-lite (§31/§102) | DONE | offline BPM/beat-grid + beats→markers + clip volume + Human+AI + Undo (CI GREEN) |
+| CP-86 | Voice FX + Synth (§29/§30) | DONE | pitch/robot/echo + procedural music beds + SFX + Human+AI (CI GREEN) |
+| CP-87 | Autocut + Highlights (§32/§40) | DONE | offline speech ranges + silence cut + best-window markers (CI GREEN) |
+| CP-88 | Reframe + Canvas (§33) | DONE | pan-scan math + subject crop + 9:16/1:1 render canvas (CI GREEN) |
+| CP-89 | Photo pro (§37) | DONE | adjust/upscale-bicubic/restore on image tool + Human+AI (CI GREEN) |
+| CP-90 | Color pro (§34) | DONE | 3-way wheels + clip-to-clip match + WB presets + Human+AI (CI GREEN) |
+| CP-91 | Enhance lite (§35) | DONE | one-click auto grade+sharpen+denoise + single undo (CI GREEN) |
+| CP-92+93 | Honest defers: 3D cam-track (§36) + face beauty | DONE | planner explains + alternatives, no fake ML (CI GREEN) |
+| CP-94 | Record studio (§54–56) | DONE | in-app audio record + teleprompter + system-camera capture (screen-capture deferred) (CI GREEN) |
+| CP-95 | Podcast suite | DONE | mix/normalize/autocut + one-shot podcast pipeline + Human+AI (CI GREEN) |
+| CP-96 | 5 AI content modes | DONE | commercial/story/vlog/tutorial/review plans + Human+AI (CI GREEN) |
+| CP-97 | Script→video | DONE | beats → TTS+background+captions timeline + Human+AI (CI GREEN) |
+| CP-98 | Subtitle translator | DONE | offline Thai↔English dictionary + coverage + Human+AI (CI GREEN) |
+| CP-99 | Honest defers: lipsync + AI presenter | DONE | planner explains + alternatives, no fake ML (CI GREEN) |
+| CP-100 | Brand kits + packaging + render batch | DONE | brand kits + project .zip + render batch + Human+AI (CI GREEN) |
+| CP-101 | Thumbnail pro | DONE | video frame + grade + title cover + Human+AI (CI GREEN) |
+| CP-102 | Proxy transcode + cache manager | DONE | MediaCodec downscale + temps cleanup (CI GREEN) |
+| CP-103 | GPU partial | DONE | HW encoder pick + hwinfo report + Human+AI (CI GREEN) |
+| CP-104 | Multicam sync | DONE | onset alignment + cuts + EDL + Human+AI (CI GREEN) |
+| CP-105 | Video scopes | DONE | waveform/vectorscope/parade + Human+AI (CI GREEN) |
+| CP-106 | Expert UX | DONE | keyboard shortcuts + TalkBack semantics + Human+AI (CI GREEN) |
+| CP-107 | Local AI + router | DONE | routed brain with local-first failover (เทส 547/547, CI GREEN) |
+| CP-108 | Cloud stubs | DONE | provider slots + LLM subtitle engine + Human+AI (เทส 553/553, CI GREEN) |
+| CP-109 | Perf/benchmark | DONE | device bench + render wall-time + Human+AI (เทส 559/559, CI GREEN) |
+| CP-110 | Director review + QC polish | DONE | timeline audit + evendims/bitrate (เทส 568/568, CI GREEN) |
+| CP-111 | Modes + search | DONE | AI mode planner UI + global search fan-out (เทส 572/572, CI GREEN) |
+| CP-112 | Spec-audit UI closure | DONE | SubtitleScreen ใหม่ + brand/package UI + proxy UI + deep-links + CHECKPOINTS ตามจริง (CI pending) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)

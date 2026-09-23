@@ -73,6 +73,8 @@ fun TimelineScreen(services: ServiceLocator) {
     var keyValue by remember { mutableStateOf(100f) }
     var keyEaseIndex by remember { mutableStateOf(0) }
     var mcPaths by remember { mutableStateOf("") }
+    var proxySrc by remember { mutableStateOf("") }
+    var proxyDim by remember { mutableStateOf("640") }
 
     suspend fun refresh() {
         val project = projects.getOrNull(projectIndex) ?: return
@@ -1152,6 +1154,46 @@ fun TimelineScreen(services: ServiceLocator) {
                     }
                     Text("ตัดมุม/รายการตัด สั่งในแชทได้ เช่น ตัดมัลติแคม mc_1 ที่ 5000 มุม 2")
                     message?.let { Text(it) }
+                }
+            }
+        }
+        // CP-112 proxy (§13): lightweight edit copy for heavy clips (กฎข้อ 5: ต้องมี UI).
+        item {
+            Surface(tonalElevation = spacing.xs) {
+                Column(modifier = Modifier.padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    Text("พร็อกซี (ไฟล์เบาสำหรับตัด)", style = MaterialTheme.typography.titleMedium)
+                    TextField(
+                        value = proxySrc,
+                        onValueChange = { proxySrc = it },
+                        label = { Text("พาธวิดีโอต้นฉบับ") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = proxyDim,
+                        onValueChange = { proxyDim = it },
+                        label = { Text("ขนาดด้านยาวสุด px (เช่น 640)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedButton(onClick = {
+                        scope.launch {
+                            busy = true
+                            message = null
+                            try {
+                                val call = com.aicodemax.tools.gateway.ToolCall(
+                                    com.aicodemax.core.common.Ids.newId("ui"), "video", "proxy",
+                                    mapOf("src" to proxySrc.trim(), "maxDim" to proxyDim.trim()), actor = "HUMAN",
+                                )
+                                services.gateway.call(call).fold(
+                                    onSuccess = { message = if (it.ok) it.output else it.error },
+                                    onFailure = { message = it.message },
+                                )
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }, enabled = !busy && proxySrc.isNotBlank()) { Text("ทำพร็อกซี") }
                 }
             }
         }

@@ -55,6 +55,7 @@ object Routes {
     const val TEMPLATES = "templates"
     const val GEN = "gen"
     const val RECORD = "record"
+    const val SUBTITLE = "subtitle"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -86,6 +87,7 @@ private fun titleFor(route: String): String = when (route) {
     Routes.TEMPLATES -> "เทมเพลต"
     Routes.GEN -> "สร้างมีเดีย"
     Routes.RECORD -> "อัดเสียง/ถ่าย"
+    Routes.SUBTITLE -> "ซับไตเติล"
     else -> "Aicodemax"
 }
 
@@ -143,6 +145,10 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                         if (toolId == "skill") nav.navigateSingle(Routes.SKILLS)
                         if (toolId == "render") nav.navigateSingle(Routes.RENDER)
                         if (toolId == "media") nav.navigateSingle(Routes.TIMELINE)
+                        if (toolId == "video") nav.navigateSingle(Routes.TIMELINE)
+                        if (toolId == "subtitle") nav.navigateSingle(Routes.SUBTITLE)
+                        if (toolId == "audio") nav.navigateSingle(Routes.RECORD)
+                        if (toolId == "image") nav.navigateSingle(Routes.GEN)
                         if (toolId == "memory" || toolId == "debug") nav.navigateSingle(Routes.CHAT)
                     },
                     onSelfTest = { toolId -> selfTest(services, toolId) },
@@ -180,6 +186,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
             composable(Routes.TEMPLATES) { TemplatesScreen(services) }
             composable(Routes.GEN) { GenScreen(services) }
             composable(Routes.RECORD) { RecordScreen(services) }
+            composable(Routes.SUBTITLE) { SubtitleScreen(services) }
         }
     }
 }
