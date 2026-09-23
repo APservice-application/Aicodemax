@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return ChatViewModel(services.orchestrator, services.conversations, services.tasks, services.workingSet, services.resources, services.voice, onStopAi = { services.aiRuntime.stopGeneration() }) as T
+                return ChatViewModel(services.orchestrator, services.conversations, services.tasks, services.workingSet, services.resources, services.voice, onStopAi = { services.aiRuntime.stopGeneration() }, bus = services.bus) as T
             }
         }
     }

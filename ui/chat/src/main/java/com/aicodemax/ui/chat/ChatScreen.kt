@@ -122,6 +122,9 @@ fun ChatRoute(
                 onPromptConsumed = { workingSet?.consumePrompt(); micText = null },
                 onMic = ::onMic,
                 onSpeak = viewModel::speak,
+                phase = state.phase,
+                runningTool = state.runningTool,
+                onRetry = viewModel::retryLast,
             )
         },
     )
@@ -176,6 +179,9 @@ fun ChatScreen(
     onPromptConsumed: () -> Unit = {},
     onMic: () -> Unit = {},
     onSpeak: (String) -> Unit = {},
+    phase: ChatPhase = ChatPhase.READY,
+    runningTool: String? = null,
+    onRetry: () -> Unit = {},
 ) {
     val spacing = LocalSpacing.current
     var input by remember { mutableStateOf("") }
@@ -213,16 +219,22 @@ fun ChatScreen(
             ) {
                 items(messages, key = { it.id }) { message -> MessageBubble(message, onSpeak) }
                 if (sending) {
-                    item(key = "__sending__") { SendingRow() }
+                    item(key = "__sending__") { SendingRow(phase, runningTool) }
                 }
             }
         }
         if (error != null) {
-            Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error,
+            Row(
                 modifier = Modifier.padding(horizontal = spacing.md),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onRetry) { Text("ลองใหม่") }
+            }
         }
         if (lastTaskId != null && !sending) {
             TaskLinkCard(onOpen = onOpenTasks)
@@ -333,10 +345,17 @@ private fun TaskLinkCard(onOpen: () -> Unit) {
 }
 
 @Composable
-private fun SendingRow() {
+private fun SendingRow(phase: ChatPhase, runningTool: String?) {
     // CP-116: skeleton shimmer (§86) instead of a spinner.
+    // CP-132: phase label (spec §33).
+    val label = when (phase) {
+        ChatPhase.THINKING -> "AI กำลังคิด…"
+        ChatPhase.RUNNING_TOOL -> "AI กำลังใช้ ${runningTool ?: "เครื่องมือ"}…"
+        ChatPhase.RETRY -> "AI กำลังลองใหม่…"
+        ChatPhase.READY -> "AI กำลังทำงาน…"
+    }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("AI กำลังทำงาน…", style = MaterialTheme.typography.bodyMedium)
+        Text(label, style = MaterialTheme.typography.bodyMedium)
         ShimmerSkeleton(lines = 2, modifier = Modifier.padding(end = 48.dp))
     }
 }

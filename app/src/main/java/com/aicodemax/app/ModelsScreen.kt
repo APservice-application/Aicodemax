@@ -15,6 +15,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,12 @@ fun ModelsScreen(services: ServiceLocator) {
     var llmModel by remember { mutableStateOf("gpt-4o-mini") }
     var llmStatus by remember { mutableStateOf("ยังไม่เชื่อมต่อ") }
     var llmBusy by remember { mutableStateOf(false) }
+    // CP-132: local runtime section (§35).
+    val runtimeState by services.aiRuntime.state.collectAsState()
+    val runtimeError by services.aiRuntime.error.collectAsState()
+    var runtimeBusy by remember { mutableStateOf(false) }
+    var runtimeNote by remember { mutableStateOf<String?>(null) }
+    var runtimePressure by remember { mutableStateOf<String?>(null) }
 
     fun refreshModels() {
         models = services.models.all()
@@ -104,6 +111,61 @@ fun ModelsScreen(services: ServiceLocator) {
         modifier = Modifier.fillMaxSize().padding(spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
+        item(key = "__runtime__") {
+            Text("รันไทม์ในเครื่อง", style = MaterialTheme.typography.titleMedium)
+            Text(
+                when (runtimeState) {
+                    com.aicodemax.ai.runtime.AiRuntimeState.READY -> "พร้อมใช้ ✅"
+                    com.aicodemax.ai.runtime.AiRuntimeState.GENERATING -> "กำลังตอบ…"
+                    com.aicodemax.ai.runtime.AiRuntimeState.LOADING_MODEL,
+                    com.aicodemax.ai.runtime.AiRuntimeState.INITIALIZING,
+                    -> "กำลังเตรียม… (${runtimeState.name})"
+                    com.aicodemax.ai.runtime.AiRuntimeState.OFFLINE -> "ออฟไลน์ — ยังไม่มีโมเดลในเครื่อง"
+                    com.aicodemax.ai.runtime.AiRuntimeState.ERROR -> "ผิดพลาด: ${runtimeError ?: "ไม่ทราบสาเหตุ"}"
+                    else -> runtimeState.name
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                TextButton(
+                    enabled = !runtimeBusy,
+                    onClick = {
+                        scope.launch {
+                            runtimeBusy = true
+                            runtimeNote = "กำลังติดตั้งโมเดลหลัก…"
+                            runtimePressure = services.aiRuntime.pressure()?.name?.let { "แรงดันหน่วยความจำ: $it" }
+                            val job = services.aiRuntime.installActiveModel { done, total ->
+                                runtimeNote = if (total != null && total > 0) {
+                                    "ดาวน์โหลด ${done * 100 / total}%"
+                                } else {
+                                    "ดาวน์โหลด ${done / 1024 / 1024}MB"
+                                }
+                            }
+                            withContext(Dispatchers.IO) { job.join() }
+                            runtimeNote = if (runtimeError != null) runtimeError else "เสร็จ — ${runtimeState.name}"
+                            runtimeBusy = false
+                        }
+                    },
+                ) { Text("ติดตั้ง+โหลดโมเดลหลัก") }
+                TextButton(
+                    enabled = !runtimeBusy,
+                    onClick = {
+                        scope.launch {
+                            runtimeBusy = true
+                            withContext(Dispatchers.IO) { services.aiRuntime.recover().join() }
+                            runtimeNote = "กู้คืนแล้ว — ${services.aiRuntime.state.value.name}"
+                            runtimeBusy = false
+                        }
+                    },
+                ) { Text("กู้คืน") }
+            }
+            runtimePressure?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+            }
+            runtimeNote?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+            }
+        }
         item(key = "__head__") {
             Text("โมเดล (${models.size})", style = MaterialTheme.typography.titleMedium)
         }

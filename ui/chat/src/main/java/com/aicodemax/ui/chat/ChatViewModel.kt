@@ -13,12 +13,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/** CP-132: chat phase states (spec §33). */
+enum class ChatPhase { READY, THINKING, RUNNING_TOOL, RETRY }
+
 data class ChatUiState(
     val conversationId: String? = null,
     val messages: List<ChatMessage> = emptyList(),
     val sending: Boolean = false,
     val error: String? = null,
     val lastTaskId: String? = null,
+    val phase: ChatPhase = ChatPhase.READY,
+    val runningTool: String? = null,
 )
 
 class ChatViewModel(
@@ -29,11 +34,26 @@ class ChatViewModel(
     private val monitor: com.aicodemax.core.resources.ResourceMonitor? = null,
     private val voice: com.aicodemax.tools.voice.VoicePort? = null,
     private val onStopAi: (() -> Unit)? = null,
+    private val bus: com.aicodemax.core.state.EventBus? = null,
 ) : ViewModel() {
     private var sendJob: kotlinx.coroutines.Job? = null
+    private var lastUserText: String? = null
 
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
+
+    init {
+        // CP-132: tool activity on the bus → RUNNING_TOOL phase with the tool name.
+        bus?.let { events ->
+            viewModelScope.launch {
+                events.events.collect { event ->
+                    if (event is com.aicodemax.core.state.AppEvent.ToolOutput && _state.value.sending) {
+                        _state.value = _state.value.copy(phase = ChatPhase.RUNNING_TOOL, runningTool = event.toolId)
+                    }
+                }
+            }
+        }
+    }
 
     private val _conversationsList = MutableStateFlow<List<Conversation>>(emptyList())
     val conversationsList: StateFlow<List<Conversation>> = _conversationsList.asStateFlow()
@@ -76,7 +96,17 @@ class ChatViewModel(
     }
 
     fun send(text: String) {
-        val trimmed = text.trim()
+        sendInternal(text.trim(), ChatPhase.THINKING)
+    }
+
+    /** CP-132: retry the last user message with the RETRY phase (spec §33). */
+    fun retryLast() {
+        val last = lastUserText
+        if (last.isNullOrBlank() || _state.value.sending) return
+        sendInternal(last, ChatPhase.RETRY)
+    }
+
+    private fun sendInternal(trimmed: String, phase: ChatPhase) {
         if (trimmed.isEmpty()) return
         val id = _state.value.conversationId ?: return
         // CP-57: chat-handled intents (real, local — no task pipeline needed).
@@ -92,16 +122,23 @@ class ChatViewModel(
             }
             else -> Unit
         }
-        _state.value = _state.value.copy(sending = true, error = null)
+        lastUserText = trimmed
+        _state.value = _state.value.copy(sending = true, error = null, phase = phase, runningTool = null)
         sendJob?.cancel()
         sendJob = viewModelScope.launch {
             when (val result = orchestrator.handleUserMessage(id, trimmed)) {
                 is Outcome.Failure ->
-                    _state.value = _state.value.copy(sending = false, error = result.error.message)
+                    _state.value = _state.value.copy(
+                        sending = false, error = result.error.message,
+                        phase = ChatPhase.READY, runningTool = null,
+                    )
                 is Outcome.Success -> {
                     val taskId = result.value.taskId
                     refresh(id, sending = false)
-                    _state.value = _state.value.copy(lastTaskId = taskId ?: _state.value.lastTaskId)
+                    _state.value = _state.value.copy(
+                        lastTaskId = taskId ?: _state.value.lastTaskId,
+                        phase = ChatPhase.READY, runningTool = null,
+                    )
                 }
             }
         }
@@ -120,7 +157,7 @@ class ChatViewModel(
         if (taskId != null) {
             tasks?.cancel(taskId, "stopped from chat")
         }
-        _state.value = _state.value.copy(sending = false)
+        _state.value = _state.value.copy(sending = false, phase = ChatPhase.READY, runningTool = null)
     }
 
     private fun postStatus(id: String, text: String) {
@@ -138,7 +175,7 @@ class ChatViewModel(
             postStatus(id, "ดูสถานะเครื่องได้ที่หน้า Home ครับ")
             return
         }
-        _state.value = _state.value.copy(sending = true, error = null)
+        _state.value = _state.value.copy(sending = true, error = null, phase = ChatPhase.THINKING)
         viewModelScope.launch {
             val text = mon.snapshot().fold(
                 onSuccess = { snap ->
@@ -174,13 +211,17 @@ class ChatViewModel(
             onError("เครื่องนี้ยังไม่ต่อระบบเสียง")
             return
         }
-        _state.value = _state.value.copy(sending = true)
+        _state.value = _state.value.copy(sending = true, phase = ChatPhase.THINKING)
         viewModelScope.launch {
             when (val result = port.listen()) {
                 is Outcome.Success -> onText(result.value.text)
                 is Outcome.Failure -> onError(result.error.message)
             }
-            _state.value = _state.value.copy(sending = _state.value.sending && sendJob?.isActive == true)
+            val stillSending = _state.value.sending && sendJob?.isActive == true
+            _state.value = _state.value.copy(
+                sending = stillSending,
+                phase = if (stillSending) _state.value.phase else ChatPhase.READY,
+            )
         }
     }
 
@@ -205,7 +246,11 @@ class ChatViewModel(
             onSuccess = { it },
             onFailure = { emptyList() },
         )
-        _state.value = _state.value.copy(conversationId = id, messages = messages, sending = sending)
+        _state.value = _state.value.copy(
+            conversationId = id, messages = messages, sending = sending,
+            phase = if (sending) _state.value.phase else ChatPhase.READY,
+            runningTool = if (sending) _state.value.runningTool else null,
+        )
         workingSet?.setConversation(id)
     }
 }

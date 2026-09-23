@@ -111,6 +111,27 @@ class LlmBrainTest {
     }
 
     @Test
+    fun tracerSeesRetrieveDecideValidateResult() = runBlocking {
+        // CP-132: full §32 chain per turn.
+        val gateway = FakeGateway(mapOf("files.read" to ToolResult(ok = true, output = "data")))
+        val bindings = com.aicodemax.tools.capability.StandardCapabilities.bindings()
+        val tracer = ToolTracer()
+        val brain = LlmBrain(
+            { ScriptProvider(listOf("ACTION files.read {\"path\":\"a.txt\"}", "เสร็จครับ")) },
+            { "m" }, gateway, "sys",
+            toolsSection = { ToolPromptBuilder(bindings).section(it) },
+            bindings = bindings, tracer = tracer,
+        )
+        brain.reply("อ่านไฟล์", emptyList())
+        val steps = tracer.snapshot()
+        assertTrue(steps.any { it.startsWith("retrieve") })
+        assertTrue(steps.any { it == "decide files.read" })
+        assertTrue(steps.any { it.startsWith("validate files.read") })
+        assertTrue(steps.any { it.startsWith("result files.read OK") })
+        assertTrue(steps.first().startsWith("retrieve"))
+    }
+
+    @Test
     fun malformedActionIsTreatedAsText() {
         assertTrue(LlmBrain.parseActions("ACTION nope").isEmpty())
         assertTrue(LlmBrain.parseActions("ACTION files.read {oops").isEmpty())

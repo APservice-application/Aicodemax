@@ -174,4 +174,5 @@
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)
 - DONE ได้เมื่อผ่าน §59 ครบ 13 ข้อ + ไม่มีงานค้างของ CP นั้น
 - ห้ามทำหลาย CP พร้อมกัน — ทำทีละตัวตาม §57
-| CP-131 | P17–19 agent retrieval + self-correction | DONE | ToolPromptBuilder; LlmBrain validate+record+few-shot (CI pending) |
+| CP-131 | P17–19 agent retrieval + self-correction | DONE | ToolPromptBuilder; LlmBrain validate+record+few-shot (CI GREEN) |
+| CP-132 | §32–33 trace + phases + runtime UI | DONE | ToolTracer→audit; ChatPhase THINKING/RUNNING_TOOL/RETRY; runtime section (CI pending) |

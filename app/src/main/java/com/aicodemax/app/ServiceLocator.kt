@@ -255,6 +255,15 @@ class ServiceLocator(context: Context) {
     private val toolPrompts = com.aicodemax.ai.agents.ToolPromptBuilder(
         bindings = com.aicodemax.tools.capability.StandardCapabilities.bindings(),
     )
+    // CP-132: trace sink → audit log (visible in AuditScreen, §32 chain complete).
+    private val toolTracer = com.aicodemax.ai.agents.ToolTracer().also { tracer ->
+        tracer.traceSink = { line ->
+            try {
+                audit.append(actor = "AI", action = "tool.trace", detail = line, allowed = true)
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     private fun llmSystemPrompt(): String {
         return "You are Aicodemax, a Thai-speaking AI that DOES work with tools. " +
@@ -276,6 +285,7 @@ class ServiceLocator(context: Context) {
                 precondition != "native.ffmpeg" ||
                     java.io.File(appContext.applicationInfo.nativeLibraryDir, "libffmpeg.so").exists()
             },
+            tracer = toolTracer,
         )
     val router: ModelRouter = FallbackModelRouter(models)
     val installer: ModelInstaller =

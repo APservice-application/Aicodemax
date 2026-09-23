@@ -31,6 +31,7 @@ class LlmBrain(
     private val bindings: List<com.aicodemax.tools.capability.CapabilityBinding>? = null,
     private val promptBuilder: ToolPromptBuilder? = null,
     private val preconditionsMet: (String) -> Boolean = { true },
+    private val tracer: ToolTracer? = null,
 ) : ChatBrain {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -38,7 +39,12 @@ class LlmBrain(
         val active = provider()
             ?: return Outcome.Failure(AppError("BRAIN_OFF", "ยังไม่ต่อ LLM (ตั้งค่าที่หน้า Models)"))
         val activeModel = model().ifBlank { "default" }
-        val system = toolsSection?.let { systemPrompt + "\n\n" + it(text) } ?: systemPrompt
+        val section = toolsSection?.invoke(text)
+        if (tracer != null && section != null) {
+            val ids = Regex("""• ([\w.]+) —""").findAll(section).map { it.groupValues[1] }.toList()
+            tracer.candidates(text, ids)
+        }
+        val system = section?.let { systemPrompt + "\n\n" + it } ?: systemPrompt
         val messages = mutableListOf(LlmMessage("system", system))
         // CP-131: self-correction budget per tool call (spec Phase 19).
         val failCounts = mutableMapOf<String, Int>()
@@ -72,6 +78,7 @@ class LlmBrain(
         failCounts: MutableMap<String, Int>,
     ): String {
         val id = "${action.toolId}.${action.action}"
+        tracer?.decision(id)
         val known = bindings
         if (known != null) {
             val verdict = com.aicodemax.tools.capability.ToolCallValidator.validate(
@@ -80,11 +87,13 @@ class LlmBrain(
             if (verdict is com.aicodemax.tools.capability.ToolCallValidator.Result.Invalid) {
                 val attempt = (failCounts[id] ?: 0) + 1
                 failCounts[id] = attempt
+                tracer?.validation(id, "invalid attempt=$attempt")
                 val feedback = com.aicodemax.tools.capability.ValidationRetry.feedback(verdict, attempt)
                 val extra = if (com.aicodemax.tools.capability.ValidationRetry.shouldRetry(attempt)) ""
                 else " — เลิกใช้ $id แล้วเลือก tool อื่น"
                 return "TOOL_RESULT $id FAIL $feedback$extra"
             }
+            tracer?.validation(id, verdict.javaClass.simpleName.lowercase())
         }
         val outcome = gateway.call(
             ToolCall(Ids.newId("llm"), action.toolId, action.action, action.args, actor = "AI"),
@@ -94,12 +103,17 @@ class LlmBrain(
                 if (it.ok) {
                     failCounts.remove(id)
                     promptBuilder?.recordSuccess(userText, id, action.args)
+                    tracer?.result(id, true, it.output)
                     "TOOL_RESULT $id OK ${it.output.take(1500)}"
                 } else {
+                    tracer?.result(id, false, it.error)
                     "TOOL_RESULT $id FAIL ${it.error.take(500)}"
                 }
             },
-            onFailure = { "TOOL_RESULT $id ERROR ${it.message.take(500)}" },
+            onFailure = {
+                tracer?.result(id, false, it.message)
+                "TOOL_RESULT $id ERROR ${it.message.take(500)}"
+            },
         )
     }
 
