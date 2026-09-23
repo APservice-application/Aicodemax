@@ -2,6 +2,7 @@ package com.aicodemax.app
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,16 +13,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.aicodemax.core.common.fold
 import com.aicodemax.core.resources.ResourceModes
 import com.aicodemax.ui.designsystem.LocalSpacing
+import kotlinx.coroutines.launch
 
 /** Home: greeting + live status cards (all values read from real stores). */
 @Composable
@@ -62,6 +66,55 @@ fun HomeScreen(services: ServiceLocator, onOpen: (String) -> Unit, onNewChat: ()
         Text("สวัสดี 👋", style = MaterialTheme.typography.titleLarge)
         Text("วันนี้ให้ช่วยอะไร?", style = MaterialTheme.typography.bodyMedium)
         Button(onClick = onNewChat, modifier = Modifier.fillMaxWidth()) { Text("เริ่มแชทใหม่") }
+
+        // CP-111 global search (files + projects + skills).
+        var searchQuery by remember { mutableStateOf("") }
+        var searchResult by remember { mutableStateOf("") }
+        var searchBusy by remember { mutableStateOf(false) }
+        val searchScope = rememberCoroutineScope()
+        TextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            label = { Text("ค้นหาทุกที่ (ไฟล์/โปรเจกต์/สกิล)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Button(
+                onClick = {
+                    val q = searchQuery.trim()
+                    if (q.isEmpty()) {
+                        searchResult = "พิมพ์คำค้นก่อนครับ"
+                    } else {
+                        searchScope.launch {
+                            searchBusy = true
+                            val parts = mutableListOf<String>()
+                            suspend fun ask(toolId: String, action: String, label: String) {
+                                val call = com.aicodemax.tools.gateway.ToolCall(
+                                    com.aicodemax.core.common.Ids.newId("ui"), toolId, action,
+                                    mapOf("query" to q), actor = "HUMAN",
+                                )
+                                services.gateway.call(call).fold(
+                                    onSuccess = { parts += "$label:\n${it.output.ifBlank { it.error }.take(800)}" },
+                                    onFailure = { parts += "$label: ${it.message}" },
+                                )
+                            }
+                            ask("files", "search", "ไฟล์")
+                            ask("media", "project.list", "โปรเจกต์")
+                            ask("skill", "list", "สกิล")
+                            searchResult = parts.joinToString("\n\n")
+                            searchBusy = false
+                        }
+                    }
+                },
+                enabled = !searchBusy,
+            ) { Text("ค้นหา") }
+        }
+        if (searchResult.isNotEmpty()) {
+            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
+                Text(searchResult.take(2000), modifier = Modifier.fillMaxWidth().padding(spacing.sm))
+            }
+        }
 
         StatusCard(title = "AI", line = modelLine, action = "ดู" to { onOpen(Routes.MODELS) })
         StatusCard(

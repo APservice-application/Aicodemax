@@ -24,7 +24,10 @@ class SkillToolExecutor(
             when (call.action) {
                 "list" -> skills.list().fold(
                     onSuccess = { metas ->
-                        done(true, metas.joinToString("\n") { "${it.id} [${it.category}]" }
+                        val query = call.args["query"]?.trim().orEmpty()
+                        val shown = if (query.isBlank()) metas
+                        else metas.filter { "${it.id} ${it.category}".contains(query, ignoreCase = true) }
+                        done(true, shown.joinToString("\n") { "${it.id} [${it.category}]" }
                             .ifBlank { "(no skills)" })
                     },
                     onFailure = { done(false, error = it.message) },

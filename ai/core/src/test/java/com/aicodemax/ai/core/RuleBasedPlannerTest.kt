@@ -240,6 +240,19 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp111SearchAllPlan() = runBlocking {
+        val p = (planner.plan(UserIntent(IntentType.SEARCH_ALL, "t", mapOf("query" to "TODO"))) as Outcome.Success<Plan>).value
+        assertEquals(3, p.steps.size)
+        assertEquals("search", p.steps[0].action)
+        assertEquals("files", p.steps[0].toolId)
+        assertEquals("project.list", p.steps[1].action)
+        assertEquals("media", p.steps[1].toolId)
+        assertEquals("list", p.steps[2].action)
+        assertEquals("skill", p.steps[2].toolId)
+        assertTrue(planner.plan(UserIntent(IntentType.SEARCH_ALL, "t", emptyMap())) is Outcome.Failure)
+    }
+
+    @Test
     fun cp110DirectorPlan() = runBlocking {
         val d = (planner.plan(UserIntent(IntentType.RENDER_DIRECTOR, "t", emptyMap())) as Outcome.Success<Plan>).value
         assertEquals("director", d.steps[0].action)

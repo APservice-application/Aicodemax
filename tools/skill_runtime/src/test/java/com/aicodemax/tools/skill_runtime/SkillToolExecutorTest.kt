@@ -30,6 +30,15 @@ class SkillToolExecutorTest {
     }
 
     @Test
+    fun listQueryFilters() = runBlocking {
+        val exec = executor(tmp.newFolder("ws"))
+        val hit = (exec.execute(ToolCall("1", "skill", "list", mapOf("query" to "aicode"))) as Outcome.Success<ToolResult>).value
+        assertTrue(hit.ok && hit.output.contains("aicode-tools"))
+        val miss = (exec.execute(ToolCall("2", "skill", "list", mapOf("query" to "zzz-no-such"))) as Outcome.Success<ToolResult>).value
+        assertTrue(miss.ok && miss.output.contains("(no skills)"))
+    }
+
+    @Test
     fun installFromWorkspaceThenInject() = runBlocking {
         val workspace = tmp.newFolder("ws")
         File(workspace, "tip.md").writeText("# tip\ncontent")

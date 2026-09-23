@@ -25,6 +25,14 @@ class MediaToolExecutorTest {
     }
 
     @Test
+    fun projectListQueryFilters() {
+        run("project.create", mapOf("name" to "ทะเลทริป"))
+        run("project.create", mapOf("name" to "ภูเขา"))
+        val hit = run("project.list", mapOf("query" to "ทะเล"))
+        assertTrue(hit.ok && hit.output.contains("ทะเลทริป") && !hit.output.contains("ภูเขา"))
+    }
+
+    @Test
     fun projectLifecycle() {
         val created = run("project.create", mapOf("name" to "demo"))
         assertTrue(created.ok)

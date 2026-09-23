@@ -257,6 +257,15 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp111SearchAllIntent() {
+        val all = IntentParser.parse("ค้นหาทุกที่ TODO")
+        assertEquals(IntentType.SEARCH_ALL, all.type)
+        assertEquals("TODO", all.parameters["query"])
+        val files = IntentParser.parse("ค้นหา TODO")
+        assertEquals(IntentType.SEARCH_FILES, files.type)
+    }
+
+    @Test
     fun cp110DirectorIntent() {
         assertEquals(IntentType.RENDER_DIRECTOR, IntentParser.parse("ให้ผู้กำกับตรวจงานหน่อย").type)
     }

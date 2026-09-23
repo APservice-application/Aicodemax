@@ -99,6 +99,17 @@ class RuleBasedPlanner(
                 }
                 listOf("files.search" to mapOf("query" to query))
             }
+            IntentType.SEARCH_ALL -> {
+                val query = intent.parameters["query"]?.trim().orEmpty()
+                if (query.isBlank()) {
+                    return Outcome.Failure(AppError("PLAN_NO_QUERY", "ค้นหาอะไรครับ? เช่น ค้นหาทุกที่ TODO"))
+                }
+                listOf(
+                    "files.search" to mapOf("query" to query),
+                    "media.project.list" to mapOf("query" to query),
+                    "skill.list" to mapOf("query" to query),
+                )
+            }
             IntentType.BROWSER_OPEN -> {
                 val url = intent.parameters["url"]?.trim().orEmpty()
                 if (url.isBlank()) {

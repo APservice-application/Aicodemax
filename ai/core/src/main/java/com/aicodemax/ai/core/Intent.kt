@@ -13,6 +13,7 @@ enum class IntentType {
     RUN_TESTS,
     GIT_ACTION,
     SEARCH_FILES,
+    SEARCH_ALL,
     STOP_TASK,
     SYSTEM_STATUS,
     MEMORY_SAVE,
@@ -1021,6 +1022,12 @@ object IntentParser {
         if (containsAny(t, ThaiVocabulary.debugWords)) {
             val error = t.substringAfter(":", t).trim()
             return UserIntent(IntentType.DEBUG_CODE, text, params("error" to error.ifBlank { t }))
+        }
+        if (containsAny(t, ThaiVocabulary.searchAllWords)) {
+            var query = t
+            for (w in ThaiVocabulary.searchAllWords) query = query.replace(w, "")
+            query = query.trim()
+            return UserIntent(IntentType.SEARCH_ALL, text, params("query" to query.ifBlank { null }))
         }
         if (containsAny(t, ThaiVocabulary.searchWords)) {
             val query = t.substringAfter("ค้นหา").trim().ifBlank { t }

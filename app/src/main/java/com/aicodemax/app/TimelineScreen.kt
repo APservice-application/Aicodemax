@@ -67,6 +67,8 @@ fun TimelineScreen(services: ServiceLocator) {
     var ideaTopic by remember { mutableStateOf("") }
     var ideaKindIndex by remember { mutableStateOf(2) }
     var ideas by remember { mutableStateOf("") }
+    var aiModeIndex by remember { mutableStateOf(1) }
+    var aiPlan by remember { mutableStateOf("") }
     var keyPropIndex by remember { mutableStateOf(0) }
     var keyValue by remember { mutableStateOf(100f) }
     var keyEaseIndex by remember { mutableStateOf(0) }
@@ -350,6 +352,27 @@ fun TimelineScreen(services: ServiceLocator) {
                         ) { Text("คิดไอเดีย") }
                     }
                     if (ideas.isNotEmpty()) Text(ideas, style = MaterialTheme.typography.bodySmall)
+                    // CP-111 AI content modes (§Mode A).
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        val modes = com.aicodemax.tools.media.AiModes.MODES
+                        OutlinedButton(
+                            onClick = { aiModeIndex = (aiModeIndex + 1) % modes.size },
+                            enabled = !busy,
+                        ) {
+                            Text("โหมด: ${com.aicodemax.tools.media.AiModes.thaiName(modes[aiModeIndex])}")
+                        }
+                        Button(
+                            onClick = {
+                                aiPlan = try {
+                                    com.aicodemax.tools.media.AiModes.plan(modes[aiModeIndex], ideaTopic)
+                                } catch (e: IllegalArgumentException) {
+                                    e.message ?: "โหมดไม่ถูก"
+                                }
+                            },
+                            enabled = ideaTopic.isNotBlank(),
+                        ) { Text("วางแผนคลิป") }
+                    }
+                    if (aiPlan.isNotEmpty()) Text(aiPlan, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

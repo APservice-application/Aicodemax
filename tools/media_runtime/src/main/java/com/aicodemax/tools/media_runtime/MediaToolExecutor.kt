@@ -64,8 +64,11 @@ class MediaToolExecutor(
                 }
                 "project.list" -> media.listProjects().fold(
                     onSuccess = { list ->
-                        if (list.isEmpty()) done(true, "ยังไม่มีโปรเจกต์")
-                        else done(true, list.joinToString("\n") { "${it.id} | ${it.name} | v${it.version} | ${it.timeline.durationMs}ms" })
+                        val query = call.args["query"]?.trim().orEmpty()
+                        val shown = if (query.isBlank()) list
+                        else list.filter { "${it.id} ${it.name}".contains(query, ignoreCase = true) }
+                        if (shown.isEmpty()) done(true, "ยังไม่มีโปรเจกต์")
+                        else done(true, shown.joinToString("\n") { "${it.id} | ${it.name} | v${it.version} | ${it.timeline.durationMs}ms" })
                     },
                     onFailure = { done(false, error = it.message) },
                 )

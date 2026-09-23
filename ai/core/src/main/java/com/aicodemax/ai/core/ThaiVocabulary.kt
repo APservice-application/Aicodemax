@@ -79,6 +79,7 @@ object ThaiVocabulary {
 
     /** Search verbs. */
     val searchWords: List<String> = listOf("ค้นหา")
+    val searchAllWords: List<String> = listOf("ค้นหาทุกที่", "ค้นหาทั้งหมด", "search all")
 
     /** Test verbs (extra). */
     val testWords: List<String> = listOf("เทส")
