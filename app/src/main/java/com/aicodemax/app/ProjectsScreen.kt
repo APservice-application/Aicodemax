@@ -35,6 +35,11 @@ import com.aicodemax.tools.editor.EditorBuffer
 import com.aicodemax.tools.files.ContentMatch
 import com.aicodemax.tools.files.FileEntry
 import com.aicodemax.tools.project.Project
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Refresh
+import com.aicodemax.ui.designsystem.EmptyState
+import com.aicodemax.ui.designsystem.ErrorState
 import com.aicodemax.ui.designsystem.LocalSpacing
 import kotlinx.coroutines.launch
 
@@ -232,10 +237,22 @@ private fun FilesTab(services: ServiceLocator) {
             TextButton(onClick = { grid = !grid }) { Text(if (grid) "มุมมอง: ตาราง" else "มุมมอง: รายการ") }
         }
         if (error != null) {
-            Text(error!!, color = MaterialTheme.colorScheme.error)
+            ErrorState(
+                icon = Icons.Outlined.Refresh,
+                title = "โหลดไฟล์ไม่ได้",
+                explanation = "แตะลองใหม่ หรือตรวจสิทธิ์ไฟล์",
+                onRetry = { load(path) },
+                details = error,
+            )
         }
         if (sorted.isEmpty() && error == null) {
-            Text("ว่างเปล่า — สั่ง AI ในแชทได้เลย เช่น “สร้างไฟล์ notes.txt: สวัสดี”")
+            EmptyState(
+                icon = Icons.Outlined.FolderOpen,
+                title = "โฟลเดอร์ว่าง",
+                description = "สั่ง AI ในแชทได้เลย เช่น “สร้างไฟล์ notes.txt: สวัสดี”",
+                primaryLabel = "รีเฟรช",
+                onPrimary = { load(path) },
+            )
         }
         if (grid) {
             LazyVerticalGrid(

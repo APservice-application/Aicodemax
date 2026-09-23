@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -47,6 +46,7 @@ import com.aicodemax.data.conversations.ChatMessage
 import com.aicodemax.data.conversations.Conversation
 import com.aicodemax.data.conversations.MessageRole
 import com.aicodemax.ui.designsystem.LocalSpacing
+import com.aicodemax.ui.designsystem.ShimmerSkeleton
 import com.aicodemax.ui.designsystem.StatusKind
 import com.aicodemax.ui.designsystem.statusColor
 import kotlinx.coroutines.launch
@@ -334,15 +334,10 @@ private fun TaskLinkCard(onOpen: () -> Unit) {
 
 @Composable
 private fun SendingRow() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.padding(4.dp),
-            strokeWidth = 2.dp,
-        )
+    // CP-116: skeleton shimmer (§86) instead of a spinner.
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("AI กำลังทำงาน…", style = MaterialTheme.typography.bodyMedium)
+        ShimmerSkeleton(lines = 2, modifier = Modifier.padding(end = 48.dp))
     }
 }
 

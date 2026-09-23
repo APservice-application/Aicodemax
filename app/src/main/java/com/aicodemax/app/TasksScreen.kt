@@ -23,6 +23,9 @@ import com.aicodemax.ai.tasks.AiTask
 import com.aicodemax.ai.tasks.TaskState
 import com.aicodemax.core.common.fold
 import com.aicodemax.core.state.AppEvent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Assignment
+import com.aicodemax.ui.designsystem.EmptyState
 import com.aicodemax.ui.designsystem.LocalSpacing
 import com.aicodemax.ui.designsystem.StatusKind
 import com.aicodemax.ui.designsystem.statusColor
@@ -51,7 +54,11 @@ fun TasksScreen(services: ServiceLocator) {
 
     if (tasks.isEmpty()) {
         Column(modifier = Modifier.fillMaxSize().padding(spacing.md)) {
-            Text("ยังไม่มีงาน — สั่ง AI ในแชทได้เลย")
+            EmptyState(
+                icon = Icons.Outlined.Assignment,
+                title = "ยังไม่มีงาน",
+                description = "สั่ง AI ในแชทได้เลย เช่น “สร้างไฟล์ notes.txt: สวัสดี”",
+            )
         }
     } else {
         LazyColumn(
