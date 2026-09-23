@@ -24,7 +24,7 @@ import com.aicodemax.ai.tasks.TaskState
 import com.aicodemax.core.common.fold
 import com.aicodemax.core.state.AppEvent
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Assignment
+import androidx.compose.material.icons.outlined.CheckCircle
 import com.aicodemax.ui.designsystem.EmptyState
 import com.aicodemax.ui.designsystem.LocalSpacing
 import com.aicodemax.ui.designsystem.StatusKind
@@ -55,7 +55,7 @@ fun TasksScreen(services: ServiceLocator) {
     if (tasks.isEmpty()) {
         Column(modifier = Modifier.fillMaxSize().padding(spacing.md)) {
             EmptyState(
-                icon = Icons.Outlined.Assignment,
+                icon = Icons.Outlined.CheckCircle,
                 title = "ยังไม่มีงาน",
                 description = "สั่ง AI ในแชทได้เลย เช่น “สร้างไฟล์ notes.txt: สวัสดี”",
             )

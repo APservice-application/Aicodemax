@@ -36,7 +36,7 @@ import com.aicodemax.tools.files.ContentMatch
 import com.aicodemax.tools.files.FileEntry
 import com.aicodemax.tools.project.Project
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Refresh
 import com.aicodemax.ui.designsystem.EmptyState
 import com.aicodemax.ui.designsystem.ErrorState
@@ -247,7 +247,7 @@ private fun FilesTab(services: ServiceLocator) {
         }
         if (sorted.isEmpty() && error == null) {
             EmptyState(
-                icon = Icons.Outlined.FolderOpen,
+                icon = Icons.Outlined.List,
                 title = "โฟลเดอร์ว่าง",
                 description = "สั่ง AI ในแชทได้เลย เช่น “สร้างไฟล์ notes.txt: สวัสดี”",
                 primaryLabel = "รีเฟรช",
