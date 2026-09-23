@@ -155,7 +155,7 @@
 | CP-115 | Browser page automation (read/click/type/probe) | DONE | AndroidBrowserPort JS bridge + auth boundary + intents อ่าน/คลิก/พิมพ์ในเว็บ (CI GREEN) |
 | CP-116 | Visual states (§86–88, §99) | DONE | ShimmerSkeleton/EmptyState/ErrorState + AicodeAnim + ใช้ใน Chat/Projects/Tasks (จอที่เหลือทยอยตาม) (CI GREEN) |
 | CP-117 | Memory UI + Simple/Pro modes | DONE | MemoryScreen (จำ/ทวน/บทเรียน) + UiMode setting + Home กรองตามโหมด (CI GREEN) |
-| CP-118 | Native toolchain (ffmpeg/llama .so embedded) | DONE | CI fetch + packaging + NativeToolchain detect + debug.native (CI pending) |
+| CP-118 | Native toolchain (ffmpeg/llama .so embedded) | DONE | CI fetch + packaging + NativeToolchain detect + debug.native (CI GREEN, .so ยืนยันใน APK) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)
