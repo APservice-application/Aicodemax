@@ -9,21 +9,27 @@ Prebuilt arm64 tools embedded in the APK (ported from the owner's previous app):
 | llama-server | `libllama-server.so` (13MB) | asset `libllama-server-arm64.so` — INTERIM, removed at CP-128 |
 | llama.cpp | `libllama.so` | **built from source in CI** (CP-122, see below) |
 
-## llama.cpp from source (CP-122)
+## llama.cpp from source (CP-122) + JNI bridge (CP-123)
 
-Spec §41 P3–P4: the inference engine is compiled, never downloaded as a
-binary blob.
+Spec §41 P3–P5: the inference engine is compiled, never downloaded as a
+binary blob, and runs in-process via JNI (no localhost, no subprocess).
 
-- CI step "Build llama.cpp arm64": installs NDK `27.0.12077973` via
-  sdkmanager, clones `ggml-org/llama.cpp` at pinned tag **v0.4.1**
-  (`--depth 1`), configures with the NDK CMake toolchain
-  (`arm64-v8a`, `android-26`, Release, `BUILD_SHARED_LIBS=ON`,
-  `CURL/TESTS/EXAMPLES/SERVER/TOOLS=OFF`), builds, and copies `libllama.so`
-  into `app/src/main/jniLibs/arm64-v8a/`.
-- The built `.so` is cached (`actions/cache`, key
-  `llama-v0.4.1-ndk-27.0.12077973`) — rebuilds only when the tag/NDK changes.
+- CI step "Build llama.cpp + JNI arm64": installs NDK `27.0.12077973`,
+  clones `ggml-org/llama.cpp` at pinned tag **v0.4.1** (`--depth 1`),
+  configures with the NDK CMake toolchain (`arm64-v8a`, `android-26`,
+  Release, PIC, `GGML_OPENMP=OFF`, `CURL/TESTS/EXAMPLES/SERVER/TOOLS=OFF`),
+  builds static `llama` + `llama-common`, then links them with our wrapper
+  `app/src/main/cpp/aicode_jni.cpp` into ONE stripped shared lib
+  `libaicode_jni.so` in `app/src/main/jniLibs/arm64-v8a/`.
+- The built `.so` is cached (`actions/cache`, key includes the tag, the NDK
+  version and a hash of `app/src/main/cpp/**`) — rebuilds only when one of
+  those changes.
 - Nothing from llama.cpp is committed to git (source too big, binary
   reproducible from the pinned tag).
+- JNI surface (`AicodeJni` ↔ `aicode_jni.cpp`): load / generate (streaming
+  callback, stop sequences, cancellation) / stop / unload / info / version /
+  lastError. `JniAiRuntime` implements `AiRuntime` over it with Qwen2.5
+  ChatML framing; on plain JVM every call fails honestly ("Android only").
 
 ## Build flow (repo stays lean — no binaries in git)
 
