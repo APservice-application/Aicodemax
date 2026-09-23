@@ -46,7 +46,18 @@ class DebugToolExecutor(
                     val report = com.aicodemax.tools.runtime.NativeToolchain.detect(nativeLibDir, runner)
                     done(true, com.aicodemax.tools.runtime.NativeToolchain.format(report))
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: analyze/bench/native)")
+                "tools" -> {
+                    val query = call.args["query"] ?: call.args["q"]
+                        ?: return@withContext done(false, error = "missing arg: query")
+                    val history = call.args["history"]?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+                    val limit = call.args["limit"]?.toIntOrNull() ?: 5
+                    val found = com.aicodemax.tools.capability.ToolRetriever.retrieve(
+                        query, com.aicodemax.tools.capability.StandardCapabilities.bindings(), history, limit,
+                    )
+                    if (found.isEmpty()) done(true, "ไม่เจอ tool ที่ตรงกับ “$query”")
+                    else done(true, found.joinToString("\n") { "• ${it.binding.capabilityId} — ${it.binding.metadata.purpose} (score ${it.score})" })
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: analyze/bench/native/tools)")
             }
         }
 

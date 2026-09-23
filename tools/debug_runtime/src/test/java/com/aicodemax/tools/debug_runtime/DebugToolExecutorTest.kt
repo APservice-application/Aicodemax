@@ -48,6 +48,23 @@ class DebugToolExecutorTest {
     }
 
     @Test
+    fun toolsActionRetrievesCandidates() = runBlocking {
+        // CP-129: gateway-usable tool retrieval.
+        val result = executor.execute(ToolCall("5", "debug", "tools", mapOf("query" to "export วิดีโอ")))
+        val value = (result as Outcome.Success<ToolResult>).value
+        assertTrue(value.ok)
+        assertTrue(value.output.contains("media."))
+    }
+
+    @Test
+    fun toolsActionNeedsQuery() = runBlocking {
+        val result = executor.execute(ToolCall("6", "debug", "tools"))
+        val value = (result as Outcome.Success<ToolResult>).value
+        assertTrue(!value.ok)
+        assertTrue(value.error.contains("missing arg"))
+    }
+
+    @Test
     fun nativeReportsToolchainHonestly() = runBlocking {
         // CP-118: no native dir in unit tests → honest missing lines (CP-128: ffmpeg+ffprobe only).
         val result = executor.execute(ToolCall("4", "debug", "native"))

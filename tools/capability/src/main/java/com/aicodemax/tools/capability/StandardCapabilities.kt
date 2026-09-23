@@ -98,10 +98,12 @@ object StandardCapabilities {
             metadata = meta("debug", "วัดความเร็วเครื่อง", listOf("quick?"), listOf("bench"), emptyList(), false, "bench shown", "retry")),
         CapabilityBinding("debug.native", "debug", "native", AdapterKind.NATIVE,
             metadata = meta("debug", "ตรวจ native toolchain ที่ฝังในแอป (CP-118)", emptyList(), listOf("report"), emptyList(), false, "3 lines", "retry")),
+        CapabilityBinding("debug.tools", "debug", "tools", AdapterKind.NATIVE,
+            metadata = meta("debug", "ค้นหา candidate tools สำหรับคำสั่ง (CP-129)", listOf("query,history?,limit?"), listOf("candidates"), emptyList(), false, "ranked list", "rephrase")),
         CapabilityBinding("model.status", "model", "status", AdapterKind.NATIVE,
             metadata = meta("model", "สถานะไฟล์โมเดลบนเครื่อง (CP-128: ไม่ผ่าน localhost แล้ว)", emptyList(), listOf("status"), emptyList(), false, "2 lines", "retry")),
         CapabilityBinding("model.download", "model", "download", AdapterKind.NATIVE,
-            metadata = meta("model", "โหลดโมเดล Qwen ~400MB (CP-120)", emptyList(), listOf("file"), listOf("fs.write"), false, "file ready", "resume")),
+            metadata = meta("model", "โหลดโมเดล Qwen ~400MB (CP-120)", emptyList(), listOf("file"), listOf("fs.write"), true, "file ready", "resume", preconditions = listOf("network"))),
         // Memory engine (native).
         CapabilityBinding("memory.save", "memory", "save", AdapterKind.NATIVE,
             metadata = meta("memory", "จำ key=value ระดับ global", listOf("key,value"), listOf("ok"), emptyList(), false, "read-back", "retry")),
@@ -210,9 +212,9 @@ object StandardCapabilities {
         CapabilityBinding("media.asset.list", "media", "asset.list", AdapterKind.NATIVE,
             metadata = meta("media", "list asset ในโปรเจกต์", listOf("projectId?"), listOf("assets"), emptyList(), false, "index read", "re-list")),
         CapabilityBinding("media.asset.probe", "media", "asset.probe", AdapterKind.NATIVE,
-            metadata = meta("media", "อ่านข้อมูลไฟล์จริงด้วย ffprobe (CP-119)", listOf("path"), listOf("probe"), emptyList(), false, "probe shown", "fix file")),
+            metadata = meta("media", "อ่านข้อมูลไฟล์จริงด้วย ffprobe (CP-119)", listOf("path"), listOf("probe"), emptyList(), false, "probe shown", "fix file", preconditions = listOf("native.ffmpeg"))),
         CapabilityBinding("media.timeline.export", "media", "timeline.export", AdapterKind.NATIVE,
-            metadata = meta("media", "export วิดีโอจริงด้วย ffmpeg (CP-119)", listOf("path,output?"), listOf("file"), listOf("fs.write"), false, "file written", "retry", true, "edit.undo")),
+            metadata = meta("media", "export วิดีโอจริงด้วย ffmpeg (CP-119)", listOf("path,output?"), listOf("file"), listOf("fs.write"), false, "file written", "retry", true, "edit.undo", preconditions = listOf("native.ffmpeg"))),
         CapabilityBinding("media.timeline.get", "media", "timeline.get", AdapterKind.NATIVE,
             metadata = meta("media", "อ่าน timeline", listOf("projectId?"), listOf("timeline"), emptyList(), false, "json read", "re-get")),
         CapabilityBinding("media.timeline.addClip", "media", "timeline.addClip", AdapterKind.NATIVE,
@@ -442,10 +444,21 @@ CapabilityBinding("media.timeline.enhance", "media", "timeline.enhance", Adapter
     )
 }
 
+/** CP-129: spec §28 risk from permissions (explicit override wins). */
+fun deriveRisk(permissions: List<String>, override: String = ""): String {
+    if (override.isNotBlank()) return override
+    return when {
+        permissions.any { it in setOf("fs.delete", "exec", "network") } -> "high"
+        permissions.any { it == "fs.write" } -> "medium"
+        else -> "low"
+    }
+}
+
 private fun meta(
     tool: String, purpose: String, inputs: List<String>, outputs: List<String>,
     permissions: List<String>, network: Boolean, verification: String, recovery: String,
     undoable: Boolean = false, undoHint: String = "",
+    risk: String = "", preconditions: List<String> = emptyList(), resultSchema: String = "",
 ): CapabilityMetadata {
     val engines = mapOf(
         "files" to ("File Engine" to "SandboxFileStore"),
@@ -474,5 +487,7 @@ private fun meta(
         compatibility = "native",
         fallback = "", verification = verification, recovery = recovery,
         undoable = undoable, undoHint = undoHint,
+        risk = deriveRisk(permissions, risk),
+        preconditions = preconditions, resultSchema = resultSchema,
     )
 }

@@ -62,7 +62,17 @@ data class CapabilityMetadata(
     val version: String = "0.1.0",
     val undoable: Boolean = false,
     val undoHint: String = "",
-)
+    /** CP-129 §12: low/medium/high (spec §28 permission levels). */
+    val risk: String = "",
+    /** CP-129 §12: must-have conditions, e.g. "native.ffmpeg", "model.ready". */
+    val preconditions: List<String> = emptyList(),
+    /** CP-129 §12: result shape; blank = derived from [outputs]. */
+    val resultSchema: String = "",
+) {
+    /** Effective schema: explicit [resultSchema] or the outputs list. */
+    fun effectiveSchema(): String =
+        resultSchema.ifBlank { outputs.joinToString(",") }
+}
 
 data class CapabilityBinding(
     val capabilityId: String,
