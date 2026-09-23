@@ -42,6 +42,7 @@ class AiRuntimeManager(
     private val runtimeDir: String,
     private val loadOpts: LoadOpts = LoadOpts(),
     private val template: (List<ChatMessage>) -> String = ChatTemplate::qwen25,
+    private val resources: ResourceManager? = null,
 ) {
     private val _state = MutableStateFlow(AiRuntimeState.UNINITIALIZED)
     val state: StateFlow<AiRuntimeState> = _state
@@ -71,18 +72,38 @@ class AiRuntimeManager(
                 _error.value = st.reason
                 _state.value = AiRuntimeState.ERROR
             }
-            is ModelInstallStatus.Ready -> loadIntoRuntime(st.path)
+            is ModelInstallStatus.Ready -> loadWithResources(st)
         }
     }
+
+    /** CP-127: RAM gate — Ok / Degrade (smaller ctx) / Refuse (OFFLINE). */
+    private fun loadWithResources(ready: ModelInstallStatus.Ready) {
+        val rm = resources
+        if (rm == null) {
+            loadIntoRuntime(ready.path, loadOpts)
+            return
+        }
+        when (val verdict = rm.canLoad(ready.bytes, loadOpts)) {
+            is LoadVerdict.Ok -> loadIntoRuntime(ready.path, verdict.opts)
+            is LoadVerdict.Degrade -> {
+                _error.value = verdict.reason
+                loadIntoRuntime(ready.path, verdict.opts)
+            }
+            is LoadVerdict.Refuse -> setOff(verdict.reason)
+        }
+    }
+
+    /** Current memory-pressure level (§19); null when no reader is wired. */
+    fun pressure(): Pressure? = resources?.pressure()
 
     private fun setOff(reason: String) {
         _error.value = reason
         _state.value = AiRuntimeState.OFFLINE
     }
 
-    private fun loadIntoRuntime(path: String) {
+    private fun loadIntoRuntime(path: String, opts: LoadOpts = loadOpts) {
         _state.value = AiRuntimeState.LOADING_MODEL
-        runtime.loadModel(path, loadOpts).fold(
+        runtime.loadModel(path, opts).fold(
             onSuccess = {
                 _error.value = null
                 _state.value = AiRuntimeState.READY
@@ -163,6 +184,10 @@ class AiRuntimeManager(
     /** Attempt recovery from ERROR: unload + reload the active model. */
     fun recover(): Job = scope.launch(Dispatchers.IO) {
         if (_state.value != AiRuntimeState.ERROR && _state.value != AiRuntimeState.OFFLINE) return@launch
+        if (resources?.pressure() == Pressure.CRITICAL) {
+            _error.value = "RAM วิกฤต — ปิดแอปอื่นก่อนแล้วค่อย recover"
+            return@launch
+        }
         _state.value = AiRuntimeState.RECOVERING
         _error.value = null
         try {

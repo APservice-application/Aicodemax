@@ -162,6 +162,10 @@ class ServiceLocator(context: Context) {
     val modelManager: com.aicodemax.ai.runtime.ModelManager =
         com.aicodemax.ai.runtime.ModelManager(storage.modelsDefault.path, storage.modelsOptional.path)
 
+    /** CP-127: device resources for adaptive AI (RAM/CPU/storage). */
+    val aiResources: com.aicodemax.ai.runtime.ResourceManager =
+        com.aicodemax.ai.runtime.ResourceManager(AndroidResourceReader(appContext))
+
     val workspaceDir: File = storage.workspaces
     val files: FilePort = SandboxFileStore(workspaceDir)
     val editor: EditorPort = FileBackedEditor(files)

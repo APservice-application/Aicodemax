@@ -164,7 +164,8 @@
 | CP-123 | P5 JNI bridge + JniAiRuntime | DONE | aicode_jni.cpp + AicodeJni + JniAiRuntime + static link (CI GREEN) |
 | CP-124 | P6+P9 ModelProvider abstraction | DONE | Local/Cloud/Remote/Hybrid + registry + ChatML (CI GREEN) |
 | CP-125 | P7+P23–25 ModelManager + storage | DONE | profiles/license/GGUF-validate + StorageLayout migrate (CI GREEN) |
-| CP-126 | P8+P20–22 AiRuntimeManager | DONE | lifecycle + bg init + session-marker recovery (CI pending) |
+| CP-126 | P8+P20–22 AiRuntimeManager | DONE | lifecycle + bg init + session-marker recovery (CI GREEN) |
+| CP-127 | P9+P18–19 ResourceManager | DONE | adaptive ctx/threads + RAM gate + pressure + Android reader (CI pending) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)

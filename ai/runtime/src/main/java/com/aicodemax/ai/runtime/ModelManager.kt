@@ -91,7 +91,7 @@ sealed interface ModelInstallStatus {
     data class Invalid(val path: String, val reason: String) : ModelInstallStatus
 }
 
-class ModelManager(
+open class ModelManager(
     private val defaultDir: String,
     private val optionalDir: String,
     private val downloader: ModelStore.Downloader = ModelStore.urlDownloader(),
@@ -106,7 +106,7 @@ class ModelManager(
 
     fun find(id: String): ModelProfile? = profiles.firstOrNull { it.id == id }
 
-    fun status(profile: ModelProfile): ModelInstallStatus {
+    open fun status(profile: ModelProfile): ModelInstallStatus {
         val file = fileFor(profile)
         if (!file.isFile || file.length() == 0L) return ModelInstallStatus.Missing(file.path)
         return try {
