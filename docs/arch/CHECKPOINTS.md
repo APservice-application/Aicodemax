@@ -161,7 +161,8 @@
 | AUDIT-AI | Phase 1 audit (embedded-native-ai §0–43) | DONE | EMBEDDED_AI_AUDIT.md + CP-121..132 plan (localhost=interim) |
 | CP-121 | P2 AiRuntime abstraction | DONE | AiRuntime + FakeAiRuntime + InterimLlamaServerRuntime (CI GREEN) |
 | CP-122 | P3+P4 NDK + llama.cpp arm64 in CI | DONE | pinned v0.4.1, source-built (CI GREEN) |
-| CP-123 | P5 JNI bridge + JniAiRuntime | DONE | aicode_jni.cpp + AicodeJni + JniAiRuntime + static link (CI pending) |
+| CP-123 | P5 JNI bridge + JniAiRuntime | DONE | aicode_jni.cpp + AicodeJni + JniAiRuntime + static link (CI GREEN) |
+| CP-124 | P6+P9 ModelProvider abstraction | DONE | Local/Cloud/Remote/Hybrid + registry + ChatML (CI pending) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)

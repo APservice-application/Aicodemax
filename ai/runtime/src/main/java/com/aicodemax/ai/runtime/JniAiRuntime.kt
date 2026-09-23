@@ -120,12 +120,7 @@ class JniAiRuntime(
 
     companion object {
         /** Qwen2.5 ChatML framing (default model family). */
-        fun applyTemplate(system: String, user: String): String = buildString {
-            append("<|im_start|>system\n")
-            append(system.ifBlank { "You are a helpful assistant." })
-            append("\n<|im_end|>\n<|im_start|>user\n")
-            append(user)
-            append("\n<|im_end|>\n<|im_start|>assistant\n")
-        }
+        fun applyTemplate(system: String, user: String): String =
+            ChatTemplate.singleTurn(system, user)
     }
 }
