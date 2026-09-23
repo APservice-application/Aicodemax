@@ -92,6 +92,10 @@ class IntentParserTest {
         assertEquals(IntentType.MEMORY_RECALL, recall.type)
         assertEquals("wifi", recall.parameters["key"])
 
+        // CP-114 lessons.
+        assertEquals(IntentType.MEMORY_LESSONS, IntentParser.parse("บทเรียน").type)
+        assertEquals(IntentType.MEMORY_LESSONS, IntentParser.parse("ดูบทเรียนที่เรียนรู้หน่อย").type)
+
         val media = IntentParser.parse("ช่วยตัดคลิปติ๊กต็อกหน่อย")
         assertEquals(IntentType.MEDIA_EDIT, media.type)
         assertEquals("tiktok", media.parameters["platform"])

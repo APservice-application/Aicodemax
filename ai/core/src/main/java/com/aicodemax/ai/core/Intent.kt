@@ -18,6 +18,7 @@ enum class IntentType {
     SYSTEM_STATUS,
     MEMORY_SAVE,
     MEMORY_RECALL,
+    MEMORY_LESSONS,
     BROWSER_OPEN,
     BROWSER_CLOSE,
     BROWSER_LIST,
@@ -1043,6 +1044,10 @@ object IntentParser {
         if (containsAny(t, ThaiVocabulary.memoryRecallWords)) {
             val key = t.replace("ความจำ", "").trim().ifBlank { t }
             return UserIntent(IntentType.MEMORY_RECALL, text, params("key" to key))
+        }
+        // CP-114: learned lessons ("บทเรียนที่เรียนรู้", "lessons").
+        if (containsAny(t, ThaiVocabulary.lessonWords)) {
+            return UserIntent(IntentType.MEMORY_LESSONS, text)
         }
         if (containsAny(t, ThaiVocabulary.statusWords)) {
             return UserIntent(IntentType.SYSTEM_STATUS, text)

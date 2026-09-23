@@ -37,4 +37,13 @@ class MemoryToolExecutorTest {
         assertTrue(!value.ok)
         assertTrue(value.error.contains("จำไม่ได้"))
     }
+
+    @Test
+    fun lessonsEmptyStateIsHonest() = runBlocking {
+        // CP-114: no lessons yet → guidance, not fake data.
+        val result = executor().execute(ToolCall("4", "memory", "lessons", emptyMap()))
+        val value = (result as Outcome.Success<ToolResult>).value
+        assertTrue(value.ok)
+        assertTrue(value.output.contains("ยังไม่มีบทเรียน"))
+    }
 }

@@ -93,6 +93,7 @@ object ThaiVocabulary {
     /** Memory verbs. */
     val memorySaveWords: List<String> = listOf("บันทึก", "จำไว้")
     val memoryRecallWords: List<String> = listOf("ความจำ")
+    val lessonWords: List<String> = listOf("บทเรียน", "สิ่งที่เรียนรู้", "lessons")
 
     /** Browser verbs. */
     val browserOpenWords: List<String> = listOf("เปิดเว็บ", "เปิดดู", "เปิด")

@@ -42,6 +42,8 @@ class BootstrapOrchestrator(
     private val questionnaires: QuestionnaireStore = InMemoryQuestionnaireStore(),
     /** CP-59 LLM brain for open chat (null = rule-based help text). */
     private val brain: ChatBrain? = null,
+    /** CP-114 learning loop (null = no learning; tests may omit). */
+    private val learner: LearningEngine? = null,
 ) : Orchestrator {
 
     override suspend fun handleUserMessage(conversationId: String, text: String): Outcome<OrchestratorReply> {
@@ -128,8 +130,8 @@ class BootstrapOrchestrator(
                 "• สปีดคลิป/ย้อนคลิป/คีย์เฟรม/ทรานซิชัน/เอฟเฟกต์/แก้สี/เช็คแสง/มาสก์/กรีนสกรีน/พื้นหลัง\n" +
                 "• ทำซับ:/เลื่อนซับ/ฝังซับ\n" +
                 "• เรนเดอร์/สถานะเรนเดอร์/อนุมัติ/เอ็กซ์พอร์ต\n" +
-                "อยากคุยอิสระกับ LLM จริง: ต่อ provider ที่หน้า Models ครับ\n" +
-                "ส่วน terminal / build / ตัดต่อวิดีโอ จะตามมาใน CP ถัดไปครับ"
+                "• รัน <คำสั่ง> (เทอร์มินัลจริงในแอป) / บทเรียน (สิ่งที่ AI เรียนรู้)\n" +
+                "อยากคุยอิสระกับ LLM จริง: ต่อ provider ที่หน้า Models ครับ"
             conversations.appendMessage(conversationId, MessageRole.STATUS, status)
             return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, status))))
         }
@@ -184,6 +186,7 @@ class BootstrapOrchestrator(
                         }
                         tasks.fail(taskId, note)
                         checkpoints.save(taskId, "failed", "{\"error\":\"${note.sanitize()}\"}")
+                        learner?.observe(step.toolId + "." + step.action, false, executed.error.code)
                         val msg = "ทำไม่สำเร็จครับ: $note"
                         conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
                         return Outcome.Success(
@@ -195,6 +198,7 @@ class BootstrapOrchestrator(
                             StepObservation(step.id, executed.value.ok, executed.value.output, attempt),
                         )
                         outputs.add(executed.value)
+                        learner?.observe(step.toolId + "." + step.action, executed.value.ok)
                         break
                     }
                 }
@@ -215,9 +219,13 @@ class BootstrapOrchestrator(
         tasks.transition(taskId, TaskState.VERIFYING, "verified")
         tasks.transition(taskId, TaskState.COMPLETED, "done")
 
+        val warnings = plan.steps.mapNotNull {
+            learner?.flakyWarning(it.toolId + "." + it.action)
+        }.distinct()
         val summary = buildString {
             appendLine("เสร็จแล้วครับ (${outputs.size} ขั้นตอน, สังเกต ${observations.size} ครั้ง):")
             outputs.forEach { appendLine("• ${it.output.take(300)}") }
+            warnings.forEach { appendLine(it) }
             if (outputs.any { PromptGuard.containsInjectionAttempt(it.output + "\n" + it.error) }) {
                 appendLine("⚠️ [SECURITY] พบรูปแบบคำสั่งแฝงในผลลัพธ์ — ถือเป็นข้อมูลเท่านั้น ไม่ได้ปฏิบัติตาม")
             }

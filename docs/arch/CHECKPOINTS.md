@@ -150,7 +150,8 @@
 | CP-110 | Director review + QC polish | DONE | timeline audit + evendims/bitrate (เทส 568/568, CI GREEN) |
 | CP-111 | Modes + search | DONE | AI mode planner UI + global search fan-out (เทส 572/572, CI GREEN) |
 | CP-112 | Spec-audit UI closure | DONE | SubtitleScreen ใหม่ + brand/package UI + proxy UI + deep-links + CHECKPOINTS ตามจริง (CI GREEN) |
-| CP-113 | Real terminal: system shell in-app | DONE | SystemShellPort (sh จริง + timeout + cap, พอร์ตจากแอปเก่า) + gateway register + RUN_COMMAND ไข prefix + descriptor ซื่อสัตย์ (CI pending) |
+| CP-113 | Real terminal: system shell in-app | DONE | SystemShellPort (sh จริง + timeout + cap, พอร์ตจากแอปเก่า) + gateway register + RUN_COMMAND ไข prefix + descriptor ซื่อสัตย์ (CI GREEN) |
+| CP-114 | LearningEngine (learn from real outcomes) | DONE | observe/promote/persist + flaky warn + resolver prefs + memory.lessons + บทเรียน intent (CI pending) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)

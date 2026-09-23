@@ -63,6 +63,17 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun lessonsPlanToMemoryLessons() = runBlocking {
+        // CP-114: MEMORY_LESSONS → memory.lessons step.
+        val planned = planner.plan(UserIntent(IntentType.MEMORY_LESSONS, "t"))
+        assertTrue(planned is Outcome.Success)
+        val steps = (planned as Outcome.Success).value.steps
+        assertEquals(1, steps.size)
+        assertEquals("memory", steps[0].toolId)
+        assertEquals("lessons", steps[0].action)
+    }
+
+    @Test
     fun terminalResolvesToRealShell() = runBlocking {
         // CP-113: terminal runtime is real (system shell) → RUN_COMMAND resolves.
         val run = planner.plan(UserIntent(IntentType.RUN_COMMAND, "t", mapOf("command" to "ls")))

@@ -93,6 +93,8 @@ object StandardCapabilities {
             metadata = meta("memory", "จำ key=value ระดับ global", listOf("key,value"), listOf("ok"), emptyList(), false, "read-back", "retry")),
         CapabilityBinding("memory.recall", "memory", "recall", AdapterKind.NATIVE,
             metadata = meta("memory", "ทวนความจำ global", listOf("key"), listOf("value"), emptyList(), false, "record found", "ask user")),
+        CapabilityBinding("memory.lessons", "memory", "lessons", AdapterKind.NATIVE,
+            metadata = meta("memory", "บทเรียนที่ AI เรียนรู้จากงานจริง (CP-114)", emptyList(), listOf("lessons"), emptyList(), false, "list shown", "retry")),
         // Skill engine (native).
         CapabilityBinding("skill.list", "skill", "list", AdapterKind.NATIVE,
             metadata = meta("skill", "list สกิลทั้งหมด", emptyList(), listOf("skills"), emptyList(), false, "index read", "re-list")),
@@ -392,8 +394,8 @@ CapabilityBinding("media.timeline.enhance", "media", "timeline.enhance", Adapter
     )
 
     /** Resolver over a live registry (production: ServiceLocator's registry). */
-    fun overRegistry(registry: ToolRegistry): CapabilityResolver =
-        DefaultCapabilityResolver(registry).also { resolver ->
+    fun overRegistry(registry: ToolRegistry, preferences: LearnedPreferences? = null): CapabilityResolver =
+        DefaultCapabilityResolver(registry, preferences).also { resolver ->
             bindings().forEach { resolver.register(it) }
         }
 

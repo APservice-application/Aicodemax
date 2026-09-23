@@ -152,6 +152,7 @@ class RuleBasedPlanner(
                 }
                 listOf("memory.recall" to mapOf("key" to key))
             }
+            IntentType.MEMORY_LESSONS -> listOf("memory.lessons" to emptyMap())
             IntentType.VOICE_SPEAK -> {
                 val say = intent.parameters["text"]?.trim().orEmpty()
                 if (say.isBlank()) {

@@ -171,6 +171,35 @@ class BootstrapOrchestratorTest {
     }
 
     @Test
+    fun learningLoopRecordsRealOutcomes() = runBlocking {
+        // CP-114: fail then succeed → lesson ok=1 fail=1 in the same store.
+        val (checkpoints, conversations, bus) = stores()
+        val tasks = DefaultTaskEngine(bus, FakeClock())
+        val store = com.aicodemax.data.memory.FileMemoryStore(tmp.root)
+        val learner = LearningEngine(store)
+        val conv = (conversations.createConversation("t") as Outcome.Success<com.aicodemax.data.conversations.Conversation>).value
+
+        val failing = BootstrapOrchestrator(
+            tasks, RuleBasedPlanner(), FakeAgent(failWith = "boom"), RuleVerifier(),
+            checkpoints, conversations, learner = learner,
+        )
+        failing.handleUserMessage(conv.id, "run ls")
+        val afterFail = (learner.lessons() as Outcome.Success<List<LearningEngine.Lesson>>).value
+        assertEquals(1, afterFail.size)
+        assertEquals("terminal.exec", afterFail[0].toolAction)
+        assertEquals(1, afterFail[0].failCount)
+
+        val passing = BootstrapOrchestrator(
+            tasks, RuleBasedPlanner(), FakeAgent(), RuleVerifier(),
+            checkpoints, conversations, learner = learner,
+        )
+        passing.handleUserMessage(conv.id, "run ls")
+        val afterOk = (learner.lessons() as Outcome.Success<List<LearningEngine.Lesson>>).value
+        assertEquals(1, afterOk[0].okCount)
+        assertEquals(1, afterOk[0].failCount)
+    }
+
+    @Test
     fun supportedTerminalRunsAsTask() = runBlocking {
         // CP-113: terminal is runnable → "run ls" plans + executes as a real task.
         val (checkpoints, conversations, bus) = stores()

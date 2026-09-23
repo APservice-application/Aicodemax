@@ -90,8 +90,14 @@ interface CapabilityResolver {
     fun resolve(capabilityId: String, args: Map<String, String> = emptyMap()): Outcome<ResolvedCapability>
 }
 
+/** CP-114: learned tool preference (+1 reliable, -1 flaky, 0 neutral). Null = no learning. */
+fun interface LearnedPreferences {
+    fun score(toolId: String, action: String): Int
+}
+
 class DefaultCapabilityResolver(
     private val registry: ToolRegistry,
+    private val preferences: LearnedPreferences? = null,
 ) : CapabilityResolver {
     private val bindings = mutableMapOf<String, MutableList<CapabilityBinding>>()
 
@@ -113,7 +119,17 @@ class DefaultCapabilityResolver(
             )
         }
         val tried = mutableListOf<String>()
-        for (binding in candidates.sortedBy { it.adapterKind.ordinal }) {
+        // CP-114: learned preference orders runnable candidates (reliable first,
+        // flaky last) — native-first still wins ties via adapterKind.
+        val prefs = preferences
+        val ordered = if (prefs == null) {
+            candidates.sortedBy { it.adapterKind.ordinal }
+        } else {
+            candidates.sortedWith(
+                compareBy({ -(prefs.score(it.toolId, it.action)) }, { it.adapterKind.ordinal }),
+            )
+        }
+        for (binding in ordered) {
             val descriptor = registry.get(binding.toolId)
             if (descriptor != null && descriptor.isRunnable()) {
                 return Outcome.Success(

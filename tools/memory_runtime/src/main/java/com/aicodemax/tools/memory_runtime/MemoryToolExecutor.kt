@@ -9,7 +9,7 @@ import com.aicodemax.tools.gateway.ToolResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Gateway executor for memory (actions: save/recall, global scope). */
+/** Gateway executor for memory (actions: save/recall/lessons; lessons = CP-114 learned tool reliability). */
 class MemoryToolExecutor(private val memory: MemoryEngine) : ToolExecutor {
     override val toolId: String = "memory"
 
@@ -34,7 +34,19 @@ class MemoryToolExecutor(private val memory: MemoryEngine) : ToolExecutor {
                         onFailure = { done(false, error = "จำไม่ได้ว่า '$key' คืออะไร") },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: save/recall)")
+                "lessons" -> {
+                    memory.recent("LESSONS", 20).fold(
+                        onSuccess = { records ->
+                            if (records.isEmpty()) {
+                                done(true, "ยังไม่มีบทเรียน — AI จะเรียนรู้จากงานที่ทำจริง (สำเร็จ/ล้มเหลว) อัตโนมัติ")
+                            } else {
+                                done(true, records.joinToString("\n") { "• ${it.key}: ${it.value}" })
+                            }
+                        },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: save/recall/lessons)")
             }
         }
 

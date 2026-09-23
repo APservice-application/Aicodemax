@@ -7,6 +7,7 @@ import com.aicodemax.ai.agents.LocalAgentRunner
 import com.aicodemax.ai.core.BootstrapOrchestrator
 import com.aicodemax.ai.core.EditingPlanner
 import com.aicodemax.ai.core.InMemoryQuestionnaireStore
+import com.aicodemax.ai.core.LearningEngine
 import com.aicodemax.ai.core.Orchestrator
 import com.aicodemax.ai.core.RuleBasedPlanner
 import com.aicodemax.ai.core.RuleVerifier
@@ -232,6 +233,8 @@ class ServiceLocator(context: Context) {
 
     // CP-113: one shared real shell backend — console UI (compat) + AI gateway use the same port.
     val shell: SystemShellPort = SystemShellPort()
+    // CP-114: learning loop over real task outcomes (persisted in memory store).
+    val learn: LearningEngine = LearningEngine(memory)
     val agent: LocalAgentRunner
     val compat: CompatEngine = CompatEngine(CliToolAdapter(shell))
     val projects: ProjectManager = ProjectManager(File(appContext.filesDir, "projects"))
@@ -286,7 +289,9 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(MediaToolExecutor(media, AndroidTrackingPort(), AndroidColorPort(), AndroidGenPort(appContext.filesDir, voice, cloudGen), androidAudio))
         gateway.registerExecutor(RenderToolExecutor(render, media))
 
-        capabilities = StandardCapabilities.overRegistry(toolRegistry)
+        capabilities = StandardCapabilities.overRegistry(toolRegistry) { toolId, action ->
+            learn.preference("$toolId.$action")
+        }
 
         agent = LocalAgentRunner(gateway)
         val manualBrain = LlmBrain({ llmProvider }, { llmModel }, gateway, llmSystemPrompt())
@@ -304,6 +309,7 @@ class ServiceLocator(context: Context) {
             recovery = RecoveryLadderPolicy(),
             questionnaires = InMemoryQuestionnaireStore(),
             brain = routedBrain,
+            learner = learn,
         )
     }
 

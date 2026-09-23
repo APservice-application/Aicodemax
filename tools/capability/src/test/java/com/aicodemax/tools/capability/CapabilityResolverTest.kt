@@ -40,6 +40,21 @@ class CapabilityResolverTest {
     }
 
     @Test
+    fun learnedPreferenceOrdersSameKindCandidates() {
+        // CP-114: flaky tool demoted below a neutral peer of the same kind.
+        val registry = InMemoryToolRegistry()
+        registry.register(descriptor("toolA", true))
+        registry.register(descriptor("toolB", true))
+        val prefs = LearnedPreferences { toolId, _ -> if (toolId == "toolA") -1 else 0 }
+        val resolver = DefaultCapabilityResolver(registry, prefs)
+        resolver.register(CapabilityBinding("x.do", "toolA", "do", AdapterKind.NATIVE))
+        resolver.register(CapabilityBinding("x.do", "toolB", "do", AdapterKind.NATIVE))
+
+        val resolved = (resolver.resolve("x.do") as Outcome.Success<ResolvedCapability>).value
+        assertEquals("toolB", resolved.toolId)
+    }
+
+    @Test
     fun cliAdapterIsUsedOnlyAsFallback() {
         val registry = InMemoryToolRegistry()
         registry.register(descriptor("files", false))
