@@ -143,6 +143,7 @@ enum class IntentType {
     RENDER_STATUS,
     RENDER_APPROVE,
     RENDER_EXPORT,
+    RENDER_DIRECTOR,
     UNKNOWN,
 }
 
@@ -973,6 +974,9 @@ object IntentParser {
             val srt = files.firstOrNull { it.lowercase().endsWith(".srt") }
             val src = files.firstOrNull { it != srt }
             return UserIntent(IntentType.SUBTITLE_BURN, text, params("src" to src, "srt" to srt))
+        }
+        if (containsAny(t, ThaiVocabulary.directorWords)) {
+            return UserIntent(IntentType.RENDER_DIRECTOR, text)
         }
         if (containsAny(t, ThaiVocabulary.renderStatusWords)) {
             return UserIntent(IntentType.RENDER_STATUS, text)

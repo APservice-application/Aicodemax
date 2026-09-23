@@ -91,6 +91,24 @@ class RenderToolExecutorTest {
     }
 
     @Test
+    fun directorFlow() = runBlocking {
+        val media = InMemoryMediaProject()
+        (media.createProject("d") as Outcome.Success<com.aicodemax.data.media.Project>)
+        val exec = RenderToolExecutor(InMemoryRender(), media)
+        val out = exec.execute(call("director")).fold(
+            onSuccess = { it },
+            onFailure = { throw AssertionError("director failed") },
+        )
+        assertTrue(out.output, out.ok && out.output.contains("ผู้กำกับ"))
+        val bare = RenderToolExecutor(InMemoryRender(), InMemoryMediaProject())
+        val none = bare.execute(call("director")).fold(
+            onSuccess = { it },
+            onFailure = { throw AssertionError("director failed") },
+        )
+        assertTrue(!none.ok)
+    }
+
+    @Test
     fun cacheFlow() = runBlocking {
         val media = InMemoryMediaProject()
         (media.createProject("c") as Outcome.Success<com.aicodemax.data.media.Project>)

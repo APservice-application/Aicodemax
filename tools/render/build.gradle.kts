@@ -9,6 +9,7 @@ dependencies {
     api(project(":tools:registry"))
     api(project(":tools:video"))
     api(project(":tools:image"))
+    api(project(":data:media"))
     implementation(libs.serialization.json)
     testImplementation(libs.junit4)
     testImplementation(libs.coroutines.core)

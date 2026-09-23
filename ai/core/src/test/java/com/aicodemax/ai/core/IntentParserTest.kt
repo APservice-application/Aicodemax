@@ -257,6 +257,11 @@ class IntentParserTest {
     }
 
     @Test
+    fun cp110DirectorIntent() {
+        assertEquals(IntentType.RENDER_DIRECTOR, IntentParser.parse("ให้ผู้กำกับตรวจงานหน่อย").type)
+    }
+
+    @Test
     fun cp109BenchIntent() {
         assertEquals(IntentType.DEBUG_BENCH, IntentParser.parse("วัดความเร็วเครื่องหน่อย").type)
     }

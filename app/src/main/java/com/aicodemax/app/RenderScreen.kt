@@ -197,6 +197,22 @@ fun RenderScreen(services: ServiceLocator) {
                                 },
                                 enabled = !busy,
                             ) { Text("ทำซ้ำ") }
+                            OutlinedButton(
+                                onClick = {
+                                    runCall {
+                                        val call = com.aicodemax.tools.gateway.ToolCall(
+                                            com.aicodemax.core.common.Ids.newId("ui"), "render", "director",
+                                            mapOf("projectId" to projects[projectIndex].id),
+                                            actor = "HUMAN",
+                                        )
+                                        services.gateway.call(call).fold(
+                                            onSuccess = { message = if (it.ok) it.output else it.error },
+                                            onFailure = { message = it.message },
+                                        )
+                                    }
+                                },
+                                enabled = !busy,
+                            ) { Text("ตรวจงาน") }
                         }
                         if (historyLine.isNotEmpty()) {
                             Text(historyLine, style = MaterialTheme.typography.bodySmall)

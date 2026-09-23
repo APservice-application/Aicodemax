@@ -114,6 +114,13 @@ object Qc {
                     val broken = scopes.darkPct >= 95.0 || scopes.brightPct >= 95.0
                     checks += QcCheck("exposure", !broken, scopes.summary())
                 }
+                // CP-110 polish: encoder-safe dims + bitrate sanity.
+                val dimsOk = v.width <= 0 || (v.width % 2 == 0 && v.height % 2 == 0)
+                checks += QcCheck("evendims", dimsOk, "${v.width}x${v.height} ต้องลงท้ายเลขคู่")
+                if (v.durationMs > 0) {
+                    val mbps = file.length() * 8.0 / v.durationMs / 1000.0
+                    checks += QcCheck("bitrate", mbps in 0.05..60.0, "%.2f Mbps".format(mbps))
+                }
             }
         }
         return QcReport(checks.all { it.ok }, checks)

@@ -867,6 +867,7 @@ class RuleBasedPlanner(
                 listOf("render.runNow" to args)
             }
             IntentType.RENDER_STATUS -> listOf("render.list" to emptyMap())
+            IntentType.RENDER_DIRECTOR -> listOf("render.director" to emptyMap())
             IntentType.RENDER_APPROVE -> listOf("render.approve" to emptyMap())
             IntentType.RENDER_EXPORT, IntentType.SHARE_MEDIA ->
                 listOf("render.export" to emptyMap())

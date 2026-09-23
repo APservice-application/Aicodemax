@@ -240,6 +240,13 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun cp110DirectorPlan() = runBlocking {
+        val d = (planner.plan(UserIntent(IntentType.RENDER_DIRECTOR, "t", emptyMap())) as Outcome.Success<Plan>).value
+        assertEquals("director", d.steps[0].action)
+        assertEquals("render", d.steps[0].toolId)
+    }
+
+    @Test
     fun cp109BenchPlan() = runBlocking {
         val b = (planner.plan(UserIntent(IntentType.DEBUG_BENCH, "t", emptyMap())) as Outcome.Success<Plan>).value
         assertEquals("bench", b.steps[0].action)

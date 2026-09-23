@@ -44,10 +44,22 @@ class QcTest {
 
     @Test
     fun matchingOutputPasses() = runBlocking {
-        val out = File(temp.root, "r.mp4").also { it.writeBytes(ByteArray(16)) }
+        val out = File(temp.root, "r.mp4").also { it.writeBytes(ByteArray(1024 * 1024)) }
         val video = fakeVideo(VideoInfo(out.path, "MP4", 10_000, 1280, 720, hasAudio = true))
         val report = Qc.check(10_000, true, out.path, 720, video)
         assertTrue(report.checks.joinToString { "${it.name}=${it.ok}" }, report.passed)
+    }
+
+    @Test
+    fun oddDimsOrBitrateFails() = runBlocking {
+        val out = File(temp.root, "r.mp4").also { it.writeBytes(ByteArray(1024 * 1024)) }
+        val odd = fakeVideo(VideoInfo(out.path, "MP4", 10_000, 1281, 720, hasAudio = true))
+        val r1 = Qc.check(10_000, true, out.path, 720, odd)
+        assertTrue(!r1.passed && r1.checks.any { it.name == "evendims" && !it.ok })
+        val tiny = File(temp.root, "t.mp4").also { it.writeBytes(ByteArray(16)) }
+        val thin = fakeVideo(VideoInfo(tiny.path, "MP4", 10_000, 1280, 720, hasAudio = true))
+        val r2 = Qc.check(10_000, true, tiny.path, 720, thin)
+        assertTrue(!r2.passed && r2.checks.any { it.name == "bitrate" && !it.ok })
     }
 
     @Test

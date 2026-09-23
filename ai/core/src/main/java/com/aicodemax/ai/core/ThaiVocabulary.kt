@@ -237,4 +237,5 @@ object ThaiVocabulary {
     val renderApproveWords: List<String> = listOf("อนุมัติ")
     val renderExportWords: List<String> = listOf("เอ็กซ์พอร์ต", "export", "ส่งออก")
     val renderStartWords: List<String> = listOf("เรนเดอร์", "render")
+    val directorWords: List<String> = listOf("ผู้กำกับ", "ตรวจงาน", "รีวิวงาน", "director")
 }

@@ -115,7 +115,17 @@ class RenderToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: enqueue/runNow/run/status/list/retry/approve/export/batch/cache.status/cache.clear/hwinfo)")
+                "director" -> {
+                    val projectId = call.args["projectId"] ?: latestProjectId()
+                    if (projectId == null) {
+                        return@withContext done(false, error = "ยังไม่มีโปรเจกต์ให้ตรวจ")
+                    }
+                    media.getTimeline(projectId).fold(
+                        onSuccess = { done(true, com.aicodemax.tools.render.DirectorReview.review(it).verdictText()) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: enqueue/runNow/run/status/list/retry/approve/export/batch/cache.status/cache.clear/hwinfo/director)")
             }
         }
 
