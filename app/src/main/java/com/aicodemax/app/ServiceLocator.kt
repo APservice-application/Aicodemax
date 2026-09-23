@@ -318,6 +318,26 @@ class ServiceLocator(context: Context) {
             }
         }
         gateway.registerExecutor(MediaToolExecutor(media, AndroidTrackingPort(), AndroidColorPort(), AndroidGenPort(appContext.filesDir, voice, cloudGen), androidAudio, nativeLibDir, ffmpegRunner))
+        // CP-120: on-device bootstrap model (filesDir/models) + llama-server control.
+        val llamaProcs = java.util.concurrent.ConcurrentHashMap<Long, Process>()
+        val llamaId = java.util.concurrent.atomic.AtomicLong(0)
+        gateway.registerExecutor(
+            com.aicodemax.tools.debug_runtime.ModelToolExecutor(
+                modelsDir = java.io.File(appContext.filesDir, "models").path,
+                nativeLibDir = nativeLibDir,
+                proc = object : com.aicodemax.tools.runtime.LlamaServer.ProcCtl {
+                    override fun start(exe: String, args: List<String>): Long {
+                        val id = llamaId.incrementAndGet()
+                        llamaProcs[id] = ProcessBuilder(listOf(exe) + args).redirectErrorStream(true).start()
+                        return id
+                    }
+                    override fun stop(id: Long) {
+                        llamaProcs.remove(id)?.destroy()
+                    }
+                    override fun alive(id: Long): Boolean = llamaProcs[id]?.isAlive == true
+                },
+            ),
+        )
         gateway.registerExecutor(RenderToolExecutor(render, media))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry) { toolId, action ->

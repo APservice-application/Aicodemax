@@ -37,5 +37,16 @@ Local builds without the fetch step still compile — tools simply report
   real output file). Missing binary/input → honest error, never fake output.
 - `ServiceLocator` wires `nativeLibraryDir` + `ProcessRunner` adapter into
   `MediaToolExecutor`.
-- Next: CP-120 downloads the Qwen GGUF bootstrap model and serves it via
-  llama-server.
+
+## On-device model (CP-120)
+
+- `tools/runtime/ModelStore` (pure JVM): `DEFAULT_MODEL` = Qwen2.5-0.5B
+  Q4_K_M from HuggingFace (~400MB, same as the owner's previous app).
+  `status()` / `download()` (resume via Range, 95% size gate, `.part` +
+  rename) into `filesDir/models`. Never in git, never in the APK.
+- `tools/runtime/LlamaServer` (pure JVM): `argv()` + `serve()`/`stop()` via
+  injected `ProcCtl`, `/health` check, `/v1/chat/completions` ask with a
+  tiny dependency-free JSON extractor. No org.json, no OkHttp.
+- Gateway: `model` → `status`/`download`/`serve`/`stop`/`ask`
+  (`ModelToolExecutor`, capabilities `model.*`). `ServiceLocator` wires
+  `filesDir/models` + `urlDownloader()` + ProcessBuilder process control.

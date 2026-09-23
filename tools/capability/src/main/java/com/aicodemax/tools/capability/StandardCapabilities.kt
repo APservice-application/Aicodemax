@@ -98,6 +98,16 @@ object StandardCapabilities {
             metadata = meta("debug", "วัดความเร็วเครื่อง", listOf("quick?"), listOf("bench"), emptyList(), false, "bench shown", "retry")),
         CapabilityBinding("debug.native", "debug", "native", AdapterKind.NATIVE,
             metadata = meta("debug", "ตรวจ native toolchain ที่ฝังในแอป (CP-118)", emptyList(), listOf("report"), emptyList(), false, "3 lines", "retry")),
+        CapabilityBinding("model.status", "model", "status", AdapterKind.NATIVE,
+            metadata = meta("model", "สถานะโมเดลบนเครื่อง + เซิร์ฟเวอร์ (CP-120)", emptyList(), listOf("status"), emptyList(), false, "3 lines", "retry")),
+        CapabilityBinding("model.download", "model", "download", AdapterKind.NATIVE,
+            metadata = meta("model", "โหลดโมเดล Qwen ~400MB (CP-120)", emptyList(), listOf("file"), listOf("fs.write"), false, "file ready", "resume")),
+        CapabilityBinding("model.serve", "model", "serve", AdapterKind.NATIVE,
+            metadata = meta("model", "รัน llama-server บนเครื่อง (CP-120)", listOf("port?"), listOf("url"), emptyList(), false, "serving", "retry")),
+        CapabilityBinding("model.stop", "model", "stop", AdapterKind.NATIVE,
+            metadata = meta("model", "หยุด llama-server (CP-120)", emptyList(), listOf("ok"), emptyList(), false, "stopped", "retry")),
+        CapabilityBinding("model.ask", "model", "ask", AdapterKind.NATIVE,
+            metadata = meta("model", "ถามโมเดลบนเครื่อง (CP-120)", listOf("prompt"), listOf("answer"), emptyList(), false, "answered", "retry")),
         // Memory engine (native).
         CapabilityBinding("memory.save", "memory", "save", AdapterKind.NATIVE,
             metadata = meta("memory", "จำ key=value ระดับ global", listOf("key,value"), listOf("ok"), emptyList(), false, "read-back", "retry")),
@@ -420,7 +430,8 @@ CapabilityBinding("media.timeline.enhance", "media", "timeline.enhance", Adapter
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
         // CP-113: terminal joins the runnable set (real system shell in-app).
-        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video", "media", "subtitle", "render", "terminal")) {
+        // CP-120: model joins too (on-device bootstrap LLM).
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video", "media", "subtitle", "render", "terminal", "model")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -458,6 +469,7 @@ private fun meta(
         "subtitle" to ("Subtitle Engine" to "SRT + transcode"),
         "render" to ("Render Engine" to "queue + QC + export"),
         "terminal" to ("Compatibility Engine" to "system shell in-app (CP-113)"),
+        "model" to ("Model Engine" to "ModelStore + llama-server (CP-120)"),
     )
     val (engine, runtime) = engines.getValue(tool)
     return CapabilityMetadata(
