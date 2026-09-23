@@ -109,7 +109,10 @@ jobs:
             -DBUILD_SHARED_LIBS=ON \
             -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
             -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF
-          cmake --build /tmp/llamacpp/build-android --config Release -j"$(nproc)"
+          cmake --build /tmp/llamacpp/build-android --config Release -j"$(nproc)" --target llama
+          cmake --build /tmp/llamacpp/build-android --config Release -j"$(nproc)" --target llama-common || \
+          cmake --build /tmp/llamacpp/build-android --config Release -j"$(nproc)" --target common || \
+          echo "no common target (libllama only)"
           LLAMA_SO=$(find /tmp/llamacpp/build-android -name "libllama.so" | head -1)
           echo "built: $LLAMA_SO"
           test -n "$LLAMA_SO"
