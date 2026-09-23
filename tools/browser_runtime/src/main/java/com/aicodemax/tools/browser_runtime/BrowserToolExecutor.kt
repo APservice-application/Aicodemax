@@ -9,7 +9,7 @@ import com.aicodemax.tools.gateway.ToolResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Gateway executor for browser (actions: open/close/list/navigate). */
+/** Gateway executor for browser (tabs + CP-115 page automation: read/click/type/probe). */
 class BrowserToolExecutor(private val browser: BrowserPort) : ToolExecutor {
     override val toolId: String = "browser"
 
@@ -49,9 +49,50 @@ class BrowserToolExecutor(private val browser: BrowserPort) : ToolExecutor {
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "read" -> {
+                    val tabId = call.args["tabId"] ?: latestTab()
+                        ?: return@withContext done(false, error = "ยังไม่มีแท็บ — เปิดเว็บก่อน")
+                    browser.pageText(tabId).fold(
+                        onSuccess = { done(true, it.ifBlank { "(หน้าว่าง)" }) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "click" -> {
+                    val tabId = call.args["tabId"] ?: latestTab()
+                        ?: return@withContext done(false, error = "ยังไม่มีแท็บ — เปิดเว็บก่อน")
+                    val selector = call.args["selector"]
+                        ?: return@withContext done(false, error = "missing arg: selector (เช่น #btn หรือ input[name=q])")
+                    browser.click(tabId, selector).fold(
+                        onSuccess = { done(true, it) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "type" -> {
+                    val tabId = call.args["tabId"] ?: latestTab()
+                        ?: return@withContext done(false, error = "ยังไม่มีแท็บ — เปิดเว็บก่อน")
+                    val selector = call.args["selector"]
+                        ?: return@withContext done(false, error = "missing arg: selector")
+                    val text = call.args["text"]
+                        ?: return@withContext done(false, error = "missing arg: text")
+                    browser.typeText(tabId, selector, text).fold(
+                        onSuccess = { done(true, it) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "probe" -> {
+                    val tabId = call.args["tabId"] ?: latestTab()
+                        ?: return@withContext done(false, error = "ยังไม่มีแท็บ — เปิดเว็บก่อน")
+                    browser.probeLogin(tabId).fold(
+                        onSuccess = { done(true, if (it) "LOGGED_IN" else "UNKNOWN") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
                 else -> done(false, error = "unknown action '${call.action}'")
             }
         }
+
+    private suspend fun latestTab(): String? =
+        (browser.listTabs() as? Outcome.Success)?.value?.lastOrNull()?.id
 
     private fun done(ok: Boolean, output: String = "", error: String = ""): Outcome<ToolResult> =
         Outcome.Success(ToolResult(ok = ok, output = output, error = error))

@@ -80,6 +80,15 @@ class IntentParserTest {
         assertEquals(IntentType.SYSTEM_STATUS, IntentParser.parse("สถานะระบบ").type)
         assertEquals(IntentType.OPEN_SETTINGS, IntentParser.parse("ตั้งค่า").type)
         assertEquals(IntentType.BROWSER_LIST, IntentParser.parse("ดูแท็บหน่อย").type)
+        // CP-115 page automation (read must beat list on "อ่านหน้าเว็บ").
+        assertEquals(IntentType.BROWSER_READ, IntentParser.parse("อ่านหน้าเว็บให้หน่อย").type)
+        val click = IntentParser.parse("คลิก #search-btn")
+        assertEquals(IntentType.BROWSER_CLICK, click.type)
+        assertEquals("#search-btn", click.parameters["selector"])
+        val type = IntentParser.parse("พิมพ์ในเว็บ input[name=q] : สวัสดี")
+        assertEquals(IntentType.BROWSER_TYPE, type.type)
+        assertEquals("input[name=q]", type.parameters["selector"])
+        assertEquals("สวัสดี", type.parameters["text"])
         assertEquals(IntentType.DEBUG_CODE, IntentParser.parse("แก้บั๊ก: boom").type)
         assertEquals(IntentType.LLM_CONNECT, IntentParser.parse("เชื่อมต่อ ai").type)
 

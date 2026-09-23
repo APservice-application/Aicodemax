@@ -289,14 +289,17 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
                             }
                             loadUrl(active.url)
                             webView = this
+                            services.activeWebView = this
                         }
                     },
                     update = { view ->
                         webView = view
+                        services.activeWebView = view
                         if (view.url != active.url) view.loadUrl(active.url)
                         canBack = view.canGoBack()
                         canForward = view.canGoForward()
                     },
+                    onRelease = { services.activeWebView = null },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

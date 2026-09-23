@@ -39,6 +39,17 @@ class InMemoryBrowserPort : BrowserPort {
         return Outcome.Success(updated)
     }
 
+    // CP-115 page automation needs the live Android WebView — honest failures here,
+    // real behavior in app/ AndroidBrowserPort (delegating wrapper).
+    private fun needsView(): Outcome<Nothing> = Outcome.Failure(
+        AppError("BROWSER_NEEDS_WEBVIEW", "เปิดจอ Browser ก่อน — ระบบอัตโนมัติทำงานบนหน้าเว็บที่เห็นจริงเท่านั้น"),
+    )
+
+    override suspend fun pageText(tabId: String): Outcome<String> = needsView()
+    override suspend fun click(tabId: String, selector: String): Outcome<String> = needsView()
+    override suspend fun typeText(tabId: String, selector: String, text: String): Outcome<String> = needsView()
+    override suspend fun probeLogin(tabId: String): Outcome<Boolean> = needsView()
+
     /** Called by the WebView layer when a page starts/finishes loading. */
     fun updateMeta(tabId: String, title: String, loading: Boolean) {
         _tabs.value = _tabs.value.map {

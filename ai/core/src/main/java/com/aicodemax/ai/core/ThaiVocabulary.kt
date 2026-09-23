@@ -99,6 +99,9 @@ object ThaiVocabulary {
     val browserOpenWords: List<String> = listOf("เปิดเว็บ", "เปิดดู", "เปิด")
     val browserCloseWords: List<String> = listOf("ปิดแท็บ", "ปิดหน้า", "ปิดเว็บ", "ปิด")
     val browserListWords: List<String> = listOf("แท็บ", "เบราว์", "หน้าเว็บ")
+    val browserReadWords: List<String> = listOf("อ่านหน้าเว็บ", "อ่านเว็บ", "read page")
+    val browserClickWords: List<String> = listOf("คลิก", "click")
+    val browserTypeWords: List<String> = listOf("พิมพ์ในเว็บ", "กรอกเว็บ")
 
     /** Terminal words (map to RUN_COMMAND; wired to the real system shell in CP-113). */
     val terminalWords: List<String> = listOf(

@@ -125,6 +125,24 @@ class RuleBasedPlanner(
                 listOf("browser.close" to mapOf("tabId" to tabId))
             }
             IntentType.BROWSER_LIST -> listOf("browser.list" to emptyMap())
+            IntentType.BROWSER_READ -> listOf("browser.read" to emptyMap())
+            IntentType.BROWSER_CLICK -> {
+                val selector = intent.parameters["selector"]?.trim().orEmpty()
+                if (selector.isBlank()) {
+                    return Outcome.Failure(AppError("PLAN_NO_SELECTOR", "คลิกอะไรครับ? เช่น คลิก #search-btn"))
+                }
+                listOf("browser.click" to mapOf("selector" to selector))
+            }
+            IntentType.BROWSER_TYPE -> {
+                val selector = intent.parameters["selector"]?.trim().orEmpty()
+                val text = intent.parameters["text"]?.trim().orEmpty()
+                if (selector.isBlank() || text.isBlank()) {
+                    return Outcome.Failure(
+                        AppError("PLAN_NO_TYPE", "บอกช่องกับข้อความครับ เช่น พิมพ์ในเว็บ input[name=q] : สวัสดี"),
+                    )
+                }
+                listOf("browser.type" to mapOf("selector" to selector, "text" to text))
+            }
             IntentType.DEBUG_CODE -> {
                 val error = intent.parameters["error"]?.trim().orEmpty()
                 if (error.isBlank()) {

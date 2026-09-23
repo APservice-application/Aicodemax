@@ -33,6 +33,12 @@ class FakeBrowserPort : BrowserPort {
         tabs[index] = updated
         return Outcome.Success(updated)
     }
+    override suspend fun pageText(tabId: String): Outcome<String> = Outcome.Success("fake page text")
+    override suspend fun click(tabId: String, selector: String): Outcome<String> =
+        Outcome.Success("CLICKED:$selector")
+    override suspend fun typeText(tabId: String, selector: String, text: String): Outcome<String> =
+        Outcome.Success("TYPED:$selector=$text")
+    override suspend fun probeLogin(tabId: String): Outcome<Boolean> = Outcome.Success(false)
 }
 
 class BrowserToolExecutorTest {
@@ -69,5 +75,35 @@ class BrowserToolExecutorTest {
         val unknown = run(ToolCall("c2", "browser", "back", mapOf("tabId" to "t0")))
         assertFalse(unknown.ok)
         assertTrue(unknown.error.contains("unknown action"))
+    }
+
+    @Test
+    fun pageAutomationUsesLatestTabByDefault() {
+        // CP-115: read/click/type/probe default to the latest tab.
+        val port = FakeBrowserPort()
+        run(ToolCall("c0", "browser", "open", mapOf("url" to "https://example.com")), port)
+        val read = run(ToolCall("c1", "browser", "read"), port)
+        assertTrue(read.ok)
+        assertTrue(read.output.contains("fake page text"))
+        val click = run(ToolCall("c2", "browser", "click", mapOf("selector" to "#btn")), port)
+        assertTrue(click.ok)
+        val type = run(ToolCall("c3", "browser", "type", mapOf("selector" to "input", "text" to "hi")), port)
+        assertTrue(type.ok)
+        val probe = run(ToolCall("c4", "browser", "probe"), port)
+        assertTrue(probe.ok)
+        assertTrue(probe.output.contains("UNKNOWN"))
+    }
+
+    @Test
+    fun pageAutomationWithoutTabsFailsHonestly() {
+        val read = run(ToolCall("c1", "browser", "read"))
+        assertFalse(read.ok)
+        assertTrue(read.error.contains("ยังไม่มีแท็บ"))
+        val noSelector = run(
+            ToolCall("c2", "browser", "click"),
+            FakeBrowserPort().also { runBlocking { it.openTab("https://x.com") } },
+        )
+        assertFalse(noSelector.ok)
+        assertTrue(noSelector.error.contains("selector"))
     }
 }

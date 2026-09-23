@@ -1,6 +1,7 @@
 package com.aicodemax.app
 
 import android.content.Context
+import android.webkit.WebView
 import com.aicodemax.ai.agents.LlmBrain
 import com.aicodemax.ai.agents.RoutedChatBrain
 import com.aicodemax.ai.agents.LocalAgentRunner
@@ -50,6 +51,7 @@ import com.aicodemax.data.memory.MemoryStore
 import com.aicodemax.data.settings.DataStoreSettingsRepository
 import com.aicodemax.data.settings.SettingsRepository
 import com.aicodemax.tools.browser.BrowserLibrary
+import com.aicodemax.tools.browser.BrowserPort
 import com.aicodemax.tools.browser.InMemoryBrowserPort
 import com.aicodemax.tools.browser.browserDescriptorToday
 import com.aicodemax.tools.capability.CapabilityResolver
@@ -156,6 +158,10 @@ class ServiceLocator(context: Context) {
     val editor: EditorPort = FileBackedEditor(files)
     val git: GitPort = JGitGitPort()
     val browser: InMemoryBrowserPort = InMemoryBrowserPort()
+    /** Live WebView registered by BrowserScreen (null when the screen is closed). */
+    var activeWebView: WebView? = null
+    /** CP-115: tab state + page automation on the visible WebView. */
+    val browserPage: BrowserPort = AndroidBrowserPort(browser) { activeWebView }
 
     val tasks: TaskEngine = DefaultTaskEngine(bus)
     val models: ModelRegistry = InMemoryModelRegistry()
@@ -277,7 +283,7 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(EditorToolExecutor(editor))
         gateway.registerExecutor(TerminalToolExecutor(shell))
         gateway.registerExecutor(GitToolExecutor(git, workspaceDir.path))
-        gateway.registerExecutor(BrowserToolExecutor(browser))
+        gateway.registerExecutor(BrowserToolExecutor(browserPage))
         gateway.registerExecutor(DebugToolExecutor())
         gateway.registerExecutor(MemoryToolExecutor(MemoryEngine(memory)))
         gateway.registerExecutor(SkillToolExecutor(skills, files))

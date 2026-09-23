@@ -63,6 +63,29 @@ class RuleBasedPlannerTest {
     }
 
     @Test
+    fun browserPageAutomationPlans() = runBlocking {
+        // CP-115: read/click/type → browser.* steps.
+        val read = planner.plan(UserIntent(IntentType.BROWSER_READ, "t"))
+        assertTrue(read is Outcome.Success)
+        assertEquals("read", (read as Outcome.Success).value.steps[0].action)
+
+        val click = planner.plan(UserIntent(IntentType.BROWSER_CLICK, "t", mapOf("selector" to "#b")))
+        assertTrue(click is Outcome.Success)
+        val clickStep = (click as Outcome.Success).value.steps[0]
+        assertEquals("click", clickStep.action)
+        assertEquals("#b", clickStep.args["selector"])
+
+        val type = planner.plan(
+            UserIntent(IntentType.BROWSER_TYPE, "t", mapOf("selector" to "input", "text" to "hi")),
+        )
+        assertTrue(type is Outcome.Success)
+        assertEquals("type", (type as Outcome.Success).value.steps[0].action)
+
+        val noSelector = planner.plan(UserIntent(IntentType.BROWSER_CLICK, "t", mapOf("selector" to "")))
+        assertTrue(noSelector is Outcome.Failure)
+    }
+
+    @Test
     fun lessonsPlanToMemoryLessons() = runBlocking {
         // CP-114: MEMORY_LESSONS → memory.lessons step.
         val planned = planner.plan(UserIntent(IntentType.MEMORY_LESSONS, "t"))

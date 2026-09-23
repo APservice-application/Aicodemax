@@ -22,6 +22,9 @@ enum class IntentType {
     BROWSER_OPEN,
     BROWSER_CLOSE,
     BROWSER_LIST,
+    BROWSER_READ,
+    BROWSER_CLICK,
+    BROWSER_TYPE,
     DEBUG_CODE,
     DEBUG_BENCH,
     MEDIA_EDIT,
@@ -1091,6 +1094,23 @@ object IntentParser {
         if (openPrefix != null) {
             val url = t.drop(openPrefix.length).trim().split(Regex("\\s+")).firstOrNull()?.trim()
             return UserIntent(IntentType.BROWSER_OPEN, text, params("url" to url?.ifBlank { null }))
+        }
+        // CP-115 page automation FIRST ("อ่านหน้าเว็บ" contains "หน้าเว็บ" — list must not win).
+        if (containsAny(t, ThaiVocabulary.browserReadWords)) {
+            return UserIntent(IntentType.BROWSER_READ, text)
+        }
+        if (containsAny(t, ThaiVocabulary.browserClickWords)) {
+            var sel = t
+            for (w in ThaiVocabulary.browserClickWords) sel = sel.replace(w, "")
+            return UserIntent(IntentType.BROWSER_CLICK, text, params("selector" to sel.trim().ifBlank { t }))
+        }
+        if (containsAny(t, ThaiVocabulary.browserTypeWords)) {
+            var rest = t
+            for (w in ThaiVocabulary.browserTypeWords) rest = rest.replace(w, "")
+            rest = rest.trim()
+            val selector = rest.substringBefore(":").trim().ifBlank { rest }
+            val content = rest.substringAfter(":", "").trim()
+            return UserIntent(IntentType.BROWSER_TYPE, text, params("selector" to selector, "text" to content))
         }
         if (containsAny(t, ThaiVocabulary.browserListWords)) {
             return UserIntent(IntentType.BROWSER_LIST, text)
