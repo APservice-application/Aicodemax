@@ -88,11 +88,15 @@ class TerminalToolExecutorTest {
 
     @Test
     fun missingArgsAndUnknownActionFailHonestly() {
-        val missing = resultOf(ToolCall("c1", "terminal", "exec", mapOf("command" to "ls")))
-        assertFalse(missing.ok)
-        assertTrue(missing.error.contains("sessionId"))
+        // CP-113: exec without sessionId auto-opens an "ai" session (still honest).
+        val auto = resultOf(ToolCall("c1", "terminal", "exec", mapOf("command" to "ls")))
+        assertTrue(auto.ok)
 
-        val unknown = resultOf(ToolCall("c2", "terminal", "fly"))
+        val missing = resultOf(ToolCall("c2", "terminal", "exec", mapOf("sessionId" to "s1")))
+        assertFalse(missing.ok)
+        assertTrue(missing.error.contains("command"))
+
+        val unknown = resultOf(ToolCall("c3", "terminal", "fly"))
         assertFalse(unknown.ok)
         assertTrue(unknown.error.contains("unknown action"))
     }

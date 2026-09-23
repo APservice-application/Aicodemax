@@ -63,12 +63,18 @@ class RuleBasedPlannerTest {
     }
 
     @Test
-    fun unavailableRuntimesReportHonestly() = runBlocking {
-        // Terminal CLI adapter exists but is unrunnable today → honest BLOCKED.
+    fun terminalResolvesToRealShell() = runBlocking {
+        // CP-113: terminal runtime is real (system shell) → RUN_COMMAND resolves.
         val run = planner.plan(UserIntent(IntentType.RUN_COMMAND, "t", mapOf("command" to "ls")))
-        assertTrue(run is Outcome.Failure)
-        assertEquals("CAPABILITY_BLOCKED", (run as Outcome.Failure).error.code)
+        assertTrue(run is Outcome.Success)
+        val steps = (run as Outcome.Success).value.steps
+        assertEquals(1, steps.size)
+        assertEquals("terminal", steps[0].toolId)
+        assertEquals("exec", steps[0].action)
+    }
 
+    @Test
+    fun unavailableRuntimesReportHonestly() = runBlocking {
         // No build/test engines registered yet → honest UNKNOWN.
         for (type in listOf(IntentType.BUILD_PROJECT, IntentType.RUN_TESTS)) {
             val result = planner.plan(UserIntent(type, "t"))

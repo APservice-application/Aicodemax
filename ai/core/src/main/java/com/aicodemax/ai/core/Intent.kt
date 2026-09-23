@@ -1121,8 +1121,18 @@ object IntentParser {
                 UserIntent(IntentType.DELETE_PATH, text, params("path" to (file ?: dir)))
             lower.startsWith("รัน") || lower.startsWith("run ") ||
                 lower.startsWith("terminal") ||
-                containsAny(lower, ThaiVocabulary.terminalWords.map { it.lowercase() }) ->
-                UserIntent(IntentType.RUN_COMMAND, text, params("command" to t))
+                containsAny(lower, ThaiVocabulary.terminalWords.map { it.lowercase() }) -> {
+                // CP-113: strip the trigger prefix so the shell gets a clean command.
+                var cmd = t
+                val prefixes = listOf("รัน", "run", "terminal") + ThaiVocabulary.terminalWords
+                for (p in prefixes.sortedByDescending { it.length }) {
+                    if (cmd.lowercase().startsWith(p.lowercase())) {
+                        cmd = cmd.drop(p.length).trim()
+                        break
+                    }
+                }
+                UserIntent(IntentType.RUN_COMMAND, text, params("command" to cmd.ifBlank { t }))
+            }
             lower.startsWith("build") || lower.startsWith("บิลด์") ->
                 UserIntent(IntentType.BUILD_PROJECT, text)
             isGitCommand(lower) ->

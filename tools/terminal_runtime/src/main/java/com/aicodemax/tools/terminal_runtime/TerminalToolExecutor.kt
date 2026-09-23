@@ -53,7 +53,12 @@ class TerminalToolExecutor(private val terminal: TerminalPort) : ToolExecutor {
         }
 
     private fun execBlocking(call: ToolCall): Outcome<ToolResult> {
-        val sessionId = call.args["sessionId"] ?: return done(false, error = "missing arg: sessionId")
+        // CP-113: plans have no output chaining, so exec without a sessionId
+        // auto-opens an "ai" session (honest + visible in terminal.sessions).
+        val sessionId = call.args["sessionId"]?.ifBlank { null } ?: terminal.createSession("ai").fold(
+            onSuccess = { it.id },
+            onFailure = { return done(false, error = it.message) },
+        )
         val command = call.args["command"] ?: return done(false, error = "missing arg: command")
         if (CommandRiskClassifier.classify(command) == CommandRisk.BANNED) {
             return done(false, error = "TERMINAL_COMMAND_BLOCKED: คำสั่งนี้ถูกห้ามเด็ดขาด (มาตรา 17: ป้องกันคำสั่งทำลายระบบ)")

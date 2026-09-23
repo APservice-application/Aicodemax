@@ -403,7 +403,8 @@ CapabilityBinding("media.timeline.enhance", "media", "timeline.enhance", Adapter
      */
     fun defaultResolver(): CapabilityResolver {
         val registry = InMemoryToolRegistry()
-        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video", "media", "subtitle", "render")) {
+        // CP-113: terminal joins the runnable set (real system shell in-app).
+        for (toolId in listOf("files", "editor", "git", "browser", "debug", "memory", "skill", "voice", "image", "audio", "video", "media", "subtitle", "render", "terminal")) {
             registry.register(runnableDescriptor(toolId))
         }
         return overRegistry(registry)
@@ -440,7 +441,7 @@ private fun meta(
         "media" to ("Media Engine" to "project stores"),
         "subtitle" to ("Subtitle Engine" to "SRT + transcode"),
         "render" to ("Render Engine" to "queue + QC + export"),
-        "terminal" to ("Compatibility Engine" to "Termux bridge (pending device work)"),
+        "terminal" to ("Compatibility Engine" to "system shell in-app (CP-113)"),
     )
     val (engine, runtime) = engines.getValue(tool)
     return CapabilityMetadata(
@@ -448,7 +449,7 @@ private fun meta(
         operations = listOf(tool), inputs = inputs, outputs = outputs,
         dependencies = if (tool == "editor") listOf("files") else emptyList(),
         permissions = permissions, needsNetwork = network, needsStorage = tool != "browser",
-        compatibility = if (tool == "terminal") "requires Termux bridge" else "native",
+        compatibility = "native",
         fallback = "", verification = verification, recovery = recovery,
         undoable = undoable, undoHint = undoHint,
     )

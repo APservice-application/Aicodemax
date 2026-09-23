@@ -32,6 +32,10 @@ class IntentParserTest {
     fun parsesRuntimeCommands() {
         assertEquals(IntentType.RUN_COMMAND, IntentParser.parse("run ls").type)
         assertEquals(IntentType.RUN_COMMAND, IntentParser.parse("รัน pwd").type)
+        // CP-113: the shell must get a clean command (trigger prefix stripped).
+        assertEquals("ls", IntentParser.parse("run ls").parameters["command"])
+        assertEquals("pwd", IntentParser.parse("รัน pwd").parameters["command"])
+        assertEquals("echo hi", IntentParser.parse("เทอร์มินัล echo hi").parameters["command"])
         assertEquals(IntentType.RUN_TESTS, IntentParser.parse("run tests").type)
         assertEquals(IntentType.BUILD_PROJECT, IntentParser.parse("build").type)
         assertEquals(IntentType.GIT_ACTION, IntentParser.parse("git status").type)

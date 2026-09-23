@@ -110,6 +110,8 @@ import com.aicodemax.tools.registry.ToolRegistry
 import com.aicodemax.tools.terminal.terminalDescriptorToday
 import com.aicodemax.tools.terminal_runtime.CliToolAdapter
 import com.aicodemax.tools.terminal_runtime.CompatEngine
+import com.aicodemax.tools.terminal_runtime.SystemShellPort
+import com.aicodemax.tools.terminal_runtime.TerminalToolExecutor
 import com.aicodemax.tools.terminal_runtime.UnwiredTerminalPort
 import java.io.File
 
@@ -228,8 +230,10 @@ class ServiceLocator(context: Context) {
     val installer: ModelInstaller =
         ModelInstaller(models, JavaNetModelDownloader(), File(appContext.filesDir, "models"))
 
+    // CP-113: one shared real shell backend — console UI (compat) + AI gateway use the same port.
+    val shell: SystemShellPort = SystemShellPort()
     val agent: LocalAgentRunner
-    val compat: CompatEngine = CompatEngine(CliToolAdapter(UnwiredTerminalPort()))
+    val compat: CompatEngine = CompatEngine(CliToolAdapter(shell))
     val projects: ProjectManager = ProjectManager(File(appContext.filesDir, "projects"))
     val builds: PipelineBuildEngine = PipelineBuildEngine(emptyList())
     val artifacts: ArtifactStore = ArtifactStore(File(appContext.filesDir, "artifacts"))
@@ -268,6 +272,7 @@ class ServiceLocator(context: Context) {
         )
         gateway.registerExecutor(FilesToolExecutor(files))
         gateway.registerExecutor(EditorToolExecutor(editor))
+        gateway.registerExecutor(TerminalToolExecutor(shell))
         gateway.registerExecutor(GitToolExecutor(git, workspaceDir.path))
         gateway.registerExecutor(BrowserToolExecutor(browser))
         gateway.registerExecutor(DebugToolExecutor())

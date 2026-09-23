@@ -149,7 +149,8 @@
 | CP-109 | Perf/benchmark | DONE | device bench + render wall-time + Human+AI (เทส 559/559, CI GREEN) |
 | CP-110 | Director review + QC polish | DONE | timeline audit + evendims/bitrate (เทส 568/568, CI GREEN) |
 | CP-111 | Modes + search | DONE | AI mode planner UI + global search fan-out (เทส 572/572, CI GREEN) |
-| CP-112 | Spec-audit UI closure | DONE | SubtitleScreen ใหม่ + brand/package UI + proxy UI + deep-links + CHECKPOINTS ตามจริง (CI pending) |
+| CP-112 | Spec-audit UI closure | DONE | SubtitleScreen ใหม่ + brand/package UI + proxy UI + deep-links + CHECKPOINTS ตามจริง (CI GREEN) |
+| CP-113 | Real terminal: system shell in-app | DONE | SystemShellPort (sh จริง + timeout + cap, พอร์ตจากแอปเก่า) + gateway register + RUN_COMMAND ไข prefix + descriptor ซื่อสัตย์ (CI pending) |
 
 ## กฎการอัปเดตไฟล์นี้
 - อัปเดตทุกครั้งที่ Checkpoint เปลี่ยนสถานะ (พร้อม commit)

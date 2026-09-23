@@ -171,16 +171,20 @@ class BootstrapOrchestratorTest {
     }
 
     @Test
-    fun unsupportedRuntimeRepliesWithoutTask() = runBlocking {
+    fun supportedTerminalRunsAsTask() = runBlocking {
+        // CP-113: terminal is runnable → "run ls" plans + executes as a real task.
         val (checkpoints, conversations, bus) = stores()
         val tasks = DefaultTaskEngine(bus, FakeClock())
-        val orchestrator = orchestrator(FakeAgent(), tasks, checkpoints, conversations)
+        val agent = FakeAgent()
+        val orchestrator = orchestrator(agent, tasks, checkpoints, conversations)
         val conv = (conversations.createConversation("t") as Outcome.Success<com.aicodemax.data.conversations.Conversation>).value
 
         val reply = (orchestrator.handleUserMessage(conv.id, "run ls") as Outcome.Success<OrchestratorReply>).value
-        assertEquals(MessageRole.STATUS, reply.messages[0].role)
-        assertEquals(null, reply.taskId)
-        assertTrue(tasks.list().isEmpty())
+        val taskId = reply.taskId!!
+        assertEquals(TaskState.COMPLETED, tasks.get(taskId).task().state)
+        assertEquals(1, agent.steps.size)
+        assertEquals("terminal", agent.steps[0].toolId)
+        assertEquals("exec", agent.steps[0].action)
     }
 
     @Test

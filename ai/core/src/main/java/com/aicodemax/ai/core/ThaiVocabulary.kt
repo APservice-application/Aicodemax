@@ -99,7 +99,7 @@ object ThaiVocabulary {
     val browserCloseWords: List<String> = listOf("ปิดแท็บ", "ปิดหน้า", "ปิดเว็บ", "ปิด")
     val browserListWords: List<String> = listOf("แท็บ", "เบราว์", "หน้าเว็บ")
 
-    /** Terminal words (map to RUN_COMMAND; capability honestly BLOCKED until CP-32). */
+    /** Terminal words (map to RUN_COMMAND; wired to the real system shell in CP-113). */
     val terminalWords: List<String> = listOf(
         "เทอร์มินัลสอง", "เทอร์มินอลสอง", "เทอร์มินัล", "เทอร์มินอล", "เทอร์ม",
     ).sortedByDescending { it.length }

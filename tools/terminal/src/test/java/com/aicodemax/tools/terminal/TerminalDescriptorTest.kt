@@ -8,21 +8,21 @@ import org.junit.Test
 
 class TerminalDescriptorTest {
     @Test
-    fun terminalIsNotRunnableBeforePhase16() {
+    fun terminalIsRunnableWithSystemShell() {
         val descriptor = terminalDescriptorToday()
-        assertFalse(descriptor.isRunnable())
+        assertTrue(descriptor.isRunnable())
         assertEquals(
             CapabilityStatus.AVAILABLE,
-            descriptor.layerStatus(CapabilityLayer.CAPABILITY_API),
-        )
-        assertEquals(
-            CapabilityStatus.MISSING,
             descriptor.layerStatus(CapabilityLayer.RUNTIME),
         )
-        // Every missing layer must explain why (honesty rule).
-        val missing = descriptor.layers.filter { it.status == CapabilityStatus.MISSING }
-        assertFalse(missing.isEmpty())
-        assertTrue(missing.all { it.reason.isNotBlank() })
+        assertEquals(
+            CapabilityStatus.AVAILABLE,
+            descriptor.layerStatus(CapabilityLayer.EXECUTION),
+        )
+        // Every non-available layer must still explain why (honesty rule).
+        val incomplete = descriptor.layers.filter { it.status != CapabilityStatus.AVAILABLE }
+        assertTrue(incomplete.all { it.reason.isNotBlank() })
+        assertFalse(incomplete.any { it.status == CapabilityStatus.MISSING })
     }
 
     private fun assertTrue(value: Boolean) = org.junit.Assert.assertTrue(value)

@@ -94,9 +94,9 @@ class CapabilityResolverTest {
         val read = (resolver.resolve("files.read") as Outcome.Success<ResolvedCapability>).value
         assertEquals("files", read.toolId)
 
-        // Terminal ships unrunnable today → honest BLOCKED, never a guess.
-        val exec = resolver.resolve("terminal.exec")
-        assertTrue(exec is Outcome.Failure)
-        assertEquals("CAPABILITY_BLOCKED", (exec as Outcome.Failure).error.code)
+        // CP-113: terminal is runnable (real system shell) → resolves, never a guess.
+        val exec = (resolver.resolve("terminal.exec") as Outcome.Success<ResolvedCapability>).value
+        assertEquals("terminal", exec.toolId)
+        assertEquals("exec", exec.action)
     }
 }
