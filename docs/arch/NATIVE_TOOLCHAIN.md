@@ -26,5 +26,16 @@ Local builds without the fetch step still compile — tools simply report
 - `ServiceLocator` wires `nativeLibraryDir` + `ProcessRunner` into
   `DebugToolExecutor(nativeLibDir, nativeRunner)`.
 - Chat/gateway: `debug` → `native` action (capability `debug.native`).
-- Next: CP-119 routes real video ops through ffmpeg/ffprobe; CP-120 downloads
-  the Qwen GGUF bootstrap model and serves it via llama-server.
+
+## Real media ops (CP-119)
+
+- `tools/runtime/Ffmpeg` (pure JVM): `probeFile()` (ffprobe flat output, no JSON
+  dep) + `exportFile()` (transcode/trim/scale; safe default codecs
+  mpeg4+aac, overridable via `vcodec`/`acodec`) + injected `Runner`.
+- Gateway: `media` → `asset.probe` (path → duration/resolution/codecs) and
+  `media` → `timeline.export` (path + output?/startMs?/durationMs?/w?/h? →
+  real output file). Missing binary/input → honest error, never fake output.
+- `ServiceLocator` wires `nativeLibraryDir` + `ProcessRunner` adapter into
+  `MediaToolExecutor`.
+- Next: CP-120 downloads the Qwen GGUF bootstrap model and serves it via
+  llama-server.

@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":tools:media"))
     implementation(project(":tools:audio"))
     implementation(project(":tools:gateway"))
+    implementation(project(":tools:runtime"))
     implementation(libs.coroutines.android)
     testImplementation(libs.junit4)
 }

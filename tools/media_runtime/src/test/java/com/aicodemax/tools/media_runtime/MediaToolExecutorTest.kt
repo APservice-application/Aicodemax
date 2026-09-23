@@ -534,4 +534,48 @@ class MediaToolExecutorTest {
             assertTrue(true)
         }
     }
+
+    @Test
+    fun probeWithoutRunnerIsHonest() {
+        // CP-119: default executor has no native toolchain → honest error.
+        val res = run("asset.probe", mapOf("path" to "clip.mp4"))
+        assertTrue(!res.ok)
+        assertTrue(res.error.contains("ffmpeg"))
+    }
+
+    @Test
+    fun probeMissingArgIsHonest() {
+        val res = run("asset.probe")
+        assertTrue(!res.ok)
+        assertTrue(res.error.contains("missing arg"))
+    }
+
+    @Test
+    fun exportWithoutRunnerIsHonest() {
+        val res = run("timeline.export", mapOf("path" to "in.mp4"))
+        assertTrue(!res.ok)
+        assertTrue(res.error.contains("ffmpeg"))
+    }
+
+    @Test
+    fun probeWithFakeRunnerParses() {
+        val dir = createTempDir("probe")
+        val exe = java.io.File(dir, "libffprobe.so").apply { writeText("x") }
+        val input = java.io.File(dir, "clip.mp4").apply { writeText("x") }
+        val exec2 = MediaToolExecutor(
+            media,
+            nativeLibDir = dir.path,
+            ffmpegRunner = com.aicodemax.tools.runtime.Ffmpeg.Runner { _, _, _ ->
+                com.aicodemax.tools.runtime.Ffmpeg.RunnerResult(
+                    0, "[FORMAT]\nduration=5.000000\n[/FORMAT]\n",
+                )
+            },
+        )
+        val res = runBlocking {
+            (exec2.execute(ToolCall(id = "c2", toolId = "media", action = "asset.probe", args = mapOf("path" to input.path))) as Outcome.Success<ToolResult>).value
+        }
+        assertTrue(res.ok)
+        assertTrue(res.output.contains("5000ms"))
+        dir.deleteRecursively()
+    }
 }

@@ -49,6 +49,8 @@ class MediaToolExecutor(
     private val color: ColorPort = InMemoryColorPort(),
     private val gen: GenPort = InMemoryGenPort(),
     private val audio: AudioPort = InMemoryAudioPort(),
+    private val nativeLibDir: String? = null,
+    private val ffmpegRunner: com.aicodemax.tools.runtime.Ffmpeg.Runner? = null,
 ) : ToolExecutor {
     override val toolId: String = "media"
 
@@ -1431,6 +1433,37 @@ class MediaToolExecutor(
                         onFailure = { done(false, error = it.message) },
                     )
                 }
+                "asset.probe" -> {
+                    val path = call.args["path"]
+                        ?: return@withContext done(false, error = "missing arg: path (ไฟล์วิดีโอ/เสียง)")
+                    val runner = ffmpegRunner
+                        ?: return@withContext done(false, error = "native ffmpeg ยังไม่ฝังในเครื่องนี้")
+                    com.aicodemax.tools.runtime.Ffmpeg.probeFile(ffprobeExe(), path, runner).fold(
+                        onSuccess = { done(true, it.summary()) },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                "timeline.export" -> {
+                    val input = call.args["path"] ?: call.args["input"]
+                        ?: return@withContext done(false, error = "missing arg: path (ไฟล์ต้นฉบับ)")
+                    val output = call.args["output"] ?: call.args["dst"]
+                        ?: defaultExportPath(input)
+                    val runner = ffmpegRunner
+                        ?: return@withContext done(false, error = "native ffmpeg ยังไม่ฝังในเครื่องนี้")
+                    val opts = com.aicodemax.tools.runtime.Ffmpeg.ExportOpts(
+                        startMs = call.args["startMs"]?.toLongOrNull(),
+                        durationMs = call.args["durationMs"]?.toLongOrNull(),
+                        width = call.args["w"]?.toIntOrNull(),
+                        height = call.args["h"]?.toIntOrNull(),
+                        videoCodec = call.args["vcodec"] ?: "mpeg4",
+                        audioCodec = call.args["acodec"] ?: "aac",
+                        videoBitrateK = call.args["vbitrateK"]?.toIntOrNull(),
+                    )
+                    com.aicodemax.tools.runtime.Ffmpeg.exportFile(ffmpegExe(), input, output, opts, runner).fold(
+                        onSuccess = { done(true, "export แล้ว ${it.outputPath} (${it.bytes} bytes)") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
                 else -> done(false, error = "unknown action '${call.action}'")
             }
         }
@@ -1503,6 +1536,18 @@ class MediaToolExecutor(
             val kv = part.split(Regex("[=:]"), limit = 2)
             if (kv.size < 2 || kv[0].isBlank() || kv[1].isBlank()) null else kv[0].trim() to kv[1].trim()
         }.toMap()
+    }
+
+    private fun ffmpegExe(): String? =
+        nativeLibDir?.trim()?.takeUnless { it.isEmpty() }?.let { "$it/libffmpeg.so" }
+
+    private fun ffprobeExe(): String? =
+        nativeLibDir?.trim()?.takeUnless { it.isEmpty() }?.let { "$it/libffprobe.so" }
+
+    private fun defaultExportPath(input: String): String {
+        val dot = input.lastIndexOf('.')
+        val base = if (dot > 0) input.substring(0, dot) else input
+        return "${base}_export.mp4"
     }
 
     private suspend fun latestProject(): String? = when (val list = media.listProjects()) {

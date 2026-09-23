@@ -305,7 +305,19 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(AudioToolExecutor(audio))
         gateway.registerExecutor(VideoToolExecutor(video))
         gateway.registerExecutor(SubtitleToolExecutor(subtitles, subtitleLlm))
-        gateway.registerExecutor(MediaToolExecutor(media, AndroidTrackingPort(), AndroidColorPort(), AndroidGenPort(appContext.filesDir, voice, cloudGen), androidAudio))
+        // CP-119: real ffmpeg/ffprobe via embedded native tools.
+        val ffmpegRunner = com.aicodemax.tools.runtime.Ffmpeg.Runner { exe, args, timeoutMs ->
+            val res = com.aicodemax.tools.runtime.ProcessRunner.run(exe, args, timeoutMs = timeoutMs)
+            when (res) {
+                is Outcome.Success -> com.aicodemax.tools.runtime.Ffmpeg.RunnerResult(
+                    res.value.exitCode, res.value.stdout, res.value.stderr, res.value.timedOut,
+                )
+                is Outcome.Failure -> com.aicodemax.tools.runtime.Ffmpeg.RunnerResult(
+                    -1, "", res.error.message, false,
+                )
+            }
+        }
+        gateway.registerExecutor(MediaToolExecutor(media, AndroidTrackingPort(), AndroidColorPort(), AndroidGenPort(appContext.filesDir, voice, cloudGen), androidAudio, nativeLibDir, ffmpegRunner))
         gateway.registerExecutor(RenderToolExecutor(render, media))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry) { toolId, action ->
