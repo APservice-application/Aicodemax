@@ -50,6 +50,22 @@ class SubtitleToolExecutorTest {
     }
 
     @Test
+    fun translateLlmFlow() {
+        val port = InMemorySubtitlePort()
+        port.put("a.srt", listOf(Cue(0, 2000, listOf("สวัสดีครับ"))))
+        val llm: suspend (String) -> Outcome<String> = { prompt ->
+            val body = prompt.substringAfter(":\n")
+            Outcome.Success(body.lines().joinToString("\n") { "EN:$it" })
+        }
+        val call = ToolCall(id = "c1", toolId = "subtitle", action = "translate", args = mapOf("src" to "a.srt", "dst" to "b.srt", "engine" to "llm"))
+        val tr = runBlocking { (SubtitleToolExecutor(port, llm).execute(call) as Outcome.Success<ToolResult>).value }
+        assertTrue(tr.output.ifBlank { tr.error }, tr.ok && tr.output.contains("(แปลด้วย LLM)"))
+        assertEquals(listOf("EN:สวัสดีครับ"), port.get("b.srt")!![0].lines)
+        val noLlm = run(port, "translate", mapOf("src" to "a.srt", "dst" to "c.srt", "engine" to "llm"))
+        assertTrue(!noLlm.ok && noLlm.error.contains("หน้า Models"))
+    }
+
+    @Test
     fun missingArgsAreHonest() {
         val port = InMemorySubtitlePort()
         assertTrue(!run(port, "make", emptyMap()).ok)

@@ -335,6 +335,9 @@ class IntentParserTest {
         assertEquals(IntentType.SUBTITLE_TRANSLATE, tr.type)
         assertEquals("a.srt", tr.parameters["path"])
         assertEquals("th-en", tr.parameters["direction"])
+        val llm = IntentParser.parse("แปลซับ a.srt เป็นอังกฤษ ด้วย llm")
+        assertEquals(IntentType.SUBTITLE_TRANSLATE, llm.type)
+        assertEquals("llm", llm.parameters["engine"])
     }
 
     @Test

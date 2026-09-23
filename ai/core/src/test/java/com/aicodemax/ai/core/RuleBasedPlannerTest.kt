@@ -310,6 +310,8 @@ class RuleBasedPlannerTest {
         val tr = (planner.plan(UserIntent(IntentType.SUBTITLE_TRANSLATE, "t", mapOf("path" to "a.srt"))) as Outcome.Success<Plan>).value
         assertEquals("translate", tr.steps[0].action)
         assertEquals("subtitle", tr.steps[0].toolId)
+        val llm = (planner.plan(UserIntent(IntentType.SUBTITLE_TRANSLATE, "t", mapOf("path" to "a.srt", "engine" to "llm"))) as Outcome.Success<Plan>).value
+        assertEquals("llm", llm.steps[0].args["engine"])
     }
 
     @Test

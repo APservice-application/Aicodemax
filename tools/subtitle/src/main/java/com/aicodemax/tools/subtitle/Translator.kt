@@ -103,4 +103,87 @@ object Translator {
         }
         return Translation(out.toString(), hits, total)
     }
+
+    /**
+     * CP-108: full MT through a caller-supplied chat function (user's own
+     * cloud key). Lines are batched (25/call); a reply with the wrong line
+     * count fails honestly instead of misaligning cues.
+     */
+    suspend fun translateViaLlm(
+        text: String,
+        direction: String,
+        chat: suspend (String) -> com.aicodemax.core.common.Outcome<String>,
+    ): com.aicodemax.core.common.Outcome<Translation> {
+        val dir = direction.lowercase()
+        if (dir != "th-en" && dir != "en-th") {
+            return com.aicodemax.core.common.Outcome.Failure(
+                com.aicodemax.core.common.AppError("SUB_LANG", "รองรับแค่ th-en หรือ en-th"),
+            )
+        }
+        val pair = if (dir == "th-en") "Thai to English" else "English to Thai"
+        val lines = text.split("\n")
+        val out = mutableListOf<String>()
+        for (chunk in lines.chunked(25)) {
+            val prompt = "Translate the following " + pair + " subtitle lines. " +
+                "Return ONLY the translated lines, same line count (" + chunk.size + "), no numbering:\n" +
+                chunk.joinToString("\n")
+            when (val reply = chat(prompt)) {
+                is com.aicodemax.core.common.Outcome.Failure -> return reply
+                is com.aicodemax.core.common.Outcome.Success -> {
+                    val got = reply.value.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                    if (got.size != chunk.size) {
+                        return com.aicodemax.core.common.Outcome.Failure(
+                            com.aicodemax.core.common.AppError(
+                                "SUB_LLM_ALIGN",
+                                "โมเดลตอบ " + got.size + " บรรทัด (ควรเป็น " + chunk.size + ") — ยกเลิกเพื่อกันซับเหลื่อม",
+                            ),
+                        )
+                    }
+                    out.addAll(got)
+                }
+            }
+        }
+        return com.aicodemax.core.common.Outcome.Success(Translation(out.joinToString("\n"), lines.size, lines.size))
+    }
+
+    /** CP-108: cue-level fan-out shared by both port implementations. */
+    suspend fun translateCues(
+        cues: List<Cue>,
+        direction: String,
+        engine: String,
+        llm: (suspend (String) -> com.aicodemax.core.common.Outcome<String>)?,
+    ): com.aicodemax.core.common.Outcome<List<Cue>> {
+        if (engine == "llm") {
+            if (llm == null) {
+                return com.aicodemax.core.common.Outcome.Failure(
+                    com.aicodemax.core.common.AppError("SUB_NO_LLM", "แปลด้วย LLM ต้องต่อ provider ที่หน้า Models ก่อน"),
+                )
+            }
+            val counts = cues.map { it.lines.size }
+            val flat = cues.flatMap { it.lines }.joinToString("\n")
+            return when (val tr = translateViaLlm(flat.ifBlank { " " }, direction, llm)) {
+                is com.aicodemax.core.common.Outcome.Failure -> tr
+                is com.aicodemax.core.common.Outcome.Success -> {
+                    val back = tr.value.text.split("\n")
+                    var pos = 0
+                    com.aicodemax.core.common.Outcome.Success(
+                        cues.mapIndexed { i, cue ->
+                            val take = back.subList(pos, (pos + counts[i]).coerceAtMost(back.size))
+                            pos += counts[i]
+                            cue.copy(lines = take.ifEmpty { cue.lines })
+                        },
+                    )
+                }
+            }
+        }
+        val dir = direction.lowercase()
+        if (dir != "th-en" && dir != "en-th") {
+            return com.aicodemax.core.common.Outcome.Failure(
+                com.aicodemax.core.common.AppError("SUB_LANG", "รองรับแค่ th-en หรือ en-th (พจนานุกรมในตัว)"),
+            )
+        }
+        return com.aicodemax.core.common.Outcome.Success(
+            cues.map { cue -> cue.copy(lines = cue.lines.map { translate(it, dir).text }) },
+        )
+    }
 }

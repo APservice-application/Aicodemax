@@ -24,8 +24,14 @@ interface SubtitlePort {
     suspend fun parse(path: String): Outcome<SubtitleInfo>
     suspend fun shift(src: String, dst: String, offsetMs: Long): Outcome<SubtitleInfo>
     suspend fun burn(srcVideo: String, srtPath: String, dst: String): Outcome<VideoInfo>
-    /** CP-98: offline dictionary translation (th-en/en-th). */
-    suspend fun translate(src: String, dst: String, direction: String): Outcome<SubtitleInfo>
+    /** CP-98 dict / CP-108 llm translation (th-en/en-th). */
+    suspend fun translate(
+        src: String,
+        dst: String,
+        direction: String,
+        engine: String = "dict",
+        llm: (suspend (String) -> Outcome<String>)? = null,
+    ): Outcome<SubtitleInfo>
 }
 
 /** File-backed make/parse/shift (pure JVM — ships on Android too). Burn stays abstract. */
@@ -61,7 +67,13 @@ abstract class FileSubtitlePort(
         }
     }
 
-    override suspend fun translate(src: String, dst: String, direction: String): Outcome<SubtitleInfo> {
+    override suspend fun translate(
+        src: String,
+        dst: String,
+        direction: String,
+        engine: String,
+        llm: (suspend (String) -> Outcome<String>)?,
+    ): Outcome<SubtitleInfo> {
         val text = try {
             File(src).readText(Charsets.UTF_8)
         } catch (e: Exception) {
@@ -72,19 +84,9 @@ abstract class FileSubtitlePort(
             is Outcome.Success -> parsed.value
         }
         if (cues.isEmpty()) return Outcome.Failure(AppError("SUB_EMPTY", "ไฟล์ซับไม่มีคิว"))
-        val dir = direction.lowercase()
-        if (dir != "th-en" && dir != "en-th") {
-            return Outcome.Failure(AppError("SUB_LANG", "รองรับแค่ th-en หรือ en-th (พจนานุกรมในตัว)"))
-        }
-        var hits = 0
-        var total = 0
-        val out = cues.map { cue ->
-            cue.copy(lines = cue.lines.map { line ->
-                val tr = Translator.translate(line, dir)
-                hits += tr.hits
-                total += tr.total
-                tr.text
-            })
+        val out = when (val tr = Translator.translateCues(cues, direction, engine, llm)) {
+            is Outcome.Failure -> return tr
+            is Outcome.Success -> tr.value
         }
         return try {
             File(dst).parentFile?.mkdirs()
@@ -189,14 +191,19 @@ class InMemorySubtitlePort : SubtitlePort {
         return Outcome.Success(VideoInfo(dst, "MP4", 10_000, 640, 480, hasAudio = true))
     }
 
-    override suspend fun translate(src: String, dst: String, direction: String): Outcome<SubtitleInfo> {
+    override suspend fun translate(
+        src: String,
+        dst: String,
+        direction: String,
+        engine: String,
+        llm: (suspend (String) -> Outcome<String>)?,
+    ): Outcome<SubtitleInfo> {
         val cues = store[src]
             ?: return Outcome.Failure(AppError("SUB_NO_FILE", "ไม่พบไฟล์ $src (fake นี้ต้อง put() ก่อน)"))
-        val dir = direction.lowercase()
-        if (dir != "th-en" && dir != "en-th") {
-            return Outcome.Failure(AppError("SUB_LANG", "รองรับแค่ th-en หรือ en-th (พจนานุกรมในตัว)"))
+        val out = when (val tr = Translator.translateCues(cues, direction, engine, llm)) {
+            is Outcome.Failure -> return tr
+            is Outcome.Success -> tr.value
         }
-        val out = cues.map { cue -> cue.copy(lines = cue.lines.map { Translator.translate(it, dir).text }) }
         store[dst] = out
         return Outcome.Success(SubtitleInfo(dst, out.size, out.maxOfOrNull { it.endMs } ?: 0))
     }

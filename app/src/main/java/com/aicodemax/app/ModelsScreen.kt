@@ -227,6 +227,19 @@ fun ModelsScreen(services: ServiceLocator) {
                 color = MaterialTheme.colorScheme.secondary,
             )
         }
+        item(key = "__cloud__") {
+            Text("Cloud (§29)", style = MaterialTheme.typography.titleMedium)
+            Text(
+                services.cloudStatus(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            Text(
+                "ซับแปลด้วย LLM ได้แล้วเมื่อต่อ provider ด้านบน (แปลซับ ... ด้วย llm) ส่วน text2video/music/sfx รอ provider เฉพาะ",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
         if (note != null) {
             item(key = "__note__") { Text(note!!, style = MaterialTheme.typography.bodyMedium) }
         }

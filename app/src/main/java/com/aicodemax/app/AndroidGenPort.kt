@@ -29,8 +29,9 @@ import kotlinx.coroutines.withContext
 class AndroidGenPort(
     private val filesDir: File,
     private val voice: VoicePort,
+    cloud: com.aicodemax.tools.media.CloudGenRegistry = com.aicodemax.tools.media.CloudGenRegistry(),
 ) : GenPort {
-    private val mem = com.aicodemax.tools.media.InMemoryGenPort()
+    private val mem = com.aicodemax.tools.media.InMemoryGenPort(cloud)
 
     override fun list(): List<GenCapability> = mem.list()
 
@@ -48,6 +49,7 @@ class AndroidGenPort(
                     GenKinds.STYLIZE -> stylize(request)
                     GenKinds.TTS -> tts(request)
                     GenKinds.THUMBNAIL -> thumbnail(request)
+                    GenKinds.TEXT2VIDEO, GenKinds.TEXT2MUSIC, GenKinds.TEXT2SFX -> mem.generate(request)
                     else -> Outcome.Failure(AppError("GEN_KIND", "kind ไม่รู้จัก (${request.kind})"))
                 }
             } catch (e: Exception) {

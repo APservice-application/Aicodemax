@@ -945,7 +945,8 @@ object IntentParser {
         }
         if (containsAny(t, ThaiVocabulary.subtitleTranslateWords)) {
             val direction = if (t.contains("อังกฤษ") || t.contains("english")) "th-en" else if (t.contains("ไทย")) "en-th" else "th-en"
-            return UserIntent(IntentType.SUBTITLE_TRANSLATE, text, params("path" to file, "direction" to direction))
+            val engine = if (t.contains("llm") || t.contains("ด้วย ai") || t.contains("ด้วยเอไอ")) "llm" else null
+            return UserIntent(IntentType.SUBTITLE_TRANSLATE, text, params("path" to file, "direction" to direction, "engine" to engine))
         }
         if (containsAny(t, ThaiVocabulary.subtitleMakeWords)) {
             val after = t.substringAfter(":", "").trim()

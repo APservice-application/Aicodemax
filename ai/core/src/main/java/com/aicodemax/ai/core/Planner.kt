@@ -198,7 +198,9 @@ class RuleBasedPlanner(
                         AppError("PLAN_NO_SUB", "แปลซับไฟล์ไหนครับ? เช่น แปลซับ a.srt เป็นอังกฤษ"),
                     )
                 val direction = intent.parameters["direction"] ?: "th-en"
-                listOf("subtitle.translate" to mapOf("src" to path, "direction" to direction))
+                val args = mutableMapOf("src" to path, "direction" to direction)
+                intent.parameters["engine"]?.let { args["engine"] = it }
+                listOf("subtitle.translate" to args)
             }
             IntentType.SUBTITLE_BURN -> {
                 val src = intent.parameters["src"]

@@ -13,6 +13,7 @@ import com.aicodemax.ai.core.RuleVerifier
 import com.aicodemax.ai.models.FallbackModelRouter
 import com.aicodemax.ai.models.InMemoryModelRegistry
 import com.aicodemax.ai.models.JavaNetModelDownloader
+import com.aicodemax.ai.models.LlmMessage
 import com.aicodemax.ai.models.LlmProvider
 import com.aicodemax.ai.models.ModelDescriptor
 import com.aicodemax.ai.models.ModelKind
@@ -78,6 +79,9 @@ import com.aicodemax.tools.git.gitDescriptorToday
 import com.aicodemax.tools.git_runtime.GitToolExecutor
 import com.aicodemax.tools.memory_runtime.MemoryToolExecutor
 import com.aicodemax.tools.skill_runtime.SkillToolExecutor
+import com.aicodemax.core.common.AppError
+import com.aicodemax.core.common.Outcome
+import com.aicodemax.tools.media.CloudGenRegistry
 import com.aicodemax.tools.media.FileMediaProject
 import com.aicodemax.tools.media.MediaProjectPort
 import com.aicodemax.tools.media.mediaDescriptorToday
@@ -193,6 +197,24 @@ class ServiceLocator(context: Context) {
     /** CP-107: current brain route for the Models screen. */
     fun brainRoute(): String = routedBrain.routeLine()
 
+    /** CP-108: cloud generation slots (§29) + status for the Models screen. */
+    val cloudGen: CloudGenRegistry = CloudGenRegistry()
+
+    fun cloudStatus(): String = cloudGen.statusLine()
+
+    /** CP-108: subtitle LLM engine — uses the connected provider or fails honestly. */
+    val subtitleLlm: suspend (String) -> Outcome<String> = { prompt ->
+        val provider = llmProvider
+        if (provider == null) {
+            Outcome.Failure(AppError("BRAIN_OFF", "ยังไม่ต่อ LLM (ตั้งค่าที่หน้า Models)"))
+        } else {
+            when (val reply = provider.chat(llmModel, listOf(LlmMessage("user", prompt)))) {
+                is Outcome.Success -> Outcome.Success(reply.value.content)
+                is Outcome.Failure -> reply
+            }
+        }
+    }
+
     private fun llmSystemPrompt(): String {
         val tools = BuiltinSkills.all.firstOrNull { it.meta.id == "aicode-tools" }?.content.orEmpty()
         return "You are Aicodemax, a Thai-speaking AI that DOES work with tools. " +
@@ -255,8 +277,8 @@ class ServiceLocator(context: Context) {
         gateway.registerExecutor(ImageToolExecutor(images))
         gateway.registerExecutor(AudioToolExecutor(audio))
         gateway.registerExecutor(VideoToolExecutor(video))
-        gateway.registerExecutor(SubtitleToolExecutor(subtitles))
-        gateway.registerExecutor(MediaToolExecutor(media, AndroidTrackingPort(), AndroidColorPort(), AndroidGenPort(appContext.filesDir, voice), androidAudio))
+        gateway.registerExecutor(SubtitleToolExecutor(subtitles, subtitleLlm))
+        gateway.registerExecutor(MediaToolExecutor(media, AndroidTrackingPort(), AndroidColorPort(), AndroidGenPort(appContext.filesDir, voice, cloudGen), androidAudio))
         gateway.registerExecutor(RenderToolExecutor(render, media))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry)

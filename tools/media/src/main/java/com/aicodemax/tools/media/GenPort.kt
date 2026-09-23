@@ -52,19 +52,44 @@ interface GenPort {
 }
 
 /** JVM/test double: advertises offline kinds, returns mem:// placeholders honestly. */
-class InMemoryGenPort : GenPort {
+class InMemoryGenPort(
+    private val cloud: CloudGenRegistry = CloudGenRegistry(),
+) : GenPort {
+    private fun cloudCap(kind: String, title: String): GenCapability {
+        val providers = cloud.providersFor(kind)
+        return if (providers.isEmpty()) {
+            GenCapability(kind, title, false, "ต้องมี cloud provider (§29)")
+        } else {
+            GenCapability(kind, title, true, "ผ่าน ${providers.first().label}")
+        }
+    }
+
     override fun list(): List<GenCapability> = listOf(
         GenCapability(GenKinds.POSTER, "โปสเตอร์ข้อความ", true),
         GenCapability(GenKinds.BACKGROUND, "พื้นหลังไล่สี", true),
         GenCapability(GenKinds.STYLIZE, "แต่งรูปพรีเซ็ต", true),
         GenCapability(GenKinds.TTS, "เสียงพูด", true),
         GenCapability(GenKinds.THUMBNAIL, "ปกคลิป", true),
-        GenCapability(GenKinds.TEXT2VIDEO, "ข้อความ→วิดีโอ", false, "ต้องมี cloud provider (§29)"),
-        GenCapability(GenKinds.TEXT2MUSIC, "ข้อความ→ดนตรี", false, "ต้องมี cloud provider (§29)"),
-        GenCapability(GenKinds.TEXT2SFX, "ข้อความ→เอฟเฟกต์เสียง", false, "ต้องมี cloud provider (§29)"),
+        cloudCap(GenKinds.TEXT2VIDEO, "ข้อความ→วิดีโอ"),
+        cloudCap(GenKinds.TEXT2MUSIC, "ข้อความ→ดนตรี"),
+        cloudCap(GenKinds.TEXT2SFX, "ข้อความ→เอฟเฟกต์เสียง"),
     )
 
+    /** Cloud-kind path shared with Android (fake dstDir — providers decide). */
+    suspend fun generateCloud(kind: String, request: GenRequest): Outcome<GenResult> {
+        val provider = cloud.providersFor(kind).firstOrNull()
+            ?: return Outcome.Failure(
+                com.aicodemax.core.common.AppError("GEN_UNAVAILABLE", "$kind: ต้องมี cloud provider (§29)"),
+            )
+        return provider.generate(request, "mem://cloud")
+    }
+
+    fun cloudStatus(): String = cloud.statusLine()
+
     override suspend fun generate(request: GenRequest): Outcome<GenResult> {
+        if (request.kind == GenKinds.TEXT2VIDEO || request.kind == GenKinds.TEXT2MUSIC || request.kind == GenKinds.TEXT2SFX) {
+            return generateCloud(request.kind, request)
+        }
         val cap = list().find { it.kind == request.kind }
             ?: return Outcome.Failure(com.aicodemax.core.common.AppError("GEN_KIND", "kind ไม่รู้จัก (${request.kind})"))
         if (!cap.available) {

@@ -11,7 +11,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Gateway executor for subtitles (actions: make/parse/shift/burn). */
-class SubtitleToolExecutor(private val subs: SubtitlePort = InMemorySubtitlePort()) : ToolExecutor {
+class SubtitleToolExecutor(
+    private val subs: SubtitlePort = InMemorySubtitlePort(),
+    private val llm: (suspend (String) -> Outcome<String>)? = null,
+) : ToolExecutor {
     override val toolId: String = "subtitle"
 
     override suspend fun execute(call: ToolCall): Outcome<ToolResult> =
@@ -65,8 +68,12 @@ class SubtitleToolExecutor(private val subs: SubtitlePort = InMemorySubtitlePort
                     val direction = call.args["direction"] ?: call.args["to"]?.let {
                         if (it.lowercase().startsWith("en")) "th-en" else "en-th"
                     } ?: "th-en"
-                    subs.translate(src, dst, direction).fold(
-                        onSuccess = { done(true, "แปลซับแล้ว ${it.path}: ${it.summary} (พจนานุกรมในตัว ไทย↔อังกฤษ)") },
+                    val engine = call.args["engine"] ?: "dict"
+                    subs.translate(src, dst, direction, engine, llm).fold(
+                        onSuccess = {
+                            val tag = if (engine == "llm") "(แปลด้วย LLM)" else "(พจนานุกรมในตัว ไทย↔อังกฤษ)"
+                            done(true, "แปลซับแล้ว ${it.path}: ${it.summary} $tag")
+                        },
                         onFailure = { done(false, error = it.message) },
                     )
                 }
