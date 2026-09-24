@@ -178,4 +178,5 @@
 | CP-132 | §32–33 trace + phases + runtime UI | DONE | ToolTracer→audit; ChatPhase THINKING/RUNNING_TOOL/RETRY; runtime section (CI GREEN) |
 | CP-133 | P21–24 hardening + v0.1.5 APK | DONE | offline/low-RAM/crash passes; HARDENING.md; device checklist (CI GREEN) |
 | CP-134 | UI overhaul specs (§100–105) | DONE | 27 docs: architecture×4, ui×14, ui-reference×8, migration checkpoint (CI GREEN) |
-| CP-135 | Design-system + shell + chat (§69–72,§10–13,§20–28) | DONE | spec tokens/components; start=chat, drawer+launcher, search; bubbles/attach/voice/tool-cards/model-sheet (CI pending) |
+| CP-135 | Design-system + shell + chat (§69–72,§10–13,§20–28) | DONE | spec tokens/components; start=chat, drawer+launcher, search; bubbles/attach/voice/tool-cards/model-sheet (CI GREEN) |
+| CP-136 | Workspaces P1: browser/video/image/audio (§29–46) | DONE | browser overview/downloads/AI-panel; video shell; new image+audio editors; WorkspaceKit (CI pending) |

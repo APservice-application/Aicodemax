@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
 
 /** CP-73 clip-list editor: select clip, transform (§12), freeze, split/dup/delete, undo/redo. */
 @Composable
-fun TimelineScreen(services: ServiceLocator) {
+fun TimelineScreen(services: ServiceLocator, initialProjectId: String? = null) {
     val spacing = LocalSpacing.current
     val scope = rememberCoroutineScope()
     var projects by remember { mutableStateOf<List<Project>>(emptyList()) }
@@ -92,6 +92,11 @@ fun TimelineScreen(services: ServiceLocator) {
         services.media.listProjects().fold(
             onSuccess = {
                 projects = it
+                // CP-136: preselect the project chosen in the workspace Projects tab.
+                initialProjectId?.let { wanted ->
+                    val at = it.indexOfFirst { p -> p.id == wanted }
+                    if (at >= 0) projectIndex = at
+                }
                 refresh()
             },
             onFailure = { message = it.message },

@@ -23,6 +23,8 @@ import com.aicodemax.ui.designsystem.SectionHeader
 private val appEntries = listOf(
     LauncherEntry(Routes.BROWSER, "เบราว์เซอร์", "🌐"),
     LauncherEntry(Routes.TIMELINE, "วิดีโอ", "🎬"),
+    LauncherEntry(Routes.IMAGE, "แต่งรูป", "🖼️"),
+    LauncherEntry(Routes.AUDIO, "ตัดเสียง", "🎚️"),
     LauncherEntry(Routes.GEN, "สร้างมีเดีย", "🎨"),
     LauncherEntry(Routes.RECORD, "อัดเสียง", "🎙️"),
     LauncherEntry(Routes.SUBTITLE, "ซับไตเติล", "📝"),

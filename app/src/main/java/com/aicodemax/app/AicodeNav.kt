@@ -65,6 +65,8 @@ object Routes {
     const val RECORD = "record"
     const val SUBTITLE = "subtitle"
     const val MEMORY = "memory"
+    const val IMAGE = "image"
+    const val AUDIO = "audio"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -92,12 +94,14 @@ private fun titleFor(route: String): String = when (route) {
     Routes.BUILD -> "Build & Test"
     Routes.SKILLS -> "Skills"
     Routes.RENDER -> "เรนเดอร์"
-    Routes.TIMELINE -> "ไทม์ไลน์"
+    Routes.TIMELINE -> "วิดีโอ"
     Routes.TEMPLATES -> "เทมเพลต"
     Routes.GEN -> "สร้างมีเดีย"
     Routes.RECORD -> "อัดเสียง/ถ่าย"
     Routes.SUBTITLE -> "ซับไตเติล"
     Routes.MEMORY -> "ความจำ"
+    Routes.IMAGE -> "แต่งรูป"
+    Routes.AUDIO -> "ตัดเสียง"
     else -> "Aicodemax"
 }
 
@@ -195,8 +199,8 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                             if (toolId == "media") nav.navigateSingle(Routes.TIMELINE)
                             if (toolId == "video") nav.navigateSingle(Routes.TIMELINE)
                             if (toolId == "subtitle") nav.navigateSingle(Routes.SUBTITLE)
-                            if (toolId == "audio") nav.navigateSingle(Routes.RECORD)
-                            if (toolId == "image") nav.navigateSingle(Routes.GEN)
+                            if (toolId == "audio") nav.navigateSingle(Routes.AUDIO)
+                            if (toolId == "image") nav.navigateSingle(Routes.IMAGE)
                             if (toolId == "memory") nav.navigateSingle(Routes.MEMORY)
                             if (toolId == "debug") nav.navigateSingle(Routes.CHAT)
                         },
@@ -231,12 +235,23 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                 composable(Routes.BUILD) { BuildScreen(services) }
                 composable(Routes.SKILLS) { SkillsScreen(services) }
                 composable(Routes.RENDER) { RenderScreen(services) }
-                composable(Routes.TIMELINE) { TimelineScreen(services) }
+                composable(Routes.TIMELINE) {
+                    VideoWorkspace(
+                        services,
+                        onOpen = { nav.navigateSingle(it) },
+                        onHandToChat = { prompt ->
+                            services.workingSet.handPrompt(prompt)
+                            nav.navigateSingle(Routes.CHAT)
+                        },
+                    )
+                }
                 composable(Routes.TEMPLATES) { TemplatesScreen(services) }
                 composable(Routes.GEN) { GenScreen(services) }
                 composable(Routes.RECORD) { RecordScreen(services) }
                 composable(Routes.SUBTITLE) { SubtitleScreen(services) }
                 composable(Routes.MEMORY) { MemoryScreen(services) }
+                composable(Routes.IMAGE) { ImageEditorScreen(services) }
+                composable(Routes.AUDIO) { AudioEditorScreen(services) }
             }
         }
     }
