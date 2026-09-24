@@ -181,4 +181,4 @@
 | CP-135 | Design-system + shell + chat (§69–72,§10–13,§20–28) | DONE | spec tokens/components; start=chat, drawer+launcher, search; bubbles/attach/voice/tool-cards/model-sheet (CI GREEN) |
 | CP-136 | Workspaces P1: browser/video/image/audio (§29–46) | DONE | browser overview/downloads/AI-panel; video shell; new image+audio editors; WorkspaceKit (CI GREEN) |
 | CP-137 | Workspaces P2 + states (§47–68) | DONE | files select/ops/details; git tabs; terminal theme; subtitle/record/gen tabs; tasks filters; settings sections; offline notice (CI GREEN) |
-| CP-138 | Batch verification (§100.8) | DONE | batch-verification.md (25 screens mapped); UiMode re-wired to launcher filter (CI pending) |
+| CP-138 | Batch verification (§100.8) | DONE | batch-verification.md (25 screens mapped); UiMode re-wired to launcher filter (CI GREEN) |
