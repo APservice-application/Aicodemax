@@ -204,7 +204,9 @@ jobs:
           CLI=$(find /tmp/llamahost/build-host -name "llama-cli" -o -name "main" | head -1)
           echo "cli: $CLI"
           test -n "$CLI" && test -x "$CLI"
-          OUT=$(timeout 300 "$CLI" -m app/src/main/assets/ai/builtin-model.gguf -p "สวัสดี" -n 32 -c 2048 2>/dev/null | tail -c 2000)
+          # -st (single-turn): without it llama-cli enters interactive mode and prints
+          # only "> " prompts; filter any prompt echoes so the byte test proves REAL tokens.
+          OUT=$(timeout 300 "$CLI" -m app/src/main/assets/ai/builtin-model.gguf -p "สวัสดี" -n 32 -c 2048 -st 2>/dev/null | grep -v "^> " | tail -c 2000)
           echo "--- model output tail ---"
           echo "$OUT"
           test "$(printf '%s' "$OUT" | wc -c)" -gt 40
