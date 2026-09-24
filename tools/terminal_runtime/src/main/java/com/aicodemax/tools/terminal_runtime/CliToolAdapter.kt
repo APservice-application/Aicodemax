@@ -7,6 +7,7 @@ import com.aicodemax.tools.terminal.CommandResult
 import com.aicodemax.tools.terminal.CommandRisk
 import com.aicodemax.tools.terminal.CommandRiskClassifier
 import com.aicodemax.tools.terminal.ExecChunk
+import com.aicodemax.tools.terminal.ExecListener
 import com.aicodemax.tools.terminal.ExecRequest
 import com.aicodemax.tools.terminal.RunningHandle
 import com.aicodemax.tools.terminal.TerminalPort
@@ -24,7 +25,12 @@ class CliToolAdapter(
     private val defaultTimeoutMs: Long = 60_000,
     private val maxChars: Int = 32_000,
 ) {
-    fun run(sessionId: String, command: String, timeoutMs: Long = defaultTimeoutMs): Outcome<CommandResult> {
+    fun run(
+        sessionId: String,
+        command: String,
+        timeoutMs: Long = defaultTimeoutMs,
+        cwd: String? = null,
+    ): Outcome<CommandResult> {
         if (CommandRiskClassifier.classify(command) == CommandRisk.BANNED) {
             return Outcome.Failure(AppError("COMMAND_BANNED", "command is banned: $command"))
         }
@@ -33,7 +39,7 @@ class CliToolAdapter(
         val done = CountDownLatch(1)
         var exitCode = -1
         val outcome = port.exec(
-            ExecRequest(sessionId = sessionId, command = command, timeoutMs = timeoutMs),
+            ExecRequest(sessionId = sessionId, command = command, cwd = cwd, timeoutMs = timeoutMs),
             { chunk: ExecChunk ->
                 if (chunk.isStderr) stderr.append(chunk.text) else stdout.append(chunk.text)
                 if (chunk.finished) {
@@ -58,6 +64,36 @@ class CliToolAdapter(
         }
         return Outcome.Success(clip(stdout.toString(), stderr.toString(), exitCode))
     }
+
+    /**
+     * CP-143: streaming exec for the interactive console — risk-checked,
+     * chunks flow straight to [listener]. Caller owns the [RunningHandle]
+     * (Stop button). Blocking [run] stays for tool use.
+     */
+    fun execStream(
+        sessionId: String,
+        command: String,
+        timeoutMs: Long = defaultTimeoutMs,
+        cwd: String? = null,
+        listener: ExecListener,
+    ): Outcome<RunningHandle> {
+        if (CommandRiskClassifier.classify(command) == CommandRisk.BANNED) {
+            return Outcome.Failure(AppError("COMMAND_BANNED", "command is banned: $command"))
+        }
+        return port.exec(
+            ExecRequest(sessionId = sessionId, command = command, cwd = cwd, timeoutMs = timeoutMs),
+            listener,
+        )
+    }
+
+    /** CP-143: open/close real port sessions (CompatEngine bridges UI sessions to these). */
+    fun openPortSession(title: String): Outcome<String> =
+        port.createSession(title).fold(
+            onSuccess = { Outcome.Success(it.id) },
+            onFailure = { Outcome.Failure(it) },
+        )
+
+    fun closePortSession(sessionId: String): Outcome<Unit> = port.closeSession(sessionId)
 
     private fun clip(stdout: String, stderr: String, exitCode: Int): CommandResult {
         val limit = maxChars.coerceAtLeast(256)

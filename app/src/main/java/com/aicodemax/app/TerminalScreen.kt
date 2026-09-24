@@ -1,5 +1,6 @@
 package com.aicodemax.app
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,9 +30,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import com.aicodemax.core.common.fold
+import com.aicodemax.tools.terminal.RunningHandle
 import com.aicodemax.tools.terminal.TerminalSession
 import com.aicodemax.ui.designsystem.AicodeColors
 import com.aicodemax.ui.designsystem.AicodeRadii
@@ -40,9 +42,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * CP-137 terminal re-skin (SCR-DEV-004): dark console theme, same compat
- * engine. The terminal is a Tool, not the brain: until the Phase-16 runtime
- * lands, commands honestly report TERMINAL_UNWIRED instead of faking a shell.
+ * CP-143 interactive console (SCR-DEV-004): persistent real shell per
+ * session (`cd`/`export` carry over), live-streamed output, Stop button,
+ * start-folder + timeout controls, tap-to-reuse history. The terminal is
+ * a Tool, not the brain — AI drives it through the gateway (same backend).
  */
 @Composable
 fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}) {
@@ -51,8 +54,19 @@ fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}
     var sessions by remember { mutableStateOf(services.compat.sessions()) }
     var activeId by remember { mutableStateOf<String?>(null) }
     var command by remember { mutableStateOf("") }
-    var output by remember { mutableStateOf("") }
+    var transcript by remember { mutableStateOf("") }
     var running by remember { mutableStateOf(false) }
+    var liveHandle by remember { mutableStateOf<RunningHandle?>(null) }
+    var cwdField by remember { mutableStateOf("") }
+    var history by remember { mutableStateOf(listOf<String>()) }
+    var timeoutMs by remember { mutableStateOf(60_000L) }
+    val scroll = rememberScrollState()
+
+    LaunchedEffect(transcript.length) { scroll.scrollTo(scroll.maxValue) }
+
+    fun append(text: String) {
+        transcript = (transcript + text).takeLast(120_000)
+    }
 
     fun refresh() {
         sessions = services.compat.sessions()
@@ -63,21 +77,38 @@ fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}
         val cmd = command.trim()
         if (cmd.isEmpty() || running) return
         running = true
-        output = "$ $cmd\n…กำลังรัน…"
+        command = ""
+        if (history.lastOrNull() != cmd) history = (history + cmd).takeLast(12)
+        append("$ $cmd\n")
         scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                services.compat.exec(cmd, activeId)
+            val outcome = withContext(Dispatchers.IO) {
+                services.compat.execLive(cmd, activeId, timeoutMs) { chunk ->
+                    if (chunk.text.isNotEmpty()) append(chunk.text)
+                    if (chunk.finished) {
+                        append("[exit ${chunk.exitCode}]\n")
+                        running = false
+                        liveHandle = null
+                        refresh()
+                    }
+                }
             }
-            result.fold(
+            outcome.fold(
                 onSuccess = {
                     activeId = it.sessionId
-                    output = "$ $cmd\n${it.stdout}${it.stderr}\n[exit ${it.exitCode}]"
+                    liveHandle = it.handle
+                    refresh()
                 },
-                onFailure = { output = "$ $cmd\n❌ ${it.code}: ${it.message}" },
+                onFailure = {
+                    append("❌ ${it.code}: ${it.message}\n")
+                    running = false
+                    refresh()
+                },
             )
-            refresh()
-            running = false
         }
+    }
+
+    fun stop() {
+        liveHandle?.cancel()
     }
 
     Column(
@@ -89,7 +120,7 @@ fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}
             color = MaterialTheme.colorScheme.surfaceVariant,
         ) {
             Text(
-                "โหมดนักพัฒนา — terminal เป็น compatibility engine (PTY runtime จริงมาใน Phase 16)",
+                "เชลล์จริงในแอป — cd/export อยู่ข้ามคำสั่งในเซสชันเดียวกัน • หยุดได้ • timeout ฆ่าแล้วเปิดเชลล์ใหม่",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.padding(spacing.sm),
@@ -100,9 +131,9 @@ fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}
             activeId = activeId,
             onSelect = { activeId = it },
             onNew = {
-                services.compat.openSession("dev").fold(
+                services.compat.openSession("dev", cwdField.ifBlank { null }).fold(
                     onSuccess = { activeId = it.id },
-                    onFailure = { output = "❌ ${it.message}" },
+                    onFailure = { append("❌ ${it.message}\n") },
                 )
                 refresh()
             },
@@ -111,17 +142,17 @@ fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}
                 refresh()
             },
         )
-        // Console output (dark terminal tokens).
+        // Console transcript (dark terminal tokens, auto-scrolls).
         Surface(
             shape = RoundedCornerShape(AicodeRadii.M),
             color = AicodeColors.TerminalBackground,
             modifier = Modifier.fillMaxWidth().weight(1f),
         ) {
             Text(
-                text = output.ifBlank { "(ยังไม่มีผลลัพธ์)" },
+                text = transcript.ifBlank { "(พิมพ์คำสั่งด้านล่าง — เช่น ls, pwd, echo สวัสดี)" },
                 style = MaterialTheme.typography.bodySmall,
                 color = AicodeColors.TerminalForeground,
-                modifier = Modifier.padding(spacing.sm).verticalScroll(rememberScrollState()),
+                modifier = Modifier.padding(spacing.sm).verticalScroll(scroll),
             )
         }
         Row(
@@ -145,13 +176,50 @@ fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = { run() }),
             )
-            Button(onClick = { run() }, enabled = !running) { Text("รัน") }
+            if (running) {
+                Button(onClick = { stop() }) { Text("หยุด") }
+            } else {
+                Button(onClick = { run() }) { Text("รัน") }
+            }
+        }
+        // History (tap to reuse).
+        if (history.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                for (past in history.asReversed()) {
+                    TextButton(onClick = { command = past }, enabled = !running) {
+                        Text(past.take(24), maxLines = 1)
+                    }
+                }
+            }
+        }
+        // Start folder + timeout.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            TextField(
+                value = cwdField,
+                onValueChange = { cwdField = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                placeholder = { Text("โฟลเดอร์เริ่ม (ว่าง = workspace)") },
+                shape = RoundedCornerShape(AicodeRadii.M),
+            )
+            for ((label, ms) in listOf("30วิ" to 30_000L, "60วิ" to 60_000L, "5นาที" to 300_000L)) {
+                TextButton(onClick = { timeoutMs = ms }, enabled = !running) {
+                    Text(if (ms == timeoutMs) "●$label" else label)
+                }
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            TextButton(onClick = { output = "" }) { Text("ล้างจอ") }
+            TextButton(onClick = { transcript = "" }) { Text("ล้างจอ") }
             TextButton(
-                onClick = { onHandToChat("อธิบายผลลัพธ์คำสั่งนี้:\n$output".take(1000)) },
-                enabled = output.isNotBlank(),
+                onClick = { onHandToChat("อธิบายผลลัพธ์คำสั่งนี้:\n$transcript".take(1000)) },
+                enabled = transcript.isNotBlank(),
             ) { Text("🤖 ถาม AI") }
         }
     }

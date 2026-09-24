@@ -184,3 +184,5 @@
 | CP-138 | Batch verification (§100.8) | DONE | batch-verification.md (25 screens mapped); UiMode re-wired to launcher filter (CI GREEN) |
 | CP-139 | Default-model one-tap download (§6) | DONE | owner blanket approval (`docs/OWNER_APPROVALS.md`, CP-55 signed); first-run download card in Chat (progress + retry); `syncLocalModels()` mirrors GGUF installs into registry; auto-load already at startup (CI GREEN) |
 | CP-140 | File STT via whisper.cpp base (subtitle) | DONE | whisper.cpp v1.9.4 JNI (`libaicode_whisper.so`, CI-built arm64); one-tap base-model download (~148MB, MIT); MediaCodec→16kHz decoder; STT tab in Subtitle (transcribe + handoff to MAKE) (CI GREEN) |
+| CP-141 | In-app screen recording | SKIPPED (เจ้าของสั่งข้าม 2026-09-24) | — |
+| CP-143 | Full terminal: persistent shell + live console | TODO → DONE | `PersistentShellPort` (one sh per session, cd/export persist, marker protocol, merged streams); CompatEngine port-session bridge (fixes UI exec); live transcript + Stop + cwd/timeout/history in TerminalScreen |

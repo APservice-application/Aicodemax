@@ -114,7 +114,7 @@ import com.aicodemax.tools.registry.ToolRegistry
 import com.aicodemax.tools.terminal.terminalDescriptorToday
 import com.aicodemax.tools.terminal_runtime.CliToolAdapter
 import com.aicodemax.tools.terminal_runtime.CompatEngine
-import com.aicodemax.tools.terminal_runtime.SystemShellPort
+import com.aicodemax.tools.terminal_runtime.PersistentShellPort
 import com.aicodemax.tools.terminal_runtime.TerminalToolExecutor
 import com.aicodemax.tools.terminal_runtime.UnwiredTerminalPort
 import java.io.File
@@ -298,12 +298,12 @@ class ServiceLocator(context: Context) {
     val installer: ModelInstaller =
         ModelInstaller(models, JavaNetModelDownloader(), File(appContext.filesDir, "models"))
 
-    // CP-113: one shared real shell backend — console UI (compat) + AI gateway use the same port.
-    val shell: SystemShellPort = SystemShellPort()
+    // CP-113/143: one shared persistent shell backend — console UI (compat) + AI gateway use the same port.
+    val shell: PersistentShellPort = PersistentShellPort()
     // CP-114: learning loop over real task outcomes (persisted in memory store).
     val learn: LearningEngine = LearningEngine(memory)
     val agent: LocalAgentRunner
-    val compat: CompatEngine = CompatEngine(CliToolAdapter(shell))
+    val compat: CompatEngine = CompatEngine(CliToolAdapter(shell), defaultCwd = workspaceDir.path)
     val projects: ProjectManager = ProjectManager(File(appContext.filesDir, "projects"))
     val builds: PipelineBuildEngine = PipelineBuildEngine(emptyList())
     val artifacts: ArtifactStore = ArtifactStore(File(appContext.filesDir, "artifacts"))
