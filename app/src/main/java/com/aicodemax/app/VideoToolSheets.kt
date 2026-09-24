@@ -230,7 +230,7 @@ internal fun VideoSheetControls(
         VideoSheet.SPEED -> {
             if (clip != null) {
                 val speed = clip.speed ?: ClipSpeed()
-                ToolSlider("ความเร็ว", speed.rate.toFloat(), 25f.0.400f, !busy) { rate ->
+                ToolSlider("ความเร็ว", speed.rate.toFloat(), 25f..400f, !busy) { rate ->
                     onRun { services.media.setClipSpeed(projectId, clip.id, speed.copy(rate = rate.toInt()), "HUMAN") }
                 }
                 ToolRow {
@@ -305,7 +305,7 @@ internal fun VideoSheetControls(
         VideoSheet.AUDIO -> {
             ToolRow { VideoButton("เพิ่มแทร็กเสียง", onImportAudio, prominent = true, glyph = "♫", enabled = !busy) }
             if (clip != null) {
-                ToolSlider("ระดับเสียง", clip.volume.toFloat(), 0f.0.100f, !busy) { v ->
+                ToolSlider("ระดับเสียง", clip.volume.toFloat(), 0f..100f, !busy) { v ->
                     onRun { services.media.setClipVolume(projectId, clip.id, v.toInt(), "HUMAN") }
                 }
                 ToolRow {
@@ -345,9 +345,9 @@ internal fun VideoSheetControls(
         VideoSheet.FX -> {
             if (clip != null) {
                 val effect = clip.fx ?: ClipFx()
-                ToolSlider("เบลอ", effect.blur.toFloat(), 0f.0.10f, !busy) { v -> fx { it.copy(blur = v.toInt()) } }
-                ToolSlider("วิกเน็ต", effect.vignette.toFloat(), 0f.0.100f, !busy) { v -> fx { it.copy(vignette = v.toInt()) } }
-                ToolSlider("เกรน", effect.grain.toFloat(), 0f.0.100f, !busy) { v -> fx { it.copy(grain = v.toInt()) } }
+                ToolSlider("เบลอ", effect.blur.toFloat(), 0f..10f, !busy) { v -> fx { it.copy(blur = v.toInt()) } }
+                ToolSlider("วิกเน็ต", effect.vignette.toFloat(), 0f..100f, !busy) { v -> fx { it.copy(vignette = v.toInt()) } }
+                ToolSlider("เกรน", effect.grain.toFloat(), 0f..100f, !busy) { v -> fx { it.copy(grain = v.toInt()) } }
                 VideoButton("ปรับปรุงภาพอัตโนมัติ", { onGateway("timeline.enhance", emptyMap()) }, enabled = !busy)
             } else ToolLabel("เลือกคลิปก่อนใส่เอฟเฟกต์")
         }
@@ -363,7 +363,7 @@ internal fun VideoSheetControls(
                     }
                     VideoButton("ล้างมาสก์", { onRun { services.media.setClipMask(projectId, clip.id, ClipMask(), "HUMAN") } }, enabled = !busy)
                 }
-                ToolSlider("ขอบนุ่ม", mask.feather.toFloat(), 0f.0.100f, !busy) { v ->
+                ToolSlider("ขอบนุ่ม", mask.feather.toFloat(), 0f..100f, !busy) { v ->
                     onRun { services.media.setClipMask(projectId, clip.id, mask.copy(feather = v.toInt()), "HUMAN") }
                 }
                 ToolLabel("กรีนสกรีน / คีย์สี")
@@ -383,7 +383,7 @@ internal fun VideoSheetControls(
                         VideoChip(direction, clip.motion?.direction == direction, { onRun { services.media.setClipMotion(projectId, clip.id, (clip.motion ?: ClipMotion()).copy(direction = direction), "HUMAN") } }, enabled = !busy)
                     }
                 }
-                ToolSlider("ระยะซูม", (clip.motion?.zoom ?: 20).toFloat(), 0f.0.60f, !busy) { v ->
+                ToolSlider("ระยะซูม", (clip.motion?.zoom ?: 20).toFloat(), 0f..60f, !busy) { v ->
                     onRun { services.media.setClipMotion(projectId, clip.id, (clip.motion ?: ClipMotion()).copy(zoom = v.toInt()), "HUMAN") }
                 }
                 ToolRow {
