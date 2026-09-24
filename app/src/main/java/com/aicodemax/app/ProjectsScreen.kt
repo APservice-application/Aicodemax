@@ -156,7 +156,7 @@ private fun FilesTabContent(services: ServiceLocator, onHandToChat: (String) -> 
             try {
                 block()
             } catch (e: Exception) {
-                opMessage = "$labelไม่ได้: ${e.message}"
+                opMessage = "${label}ไม่ได้: ${e.message}"
             }
             load(path)
             selected = emptySet()
@@ -607,8 +607,9 @@ private fun ProjectsTabContent(services: ServiceLocator, onError: (String?) -> U
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
         item(key = "__active__") {
+            val current = active
             Text(
-                if (active == null) "ยังไม่เลือกโปรเจกต์" else "โปรเจกต์ปัจจุบัน: ${active.name}",
+                if (current == null) "ยังไม่เลือกโปรเจกต์" else "โปรเจกต์ปัจจุบัน: ${current.name}",
                 style = MaterialTheme.typography.titleMedium,
             )
         }
@@ -643,7 +644,7 @@ private fun ProjectsTabContent(services: ServiceLocator, onError: (String?) -> U
                     MaterialTheme.colorScheme.surfaceVariant
                 },
                 modifier = Modifier.fillMaxWidth().clickable {
-                    services.projects.setActive(it).fold(
+                    services.projects.setActive(project.id).fold(
                         onSuccess = { services.workingSet.setProject(it.id); loadProjects() },
                         onFailure = { onError(it.message) },
                     )
