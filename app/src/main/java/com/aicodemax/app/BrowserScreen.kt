@@ -150,6 +150,7 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        OfflineNotice(services)
         // SCR-BROWSER-001: tab strip + omnibox + ⋮ menu.
         LazyRow(
             modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.xs),

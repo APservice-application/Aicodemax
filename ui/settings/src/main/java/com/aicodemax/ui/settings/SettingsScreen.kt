@@ -25,6 +25,7 @@ import com.aicodemax.core.state.ThemeMode
 import com.aicodemax.core.state.UiMode
 import com.aicodemax.data.settings.SettingsRepository
 import com.aicodemax.ui.designsystem.LocalSpacing
+import com.aicodemax.ui.designsystem.SectionHeader
 import kotlinx.coroutines.launch
 
 @Composable
@@ -80,7 +81,7 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Text("รูปลักษณ์", style = MaterialTheme.typography.titleMedium)
+        SectionHeader("รูปลักษณ์")
         for (option in ThemeMode.values()) {
             RadioRow(
                 label = when (option) {
@@ -92,7 +93,7 @@ fun SettingsScreen(
                 onClick = { onTheme(option) },
             )
         }
-        Text("โหมดหน้าจอ", style = MaterialTheme.typography.titleMedium)
+        SectionHeader("โหมดหน้าจอ")
         for (option in UiMode.values()) {
             RadioRow(
                 label = when (option) {
@@ -103,7 +104,7 @@ fun SettingsScreen(
                 onClick = { onUiMode(option) },
             )
         }
-        Text("ความเป็นอิสระของ AI", style = MaterialTheme.typography.titleMedium)
+        SectionHeader("ความเป็นอิสระของ AI")
         for (option in AutonomyLevel.values()) {
             RadioRow(
                 label = when (option) {
@@ -115,13 +116,13 @@ fun SettingsScreen(
                 onClick = { onAutonomy(option) },
             )
         }
-        Text("โมเดล", style = MaterialTheme.typography.titleMedium)
+        SectionHeader("โมเดล")
         Text(
             text = activeModel ?: "ยังไม่มีโมเดลที่พร้อมใช้",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.secondary,
         )
-        Text("ความปลอดภัยและสิทธิ์", style = MaterialTheme.typography.titleMedium)
+        SectionHeader("ความปลอดภัยและสิทธิ์")
         Text(
             text = "AI ขอสิทธิ์ก่อนทำทุกงานที่เสี่ยง — งานที่ถูกบล็อกจะบันทึกใน audit เสมอ",
             style = MaterialTheme.typography.bodyMedium,
@@ -175,10 +176,10 @@ fun AboutScreen() {
     ) {
         Text("Aicodemax", style = MaterialTheme.typography.titleLarge)
         Text(
-            "OWN AI APPLICATION — free software. Version 0.1.0 (foundation).",
+            "OWN AI APPLICATION — free software. Version 0.1.5.",
             style = MaterialTheme.typography.bodyMedium,
         )
-        Text("ลิขสิทธิ์", style = MaterialTheme.typography.titleMedium)
+        SectionHeader("ลิขสิทธิ์")
         Text(
             "This program is free software: you can redistribute it and/or modify it " +
                 "under the terms of the GNU General Public License as published by the Free " +
@@ -187,7 +188,7 @@ fun AboutScreen() {
                 "Full license: LICENSE file in the source repository.",
             style = MaterialTheme.typography.bodyMedium,
         )
-        Text("ซอฟต์แวร์บุคคลที่สาม", style = MaterialTheme.typography.titleMedium)
+        SectionHeader("ซอฟต์แวร์บุคคลที่สาม")
         Text(
             "• Termux (https://github.com/termux/termux-app) — GPLv3, embedded terminal " +
                 "stack for the in-app terminal tool.\n" +

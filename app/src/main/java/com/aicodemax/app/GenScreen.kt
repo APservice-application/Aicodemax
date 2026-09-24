@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -20,18 +22,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.aicodemax.core.common.Ids
 import com.aicodemax.core.common.fold
 import com.aicodemax.data.media.Project
 import com.aicodemax.tools.gateway.ToolCall
+import com.aicodemax.ui.designsystem.LabeledField
 import com.aicodemax.ui.designsystem.LocalSpacing
+import com.aicodemax.ui.designsystem.OutputBlock
 import kotlinx.coroutines.launch
 
-/** Generative media (§46): offline poster/background/stylize/tts → imported as assets. */
+private enum class GenTab { MAKE, SCRIPT, PLAN, AUDIO, PHOTO }
+
+/**
+ * CP-137 media generator (SCR-GEN-001..007): tabbed poster/background/
+ * stylize/tts/thumbnail, script→video, AI plans, voice/music/SFX, photo
+ * fix-ups — all offline engines, imported as project assets.
+ */
 @Composable
 fun GenScreen(services: ServiceLocator) {
     val spacing = LocalSpacing.current
     val scope = rememberCoroutineScope()
+    var tab by remember { mutableStateOf(GenTab.MAKE) }
     var projects by remember { mutableStateOf<List<Project>>(emptyList()) }
     var projectIndex by remember { mutableStateOf(0) }
     var kind by remember { mutableStateOf("poster") }
@@ -71,29 +83,34 @@ fun GenScreen(services: ServiceLocator) {
         }
     }
 
-    Surface(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.padding(spacing.md),
+    Column(modifier = Modifier.fillMaxSize()) {
+        ProjectPickerRow(projects, projectIndex, { projectIndex = it })
+        ScrollableTabRow(selectedTabIndex = tab.ordinal, edgePadding = 0.dp) {
+            for (value in GenTab.values()) {
+                Tab(
+                    selected = tab == value,
+                    onClick = { tab = value },
+                    text = {
+                        Text(
+                            when (value) {
+                                GenTab.MAKE -> "สร้าง"
+                                GenTab.SCRIPT -> "บท→วิดีโอ"
+                                GenTab.PLAN -> "AI วางแผน"
+                                GenTab.AUDIO -> "เสียง"
+                                GenTab.PHOTO -> "ภาพ"
+                            },
+                        )
+                    },
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    Text("โปรเจกต์: ${project?.name ?: "—"}", style = MaterialTheme.typography.bodyMedium)
-                    if (projects.size > 1) {
-                        OutlinedButton(onClick = { projectIndex = (projectIndex + 1) % projects.size }) {
-                            Text("สลับ")
-                        }
-                    }
-                }
-                message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            }
-            item {
-                Text("ตัวสร้างที่ใช้ได้", style = MaterialTheme.typography.titleSmall)
-                Text(providers.ifBlank { "—" }, style = MaterialTheme.typography.bodySmall)
-            }
-            item {
-                Text("สร้างมีเดียใหม่", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            when (tab) {
+                GenTab.MAKE -> {
+                    Text("ตัวสร้างที่ใช้ได้: ${providers.ifBlank { "—" }}", style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         listOf("poster", "background", "stylize", "tts", "thumbnail").forEach { k ->
                             OutlinedButton(onClick = { kind = k }, enabled = !busy) {
@@ -102,18 +119,22 @@ fun GenScreen(services: ServiceLocator) {
                         }
                     }
                     if (kind == "stylize") {
-                        TextField(value = path, onValueChange = { path = it }, label = { Text("พาธรูปต้นฉบับ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        TextField(value = style, onValueChange = { style = it }, label = { Text("สไตล์ vivid/warm/cool/cinema/bw") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        LabeledField("พาธรูปต้นฉบับ", path, { path = it })
+                        LabeledField("สไตล์ vivid/warm/cool/cinema/bw", style, { style = it })
                     } else if (kind == "thumbnail") {
-                        TextField(value = path, onValueChange = { path = it }, label = { Text("พาธวิดีโอต้นฉบับ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        LabeledField("พาธวิดีโอต้นฉบับ", path, { path = it })
                         TextField(value = prompt, onValueChange = { prompt = it }, label = { Text("ชื่อปก") }, modifier = Modifier.fillMaxWidth())
-                        TextField(value = style, onValueChange = { style = it }, label = { Text("สไตล์ vivid/warm/cool/cinema/bw") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        LabeledField("สไตล์ vivid/warm/cool/cinema/bw", style, { style = it })
                     } else if (kind == "background") {
-                        TextField(value = style, onValueChange = { style = it }, label = { Text("สไตล์ dusk/sea/rose/forest/bw/solid:RRGGBB") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        LabeledField("สไตล์ dusk/sea/rose/forest/bw/solid:RRGGBB", style, { style = it })
                     } else {
-                        TextField(value = prompt, onValueChange = { prompt = it }, label = { Text(if (kind == "tts") "ข้อความให้พูด" else "ข้อความโปสเตอร์") }, modifier = Modifier.fillMaxWidth())
+                        TextField(
+                            value = prompt, onValueChange = { prompt = it },
+                            label = { Text(if (kind == "tts") "ข้อความให้พูด" else "ข้อความโปสเตอร์") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                         if (kind == "poster") {
-                            TextField(value = style, onValueChange = { style = it }, label = { Text("ธีม indigo/warm/sea/rose/forest/bw") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            LabeledField("ธีม indigo/warm/sea/rose/forest/bw", style, { style = it })
                         }
                     }
                     OutlinedButton(onClick = {
@@ -139,11 +160,12 @@ fun GenScreen(services: ServiceLocator) {
                         }
                     }, enabled = !busy && project != null) { Text(if (busy) "กำลังสร้าง…" else "สร้าง") }
                 }
-            }
-            item {
-                Text("บท → วิดีโอ", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    TextField(value = scriptText, onValueChange = { scriptText = it }, label = { Text("บท (เว้นบรรทัดว่างคั่นแต่ละช่วง)") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                GenTab.SCRIPT -> {
+                    TextField(
+                        value = scriptText, onValueChange = { scriptText = it },
+                        label = { Text("บท (เว้นบรรทัดว่างคั่นแต่ละช่วง)") },
+                        modifier = Modifier.fillMaxWidth(), minLines = 3,
+                    )
                     OutlinedButton(onClick = {
                         val pid = project?.id ?: return@OutlinedButton
                         busy = true
@@ -159,10 +181,7 @@ fun GenScreen(services: ServiceLocator) {
                         }
                     }, enabled = !busy && project != null && scriptText.isNotBlank()) { Text("สร้างวิดีโอจากบท") }
                 }
-            }
-            item {
-                Text("AI วางแผนคอนเทนต์ (5 โหมด)", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                GenTab.PLAN -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         listOf("commercial", "story", "vlog", "tutorial", "review").forEach { m ->
                             OutlinedButton(onClick = { aiMode = m }, enabled = !busy) {
@@ -170,7 +189,7 @@ fun GenScreen(services: ServiceLocator) {
                             }
                         }
                     }
-                    TextField(value = aiTopic, onValueChange = { aiTopic = it }, label = { Text("หัวข้อ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    LabeledField("หัวข้อ", aiTopic, { aiTopic = it })
                     OutlinedButton(onClick = {
                         busy = true
                         scope.launch {
@@ -182,13 +201,10 @@ fun GenScreen(services: ServiceLocator) {
                         }
                     }, enabled = !busy) { Text("วางแผน") }
                 }
-            }
-            item {
-                Text("เสียง: เปลี่ยนเสียง / ดนตรี / SFX", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    TextField(value = fxPath, onValueChange = { fxPath = it }, label = { Text("ไฟล์เสียงต้นฉบับ (เปลี่ยนเสียง)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                GenTab.AUDIO -> {
+                    LabeledField("ไฟล์เสียงต้นฉบับ (เปลี่ยนเสียง)", fxPath, { fxPath = it })
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        TextField(value = fxSemi, onValueChange = { fxSemi = it }, label = { Text("semi -12..12") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.4f))
+                        LabeledField("semi -12..12", fxSemi, { fxSemi = it }, modifier = Modifier.weight(1f))
                         OutlinedButton(onClick = { fxRobot = !fxRobot }) { Text(if (fxRobot) "●หุ่นยนต์" else "หุ่นยนต์") }
                         OutlinedButton(onClick = {
                             busy = true
@@ -208,8 +224,8 @@ fun GenScreen(services: ServiceLocator) {
                         }, enabled = !busy && fxPath.isNotBlank()) { Text("เปลี่ยนเสียง") }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        TextField(value = synthStyle, onValueChange = { synthStyle = it }, label = { Text("สไตล์เพลง") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.35f))
-                        TextField(value = synthSecs, onValueChange = { synthSecs = it }, label = { Text("วินาที") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.25f))
+                        LabeledField("สไตล์เพลง", synthStyle, { synthStyle = it }, modifier = Modifier.weight(1f))
+                        LabeledField("วินาที", synthSecs, { synthSecs = it }, modifier = Modifier.weight(1f))
                         OutlinedButton(onClick = {
                             busy = true
                             scope.launch {
@@ -226,7 +242,7 @@ fun GenScreen(services: ServiceLocator) {
                         }, enabled = !busy) { Text("ทำเพลง") }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        TextField(value = sfxKind, onValueChange = { sfxKind = it }, label = { Text("kind impact/riser/whoosh/click/success") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.55f))
+                        LabeledField("kind impact/riser/whoosh/click/success", sfxKind, { sfxKind = it }, modifier = Modifier.weight(1f))
                         OutlinedButton(onClick = {
                             busy = true
                             scope.launch {
@@ -254,11 +270,8 @@ fun GenScreen(services: ServiceLocator) {
                         }, enabled = !busy) { Text("นำเข้าโปรเจกต์") }
                     }
                 }
-            }
-            item {
-                Text("ภาพถ่าย: แต่ง / ขยาย / ฟื้นฟู", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    TextField(value = photoPath, onValueChange = { photoPath = it }, label = { Text("พาธรูปต้นฉบับ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                GenTab.PHOTO -> {
+                    LabeledField("พาธรูปต้นฉบับ", photoPath, { photoPath = it })
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         OutlinedButton(onClick = {
                             busy = true
@@ -271,7 +284,7 @@ fun GenScreen(services: ServiceLocator) {
                                 busy = false
                             }
                         }, enabled = !busy && photoPath.isNotBlank()) { Text("แต่งภาพ") }
-                        TextField(value = photoScale, onValueChange = { photoScale = it }, label = { Text("x") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.2f))
+                        LabeledField("ขยาย x", photoScale, { photoScale = it }, modifier = Modifier.weight(1f))
                         OutlinedButton(onClick = {
                             busy = true
                             scope.launch {
@@ -295,8 +308,14 @@ fun GenScreen(services: ServiceLocator) {
                             }
                         }, enabled = !busy && photoPath.isNotBlank()) { Text("ฟื้นฟู") }
                     }
+                    Text(
+                        "อยากแต่งแบบละเอียด เปิดแท็บ แต่งรูป ใน launcher",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
                 }
             }
+            message?.let { OutputBlock(it.take(2000)) }
         }
     }
 }

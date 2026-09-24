@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -19,21 +21,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.aicodemax.core.common.Ids
 import com.aicodemax.core.common.fold
 import com.aicodemax.tools.gateway.ToolCall
+import com.aicodemax.ui.designsystem.LabeledField
 import com.aicodemax.ui.designsystem.LocalSpacing
+import com.aicodemax.ui.designsystem.OutputBlock
 import kotlinx.coroutines.launch
 
+private enum class SubTab { MAKE, PARSE, SHIFT, TRANSLATE, BURN }
+
 /**
- * Subtitle Studio (CP-112): full UI for the subtitle tool (กฎข้อ 5).
- * make (transcript→SRT) / parse / shift / burn / translate (dict+LLM).
- * Honest note: make() formats a pasted transcript — there is no on-device STT engine yet.
+ * CP-137 subtitle studio (SCR-SUB-001..006): tabbed make/parse/shift/
+ * translate/burn over subtitle.* tools. Honest note: make() formats a pasted
+ * transcript — there is no on-device STT engine yet.
  */
 @Composable
 fun SubtitleScreen(services: ServiceLocator) {
     val spacing = LocalSpacing.current
     val scope = rememberCoroutineScope()
+    var tab by remember { mutableStateOf(SubTab.MAKE) }
     var transcript by remember { mutableStateOf("") }
     var mediaPath by remember { mutableStateOf("") }
     var durationMs by remember { mutableStateOf("") }
@@ -57,25 +65,42 @@ fun SubtitleScreen(services: ServiceLocator) {
         }
     }
 
-    Surface(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.padding(spacing.md),
+    Column(modifier = Modifier.fillMaxSize()) {
+        ScrollableTabRow(selectedTabIndex = tab.ordinal, edgePadding = 0.dp) {
+            for (value in SubTab.values()) {
+                Tab(
+                    selected = tab == value,
+                    onClick = { tab = value },
+                    text = {
+                        Text(
+                            when (value) {
+                                SubTab.MAKE -> "ทำซับ"
+                                SubTab.PARSE -> "อ่าน"
+                                SubTab.SHIFT -> "เลื่อนเวลา"
+                                SubTab.TRANSLATE -> "แปล"
+                                SubTab.BURN -> "ฝังซับ"
+                            },
+                        )
+                    },
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            item {
-                Text("สตูดิโอซับไตเติล", style = MaterialTheme.typography.titleMedium)
-                message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            }
-            item {
-                Text("ทำซับจากบทพูด", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            when (tab) {
+                SubTab.MAKE -> {
                     Text(
                         "วางบทพูด (เว้นบรรทัดว่างคั่นแต่ละคิว) — ยังไม่มี STT อัตโนมัติ",
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    TextField(value = transcript, onValueChange = { transcript = it }, label = { Text("บทพูด") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-                    TextField(value = mediaPath, onValueChange = { mediaPath = it }, label = { Text("พาธมีเดีย (ไม่บังคับ)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    TextField(value = durationMs, onValueChange = { durationMs = it }, label = { Text("ความยาว ms (ไม่บังคับ)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    TextField(
+                        value = transcript, onValueChange = { transcript = it },
+                        label = { Text("บทพูด") }, modifier = Modifier.fillMaxWidth(), minLines = 3,
+                    )
+                    LabeledField("พาธมีเดีย (ไม่บังคับ)", mediaPath, { mediaPath = it })
+                    LabeledField("ความยาว ms (ไม่บังคับ)", durationMs, { durationMs = it })
                     OutlinedButton(onClick = {
                         val args = mutableMapOf("transcript" to transcript.trim())
                         if (mediaPath.isNotBlank()) args["mediaPath"] = mediaPath.trim()
@@ -84,28 +109,23 @@ fun SubtitleScreen(services: ServiceLocator) {
                         run("subtitle", "make", args)
                     }, enabled = !busy && transcript.isNotBlank()) { Text("ทำซับ (.srt)") }
                 }
-            }
-            item {
-                Text("อ่านไฟล์ซับ", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    TextField(value = src, onValueChange = { src = it }, label = { Text("พาธไฟล์ .srt") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                SubTab.PARSE -> {
+                    LabeledField("พาธไฟล์ .srt", src, { src = it })
                     OutlinedButton(onClick = {
                         run("subtitle", "parse", mapOf("path" to src.trim()))
                     }, enabled = !busy && src.isNotBlank()) { Text("อ่านซับ") }
                 }
-            }
-            item {
-                Text("เลื่อนเวลาซับ", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    TextField(value = offsetMs, onValueChange = { offsetMs = it }, label = { Text("เลื่อน ms (เช่น 500 / -1000)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                SubTab.SHIFT -> {
+                    Text("ไฟล์: ${src.ifBlank { "(ใส่พาธในแท็บอ่านก่อน หรือพิมพ์ด้านล่าง)" }}")
+                    LabeledField("พาธไฟล์ .srt", src, { src = it })
+                    LabeledField("เลื่อน ms (เช่น 500 / -1000)", offsetMs, { offsetMs = it })
                     OutlinedButton(onClick = {
                         run("subtitle", "shift", mapOf("src" to src.trim(), "offsetMs" to offsetMs.trim()))
                     }, enabled = !busy && src.isNotBlank() && offsetMs.isNotBlank()) { Text("เลื่อนเวลา") }
                 }
-            }
-            item {
-                Text("แปลซับ ไทย↔อังกฤษ", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                SubTab.TRANSLATE -> {
+                    Text("ไฟล์: ${src.ifBlank { "(ใส่พาธในแท็บอ่านก่อน หรือพิมพ์ด้านล่าง)" }}")
+                    LabeledField("พาธไฟล์ .srt", src, { src = it })
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         listOf("th-en", "en-th").forEach { d ->
                             OutlinedButton(onClick = { direction = d }, enabled = !busy) {
@@ -125,17 +145,15 @@ fun SubtitleScreen(services: ServiceLocator) {
                         run("subtitle", "translate", mapOf("src" to src.trim(), "direction" to direction, "engine" to engine))
                     }, enabled = !busy && src.isNotBlank()) { Text("แปลซับ") }
                 }
-            }
-            item {
-                Text("ฝังซับลงวิดีโอ", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    TextField(value = videoSrc, onValueChange = { videoSrc = it }, label = { Text("พาธวิดีโอ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    TextField(value = srtPath, onValueChange = { srtPath = it }, label = { Text("พาธไฟล์ .srt") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                SubTab.BURN -> {
+                    LabeledField("พาธวิดีโอ", videoSrc, { videoSrc = it })
+                    LabeledField("พาธไฟล์ .srt", srtPath, { srtPath = it })
                     OutlinedButton(onClick = {
                         run("subtitle", "burn", mapOf("src" to videoSrc.trim(), "srt" to srtPath.trim()))
                     }, enabled = !busy && videoSrc.isNotBlank() && srtPath.isNotBlank()) { Text("ฝังซับ") }
                 }
             }
+            message?.let { OutputBlock(it.take(2000)) }
         }
     }
 }

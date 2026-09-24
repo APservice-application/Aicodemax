@@ -12,12 +12,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -34,20 +34,26 @@ import com.aicodemax.core.common.Ids
 import com.aicodemax.core.common.fold
 import com.aicodemax.data.media.Project
 import com.aicodemax.tools.gateway.ToolCall
+import com.aicodemax.ui.designsystem.LabeledField
 import com.aicodemax.ui.designsystem.LocalSpacing
+import com.aicodemax.ui.designsystem.OutputBlock
 import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private enum class RecTab { AUDIO, PROMPTER, CAMERA, PODCAST, SCREEN }
+
 /**
- * CP-94: in-app audio recording + teleprompter + system-camera video capture.
- * Screen capture is honestly deferred (use the OS recorder, then import below).
+ * CP-137 recorder (SCR-REC-001..005): tabbed audio record / teleprompter /
+ * camera capture / podcast / honest screen-capture note. Recordings import
+ * into the active media project.
  */
 @Composable
 fun RecordScreen(services: ServiceLocator) {
     val spacing = LocalSpacing.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    var tab by remember { mutableStateOf(RecTab.AUDIO) }
     var projects by remember { mutableStateOf<List<Project>>(emptyList()) }
     var projectIndex by remember { mutableStateOf(0) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -120,71 +126,82 @@ fun RecordScreen(services: ServiceLocator) {
         }
     }
 
-    Surface(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.padding(spacing.md),
+    Column(modifier = Modifier.fillMaxSize()) {
+        ProjectPickerRow(projects, projectIndex, { projectIndex = it })
+        ScrollableTabRow(selectedTabIndex = tab.ordinal, edgePadding = 0.dp) {
+            for (value in RecTab.values()) {
+                Tab(
+                    selected = tab == value,
+                    onClick = { tab = value },
+                    text = {
+                        Text(
+                            when (value) {
+                                RecTab.AUDIO -> "อัดเสียง"
+                                RecTab.PROMPTER -> "พรอมป์เตอร์"
+                                RecTab.CAMERA -> "กล้อง"
+                                RecTab.PODCAST -> "พอดแคสต์"
+                                RecTab.SCREEN -> "อัดจอ"
+                            },
+                        )
+                    },
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing.md),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    Text("โปรเจกต์: ${project?.name ?: "—"}", style = MaterialTheme.typography.bodyMedium)
-                    if (projects.size > 1) {
-                        OutlinedButton(onClick = { projectIndex = (projectIndex + 1) % projects.size }) {
-                            Text("สลับ")
-                        }
+            when (tab) {
+                RecTab.AUDIO -> {
+                    Text("อัดเสียงแล้วนำเข้าโปรเจกต์อัตโนมัติ", style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        OutlinedButton(onClick = {
+                            busy = true
+                            scope.launch {
+                                val dst = File(services.workspaceDir, "recordings/rec-${System.currentTimeMillis()}.m4a").absolutePath
+                                services.gateway.call(
+                                    ToolCall(Ids.newId("ui"), "audio", "recordStart", mapOf("dst" to dst), actor = "HUMAN"),
+                                ).fold(
+                                    onSuccess = {
+                                        message = if (it.ok) it.output else it.error
+                                        if (it.ok) {
+                                            recording = true
+                                            recordDst = dst
+                                        }
+                                    },
+                                    onFailure = { message = it.message },
+                                )
+                                busy = false
+                            }
+                        }, enabled = !busy && !recording) { Text("● เริ่มอัด") }
+                        OutlinedButton(onClick = {
+                            busy = true
+                            scope.launch {
+                                services.gateway.call(
+                                    ToolCall(Ids.newId("ui"), "audio", "recordStop", emptyMap(), actor = "HUMAN"),
+                                ).fold(
+                                    onSuccess = {
+                                        message = if (it.ok) it.output else it.error
+                                        if (it.ok) {
+                                            recording = false
+                                            recordDst?.let { importFile(File(it)) }
+                                            recordDst = null
+                                        }
+                                    },
+                                    onFailure = { message = it.message },
+                                )
+                                busy = false
+                            }
+                        }, enabled = !busy && recording) { Text("■ หยุดอัด") }
                     }
                 }
-                message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-            }
-            item {
-                Text("อัดเสียง", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    OutlinedButton(onClick = {
-                        busy = true
-                        scope.launch {
-                            val dst = File(services.workspaceDir, "recordings/rec-${System.currentTimeMillis()}.m4a").absolutePath
-                            services.gateway.call(
-                                ToolCall(Ids.newId("ui"), "audio", "recordStart", mapOf("dst" to dst), actor = "HUMAN"),
-                            ).fold(
-                                onSuccess = {
-                                    message = if (it.ok) it.output else it.error
-                                    if (it.ok) {
-                                        recording = true
-                                        recordDst = dst
-                                    }
-                                },
-                                onFailure = { message = it.message },
-                            )
-                            busy = false
-                        }
-                    }, enabled = !busy && !recording) { Text("● เริ่มอัด") }
-                    OutlinedButton(onClick = {
-                        busy = true
-                        scope.launch {
-                            services.gateway.call(
-                                ToolCall(Ids.newId("ui"), "audio", "recordStop", emptyMap(), actor = "HUMAN"),
-                            ).fold(
-                                onSuccess = {
-                                    message = if (it.ok) it.output else it.error
-                                    if (it.ok) {
-                                        recording = false
-                                        recordDst?.let { importFile(File(it)) }
-                                        recordDst = null
-                                    }
-                                },
-                                onFailure = { message = it.message },
-                            )
-                            busy = false
-                        }
-                    }, enabled = !busy && recording) { Text("■ หยุดอัด") }
-                }
-            }
-            item {
-                Text("เทเลพรอมป์เตอร์ (อ่านบท + อัดเสียง)", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    TextField(value = script, onValueChange = { script = it }, label = { Text("บทพูด") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                RecTab.PROMPTER -> {
+                    TextField(
+                        value = script, onValueChange = { script = it },
+                        label = { Text("บทพูด") }, modifier = Modifier.fillMaxWidth(), minLines = 3,
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        TextField(value = speed, onValueChange = { speed = it }, label = { Text("ความเร็ว") }, singleLine = true, modifier = Modifier.fillMaxWidth(0.3f))
+                        LabeledField("ความเร็ว", speed, { speed = it }, modifier = Modifier.weight(1f))
                         OutlinedButton(onClick = { prompting = !prompting }, enabled = script.isNotBlank()) {
                             Text(if (prompting) "หยุดเลื่อน" else "เริ่มเลื่อน")
                         }
@@ -192,26 +209,27 @@ fun RecordScreen(services: ServiceLocator) {
                     Text(
                         script.ifBlank { "—" },
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.fillMaxWidth().height(120.dp).verticalScroll(promptScroll),
+                        modifier = Modifier.fillMaxWidth().height(160.dp).verticalScroll(promptScroll),
                     )
                 }
-            }
-            item {
-                Text("ถ่ายวิดีโอ (กล้องระบบ)", style = MaterialTheme.typography.titleSmall)
-                OutlinedButton(onClick = {
-                    val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
-                    if (intent.resolveActivity(context.packageManager) != null) {
-                        captureLauncher.launch(intent)
-                    } else {
-                        message = "เครื่องนี้ไม่มีแอปกล้อง"
-                    }
-                }) { Text("เปิดกล้องถ่ายวิดีโอ") }
-            }
-            item {
-                Text("พอดแคสต์ (ตัดเงียบ+นอร์มัลไลซ์+ดนตรี)", style = MaterialTheme.typography.titleSmall)
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    TextField(value = podVoice, onValueChange = { podVoice = it }, label = { Text("ไฟล์เสียงพูด") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    TextField(value = podBed, onValueChange = { podBed = it }, label = { Text("ไฟล์ดนตรี (ไม่บังคับ)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                RecTab.CAMERA -> {
+                    Text(
+                        "ถ่ายวิดีโอด้วยแอปกล้องของระบบ แล้วนำเข้าโปรเจกต์อัตโนมัติ",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedButton(onClick = {
+                        val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+                        if (intent.resolveActivity(context.packageManager) != null) {
+                            captureLauncher.launch(intent)
+                        } else {
+                            message = "เครื่องนี้ไม่มีแอปกล้อง"
+                        }
+                    }) { Text("เปิดกล้องถ่ายวิดีโอ") }
+                }
+                RecTab.PODCAST -> {
+                    Text("ตัดเงียบ + นอร์มัลไลซ์ + ผสมดนตรี ในขั้นตอนเดียว", style = MaterialTheme.typography.bodySmall)
+                    LabeledField("ไฟล์เสียงพูด", podVoice, { podVoice = it })
+                    LabeledField("ไฟล์ดนตรี (ไม่บังคับ)", podBed, { podBed = it })
                     OutlinedButton(onClick = {
                         busy = true
                         scope.launch {
@@ -232,14 +250,14 @@ fun RecordScreen(services: ServiceLocator) {
                         }
                     }, enabled = !busy && podVoice.isNotBlank()) { Text("ทำพอดแคสต์") }
                 }
+                RecTab.SCREEN -> {
+                    Text(
+                        "อัดหน้าจอในแอปยังไม่รองรับ — ใช้ตัวอัดหน้าจอของระบบ แล้วนำเข้าไฟล์จากแชท (แนบไฟล์) หรือวางใน workspace ได้เลย",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
-            item {
-                Text("อัดหน้าจอ", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "อัดหน้าจอในแอปยังไม่รองรับ — ใชตัวอัดหน้าจอของระบบ แล้วนำเข้าไฟล์จากแชท (นำเข้าไฟล์) ได้เลย",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
+            message?.let { OutputBlock(it.take(1500)) }
         }
     }
 }

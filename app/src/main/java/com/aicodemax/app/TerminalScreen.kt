@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -18,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,21 +28,24 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import com.aicodemax.core.common.fold
 import com.aicodemax.tools.terminal.TerminalSession
+import com.aicodemax.ui.designsystem.AicodeColors
+import com.aicodemax.ui.designsystem.AicodeRadii
 import com.aicodemax.ui.designsystem.LocalSpacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Dev Workspace terminal (CP-33). The terminal is a compatibility engine, not
- * the core: until the Phase-16 runtime lands, commands honestly report
- * TERMINAL_UNWIRED instead of faking a shell.
+ * CP-137 terminal re-skin (SCR-DEV-004): dark console theme, same compat
+ * engine. The terminal is a Tool, not the brain: until the Phase-16 runtime
+ * lands, commands honestly report TERMINAL_UNWIRED instead of faking a shell.
  */
 @Composable
-fun TerminalScreen(services: ServiceLocator) {
+fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}) {
     val spacing = LocalSpacing.current
     val scope = rememberCoroutineScope()
     var sessions by remember { mutableStateOf(services.compat.sessions()) }
@@ -79,39 +84,15 @@ fun TerminalScreen(services: ServiceLocator) {
         modifier = Modifier.fillMaxSize().padding(spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
+        Surface(
+            shape = RoundedCornerShape(AicodeRadii.S),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
             Text(
                 "โหมดนักพัฒนา — terminal เป็น compatibility engine (PTY runtime จริงมาใน Phase 16)",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.padding(spacing.sm),
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            TextField(
-                value = command,
-                onValueChange = { command = it },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                placeholder = { Text("คำสั่ง…") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = { run() }),
-            )
-            Button(onClick = { run() }, enabled = !running) { Text("รัน") }
-        }
-        Surface(
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        ) {
-            Text(
-                text = output.ifBlank { "(ยังไม่มีผลลัพธ์)" },
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(spacing.sm).verticalScroll(rememberScrollState()),
             )
         }
         SessionRow(
@@ -130,6 +111,49 @@ fun TerminalScreen(services: ServiceLocator) {
                 refresh()
             },
         )
+        // Console output (dark terminal tokens).
+        Surface(
+            shape = RoundedCornerShape(AicodeRadii.M),
+            color = AicodeColors.TerminalBackground,
+            modifier = Modifier.fillMaxWidth().weight(1f),
+        ) {
+            Text(
+                text = output.ifBlank { "(ยังไม่มีผลลัพธ์)" },
+                style = MaterialTheme.typography.bodySmall,
+                color = AicodeColors.TerminalForeground,
+                modifier = Modifier.padding(spacing.sm).verticalScroll(rememberScrollState()),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            TextField(
+                value = command,
+                onValueChange = { command = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                placeholder = { Text("$ คำสั่ง…") },
+                shape = RoundedCornerShape(AicodeRadii.M),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = AicodeColors.TerminalBackground,
+                    unfocusedContainerColor = AicodeColors.TerminalBackground,
+                    focusedTextColor = AicodeColors.TerminalForeground,
+                    unfocusedTextColor = AicodeColors.TerminalForeground,
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                keyboardActions = KeyboardActions(onGo = { run() }),
+            )
+            Button(onClick = { run() }, enabled = !running) { Text("รัน") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            TextButton(onClick = { output = "" }) { Text("ล้างจอ") }
+            TextButton(
+                onClick = { onHandToChat("อธิบายผลลัพธ์คำสั่งนี้:\n$output".take(1000)) },
+                enabled = output.isNotBlank(),
+            ) { Text("🤖 ถาม AI") }
+        }
     }
 }
 
@@ -148,7 +172,7 @@ private fun SessionRow(
         }
         items(sessions, key = { it.id }) { session ->
             Surface(
-                shape = MaterialTheme.shapes.small,
+                shape = RoundedCornerShape(AicodeRadii.S),
                 color = if (session.id == activeId) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {

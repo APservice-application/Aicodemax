@@ -182,7 +182,16 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                         },
                     )
                 }
-                composable(Routes.PROJECTS) { ProjectsScreen(services, onOpen = { nav.navigateSingle(it) }) }
+                composable(Routes.PROJECTS) {
+                    ProjectsScreen(
+                        services,
+                        onOpen = { nav.navigateSingle(it) },
+                        onHandToChat = { prompt ->
+                            services.workingSet.handPrompt(prompt)
+                            nav.navigateSingle(Routes.CHAT)
+                        },
+                    )
+                }
                 composable(Routes.TASKS) { TasksScreen(services) }
                 composable(Routes.MODELS) { ModelsScreen(services) }
                 composable(Routes.TOOLS) {
@@ -229,9 +238,25 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                         },
                     )
                 }
-                composable(Routes.TERMINAL) { TerminalScreen(services) }
+                composable(Routes.TERMINAL) {
+                    TerminalScreen(
+                        services,
+                        onHandToChat = { prompt ->
+                            services.workingSet.handPrompt(prompt)
+                            nav.navigateSingle(Routes.CHAT)
+                        },
+                    )
+                }
                 composable(Routes.AGENTS) { AgentsScreen(services) }
-                composable(Routes.GIT) { GitScreen(services) }
+                composable(Routes.GIT) {
+                    GitScreen(
+                        services,
+                        onHandToChat = { prompt ->
+                            services.workingSet.handPrompt(prompt)
+                            nav.navigateSingle(Routes.CHAT)
+                        },
+                    )
+                }
                 composable(Routes.BUILD) { BuildScreen(services) }
                 composable(Routes.SKILLS) { SkillsScreen(services) }
                 composable(Routes.RENDER) { RenderScreen(services) }

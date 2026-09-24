@@ -7,7 +7,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,17 +28,24 @@ import com.aicodemax.core.common.fold
 import com.aicodemax.core.state.AppEvent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
+import com.aicodemax.ui.designsystem.AicodeRadii
 import com.aicodemax.ui.designsystem.EmptyState
 import com.aicodemax.ui.designsystem.LocalSpacing
 import com.aicodemax.ui.designsystem.StatusKind
 import com.aicodemax.ui.designsystem.statusColor
 
-/** AI Activity Center — live task list with pause/resume/approve/details/take-control. */
+private enum class TaskFilter { ALL, ACTIVE, WAITING, FAILED, DONE }
+
+/**
+ * CP-137 tasks (§63): live list + status filter chips + pause/resume/
+ * approve/details/take-control. Updates stream from the event bus.
+ */
 @Composable
 fun TasksScreen(services: ServiceLocator) {
     val spacing = LocalSpacing.current
     var tasks by remember { mutableStateOf(services.tasks.list()) }
     var actionError by remember { mutableStateOf<String?>(null) }
+    var filter by remember { mutableStateOf(TaskFilter.ALL) }
 
     LaunchedEffect(Unit) {
         services.bus.events.collect { event ->
@@ -52,36 +62,82 @@ fun TasksScreen(services: ServiceLocator) {
         )
     }
 
-    if (tasks.isEmpty()) {
-        Column(modifier = Modifier.fillMaxSize().padding(spacing.md)) {
+    val shown = remember(tasks, filter) {
+        tasks.filter { task ->
+            when (filter) {
+                TaskFilter.ALL -> true
+                TaskFilter.ACTIVE -> !TaskState.isTerminal(task.state) &&
+                    task.state != TaskState.WAITING_PERMISSION &&
+                    task.state != TaskState.WAITING_USER &&
+                    task.state != TaskState.FAILED
+                TaskFilter.WAITING -> task.state == TaskState.WAITING_PERMISSION ||
+                    task.state == TaskState.WAITING_USER ||
+                    task.state == TaskState.WAITING ||
+                    task.state == TaskState.PAUSED
+                TaskFilter.FAILED -> task.state == TaskState.FAILED ||
+                    task.state == TaskState.BLOCKED
+                TaskFilter.DONE -> task.state == TaskState.COMPLETED
+            }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(spacing.md)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            for (value in TaskFilter.values()) {
+                item(key = value.name) {
+                    FilterChip(
+                        selected = filter == value,
+                        onClick = { filter = value },
+                        label = {
+                            Text(
+                                when (value) {
+                                    TaskFilter.ALL -> "ทั้งหมด (${tasks.size})"
+                                    TaskFilter.ACTIVE -> "กำลังทำ"
+                                    TaskFilter.WAITING -> "รอ"
+                                    TaskFilter.FAILED -> "ล้มเหลว"
+                                    TaskFilter.DONE -> "เสร็จ"
+                                },
+                            )
+                        },
+                    )
+                }
+            }
+        }
+        if (tasks.isEmpty()) {
             EmptyState(
                 icon = Icons.Outlined.CheckCircle,
                 title = "ยังไม่มีงาน",
                 description = "สั่ง AI ในแชทได้เลย เช่น “สร้างไฟล์ notes.txt: สวัสดี”",
             )
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(spacing.md),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            if (actionError != null) {
-                item(key = "__error__") {
-                    Text(actionError!!, color = MaterialTheme.colorScheme.error)
+        } else if (shown.isEmpty()) {
+            Text(
+                "ไม่มีงานในกลุ่มนี้",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                if (actionError != null) {
+                    item(key = "__error__") {
+                        Text(actionError!!, color = MaterialTheme.colorScheme.error)
+                    }
                 }
-            }
-            items(tasks, key = { it.id }) { task ->
-                TaskCard(
-                    task = task,
-                    onCancel = { act { services.tasks.cancel(task.id, "cancelled by user") } },
-                    onRetry = { act { services.tasks.retry(task.id) } },
-                    onPause = { act { services.tasks.pause(task.id) } },
-                    onResume = { act { services.tasks.resume(task.id) } },
-                    onApprove = {
-                        act { services.tasks.transition(task.id, TaskState.RUNNING, "approved by user") }
-                    },
-                    onTakeControl = { act { services.tasks.cancel(task.id, "user took control") } },
-                )
+                items(shown, key = { it.id }) { task ->
+                    TaskCard(
+                        task = task,
+                        onCancel = { act { services.tasks.cancel(task.id, "cancelled by user") } },
+                        onRetry = { act { services.tasks.retry(task.id) } },
+                        onPause = { act { services.tasks.pause(task.id) } },
+                        onResume = { act { services.tasks.resume(task.id) } },
+                        onApprove = {
+                            act { services.tasks.transition(task.id, TaskState.RUNNING, "approved by user") }
+                        },
+                        onTakeControl = { act { services.tasks.cancel(task.id, "user took control") } },
+                    )
+                }
             }
         }
     }
@@ -107,7 +163,7 @@ private fun TaskCard(
         TaskState.isTerminal(task.state) -> MaterialTheme.colorScheme.outline
         else -> statusColor(StatusKind.INFO)
     }
-    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+    Surface(shape = RoundedCornerShape(AicodeRadii.M), color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(modifier = Modifier.fillMaxWidth().padding(spacing.md)) {
             Text(task.title, style = MaterialTheme.typography.titleMedium)
             Text(

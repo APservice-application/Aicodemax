@@ -114,3 +114,22 @@ fun WorkspaceSection(title: String, content: @Composable () -> Unit) {
         content()
     }
 }
+
+/**
+ * CP-137 offline notice (§60): reads the real network state once and shows
+ * the offline banner only when the device reports no connectivity.
+ */
+@Composable
+fun OfflineNotice(services: ServiceLocator) {
+    var offline by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<Boolean?>(null) }
+    var tick by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(tick) {
+        offline = services.resources.snapshot().fold(
+            onSuccess = { !it.networkAvailable },
+            onFailure = { null },
+        )
+    }
+    if (offline == true) {
+        com.aicodemax.ui.designsystem.OfflineBanner(onRetry = { tick += 1 })
+    }
+}

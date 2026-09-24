@@ -11,9 +11,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -26,6 +27,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
+import com.aicodemax.core.common.Outcome
 import com.aicodemax.core.common.fold
 import com.aicodemax.tools.git.GitBranch
 import com.aicodemax.tools.git.GitCommit
@@ -35,25 +38,50 @@ import com.aicodemax.tools.github.GitHubIssue
 import com.aicodemax.tools.github.GitHubRepo
 import com.aicodemax.tools.github.JavaNetHttpTransport
 import com.aicodemax.ui.designsystem.LocalSpacing
+import com.aicodemax.ui.designsystem.OutputBlock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Git Center (CP-45): local git + GitHub (repos/issues), token memory-only. */
+private enum class GitTab { CHANGES, COMMITS, BRANCHES, HISTORY, SYNC, GITHUB }
+
+/**
+ * CP-137 git workspace (SCR-GIT-001..006): changes/commits/branches/history/
+ * sync + GitHub browser. All ops run on IO; destructive actions confirmed.
+ */
 @Composable
-fun GitScreen(services: ServiceLocator) {
-    var tab by remember { mutableStateOf(0) }
+fun GitScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}) {
+    var tab by remember { mutableStateOf(GitTab.CHANGES) }
     Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tab) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Git") })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("GitHub") })
+        ScrollableTabRow(selectedTabIndex = tab.ordinal, edgePadding = 0.dp) {
+            for (value in GitTab.values()) {
+                Tab(
+                    selected = tab == value,
+                    onClick = { tab = value },
+                    text = {
+                        Text(
+                            when (value) {
+                                GitTab.CHANGES -> "การเปลี่ยน"
+                                GitTab.COMMITS -> "คอมมิต"
+                                GitTab.BRANCHES -> "สาขา"
+                                GitTab.HISTORY -> "ประวัติ"
+                                GitTab.SYNC -> "ซิงก์"
+                                GitTab.GITHUB -> "GitHub"
+                            },
+                        )
+                    },
+                )
+            }
         }
-        if (tab == 0) GitTab(services) else GitHubTab()
+        when (tab) {
+            GitTab.GITHUB -> GitHubTab()
+            else -> LocalGitTab(services, tab, onHandToChat)
+        }
     }
 }
 
 @Composable
-private fun GitTab(services: ServiceLocator) {
+private fun LocalGitTab(services: ServiceLocator, tab: GitTab, onHandToChat: (String) -> Unit) {
     val spacing = LocalSpacing.current
     val scope = rememberCoroutineScope()
     val repo = remember { services.workspaceDir.path }
@@ -61,10 +89,13 @@ private fun GitTab(services: ServiceLocator) {
     var branches by remember { mutableStateOf<List<GitBranch>>(emptyList()) }
     var log by remember { mutableStateOf<List<GitCommit>>(emptyList()) }
     var diff by remember { mutableStateOf<String?>(null) }
+    var conflicts by remember { mutableStateOf<List<String>>(emptyList()) }
     var message by remember { mutableStateOf("") }
     var branchName by remember { mutableStateOf("") }
+    var output by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var isRepo by remember { mutableStateOf(true) }
+    var busy by remember { mutableStateOf(false) }
 
     fun load() {
         scope.launch {
@@ -82,20 +113,26 @@ private fun GitTab(services: ServiceLocator) {
                     onSuccess = { branches = it },
                     onFailure = { },
                 )
-                services.git.log(repo, 10).fold(
+                services.git.log(repo, 20).fold(
                     onSuccess = { log = it },
                     onFailure = { },
+                )
+                services.git.conflicts(repo).fold(
+                    onSuccess = { conflicts = it },
+                    onFailure = { conflicts = emptyList() },
                 )
             }
         }
     }
 
-    fun io(label: String, call: suspend () -> com.aicodemax.core.common.Outcome<*>) {
+    fun io(label: String, call: suspend () -> Outcome<*>, say: String? = null) {
         scope.launch {
+            busy = true
             withContext(Dispatchers.IO) { call() }.fold(
-                onSuccess = { error = null; load() },
+                onSuccess = { error = null; output = say; load() },
                 onFailure = { error = "$label: ${it.message}" },
             )
+            busy = false
         }
     }
 
@@ -107,98 +144,178 @@ private fun GitTab(services: ServiceLocator) {
     ) {
         if (!isRepo) {
             Text("workspace ยังไม่ใช่ git repo")
-            TextButton(onClick = { io("init") { services.git.ensureRepo(repo) } }) { Text("Init repo") }
-        } else {
-            status?.let {
-                Text(
-                    "⎇ ${it.branch} • " + if (it.clean) "clean" else "${it.changedFiles.size} ไฟล์เปลี่ยน",
-                    style = MaterialTheme.typography.titleMedium,
-                )
+            TextButton(onClick = { io("init", { services.git.ensureRepo(repo) }, "สร้าง repo แล้ว") }) {
+                Text("Init repo")
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            return
+        }
+        status?.let {
+            Text(
+                "⎇ ${it.branch} • " + if (it.clean) "clean" else "${it.changedFiles.size} ไฟล์เปลี่ยน",
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        output?.let { OutputBlock(it.take(800)) }
+
+        when (tab) {
+            GitTab.CHANGES -> {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    OutlinedButton(onClick = { io("stage", { services.git.stageAll(repo) }, "stage ทั้งหมดแล้ว") }, enabled = !busy) {
+                        Text("Stage ทั้งหมด")
+                    }
+                    OutlinedButton(onClick = {
+                        scope.launch {
+                            services.git.diff(repo).fold(
+                                onSuccess = { diff = it },
+                                onFailure = { error = it.message },
+                            )
+                        }
+                    }, enabled = !busy) { Text("ดู Diff") }
+                    OutlinedButton(onClick = {
+                        onHandToChat("สร้าง commit message ภาษาไทยสั้นๆ จากการเปลี่ยนใน workspace ตอนนี้ (ดู diff ก่อน แล้วตอบแค่ message)")
+                    }) { Text("🤖 ช่วยเขียน message") }
+                }
+                val changed = status?.changedFiles ?: emptyList()
+                if (changed.isEmpty()) {
+                    Text("ไม่มีไฟล์เปลี่ยน — working tree clean")
+                }
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                ) {
+                    items(changed, key = { it }) { file ->
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(file, modifier = Modifier.padding(spacing.sm))
+                        }
+                    }
+                    if (diff != null) {
+                        item(key = "__diff__") { OutputBlock(diff!!.take(2000)) }
+                    }
+                }
+            }
+            GitTab.COMMITS -> {
                 TextField(
                     value = message,
                     onValueChange = { message = it },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     placeholder = { Text("commit message…") },
                 )
-                TextButton(
+                OutlinedButton(
                     onClick = {
-                        io("commit") {
+                        io("commit", {
                             withContext(Dispatchers.IO) { services.git.stageAll(repo) }
                             services.git.commit(repo, message.ifBlank { "update" })
-                        }
+                        }, "commit แล้ว")
                         message = ""
                     },
-                ) { Text("Commit") }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                TextField(
-                    value = branchName,
-                    onValueChange = { branchName = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    placeholder = { Text("branch ใหม่…") },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Stage + Commit") }
+                Text(
+                    "หรือสั่ง AI: “สร้าง commit จากการแก้ไขชุดนี้”",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
                 )
-                TextButton(
-                    onClick = {
-                        io("branch") { services.git.createBranch(repo, branchName) }
-                        branchName = ""
-                    },
-                    enabled = branchName.isNotBlank(),
-                ) { Text("สร้าง") }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                TextButton(onClick = {
-                    scope.launch {
-                        services.git.diff(repo).fold(
-                            onSuccess = { diff = it },
-                            onFailure = { error = it.message },
-                        )
-                    }
-                }) { Text("Diff") }
-                TextButton(onClick = { io("push") { services.git.push(repo) } }) { Text("Push") }
-                TextButton(onClick = { io("pull") { services.git.pull(repo) } }) { Text("Pull") }
-            }
-            if (error != null) {
-                Text(error!!, color = MaterialTheme.colorScheme.error)
-            }
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                item(key = "__branches__") {
-                    Text(
-                        "branches: " + branches.joinToString(", ") { (if (it.current) "* " else "") + it.name },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.secondary,
+            GitTab.BRANCHES -> {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    TextField(
+                        value = branchName,
+                        onValueChange = { branchName = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text("branch ใหม่…") },
                     )
+                    OutlinedButton(
+                        onClick = {
+                            io("branch", { services.git.createBranch(repo, branchName) }, "สร้างสาขาแล้ว")
+                            branchName = ""
+                        },
+                        enabled = !busy && branchName.isNotBlank(),
+                    ) { Text("สร้าง") }
                 }
-                if (diff != null) {
-                    item(key = "__diff__") {
-                        Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
-                            Text(
-                                diff!!.take(2000),
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(spacing.sm),
-                            )
-                        }
-                    }
-                }
-                items(log, key = { it.id }) { commit ->
-                    Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(spacing.sm)) {
-                            Text(commit.message, style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                "${commit.id.take(7)} • ${commit.author}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.secondary,
-                            )
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                ) {
+                    items(branches, key = { it.name }) { branch ->
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = if (branch.current) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(modifier = Modifier.padding(spacing.sm)) {
+                                Text(
+                                    (if (branch.current) "* " else "") + branch.name,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (!branch.current) {
+                                    TextButton(
+                                        onClick = { io("checkout", { services.git.checkout(repo, branch.name) }, "สลับสาขาแล้ว") },
+                                        enabled = !busy,
+                                    ) { Text("สลับ") }
+                                }
+                            }
                         }
                     }
                 }
             }
+            GitTab.HISTORY -> {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                ) {
+                    items(log, key = { it.id }) { commit ->
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(modifier = Modifier.padding(spacing.sm)) {
+                                Text(commit.message, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "${commit.id.take(7)} • ${commit.author}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            GitTab.SYNC -> {
+                if (conflicts.isNotEmpty()) {
+                    Text(
+                        "⚠️ ไฟล์ขัดแย้ง ${conflicts.size} ไฟล์ — แก้ไขก่อน push/pull",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    for (file in conflicts) {
+                        Text("• $file", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    OutlinedButton(onClick = { io("push", { services.git.push(repo) }, "push แล้ว") }, enabled = !busy) {
+                        Text("⬆️ Push")
+                    }
+                    OutlinedButton(onClick = { io("pull", { services.git.pull(repo) }, "pull แล้ว") }, enabled = !busy) {
+                        Text("⬇️ Pull")
+                    }
+                }
+                Text(
+                    "push/pull ต้องมีเน็ตและสิทธิ์ remote — ถ้าออฟไลน์จะอธิบายสาเหตุ",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            GitTab.GITHUB -> Unit
         }
     }
 }

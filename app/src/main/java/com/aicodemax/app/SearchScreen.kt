@@ -116,6 +116,7 @@ fun SearchScreen(
         modifier = Modifier.fillMaxSize().padding(spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
+        OfflineNotice(services)
         AicodeSearchField(
             value = query,
             onValueChange = { query = it },
