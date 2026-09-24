@@ -218,7 +218,7 @@ fun AudioEditorScreen(services: ServiceLocator) {
                         onClick = {
                             runAudio(
                                 "concat",
-                                mapOf("srcs" to ([src] + joinList).joinToString("|")),
+                                mapOf("srcs" to (listOf(src) + joinList).joinToString("|")),
                                 tag = "joined",
                             )
                         },

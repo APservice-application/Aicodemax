@@ -19,6 +19,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -283,7 +285,7 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
             BrowserMode.TABS -> {
                 if (active == null) {
                     EmptyState(
-                        icon = androidx.compose.material.icons.Icons.Outlined.Refresh,
+                        icon = Icons.Outlined.Refresh,
                         title = "ยังไม่มีแท็บ",
                         description = "กด ＋ หรือพิมพ์ URL แล้วกด ไป",
                         modifier = Modifier.fillMaxSize(),
