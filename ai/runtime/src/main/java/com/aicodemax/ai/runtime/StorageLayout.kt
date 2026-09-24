@@ -9,6 +9,7 @@ import java.io.File
  *   runtime/            native runtime state (active model marker, flags)
  *   models/default/     default model pack
  *   models/optional/    optional model packs
+ *   models/whisper/     whisper STT model (CP-140)
  *   tools/              tool data (reserved)
  *   workspaces/         user workspaces (migrated from legacy workspace/)
  *   cache/              disposable caches
@@ -20,6 +21,7 @@ class StorageLayout(val root: File) {
     val runtime: File get() = File(root, "runtime")
     val modelsDefault: File get() = File(root, "models/default")
     val modelsOptional: File get() = File(root, "models/optional")
+    val modelsWhisper: File get() = File(root, "models/whisper")
     val tools: File get() = File(root, "tools")
     val workspaces: File get() = File(root, "workspaces")
     val cache: File get() = File(root, "cache")
@@ -27,7 +29,7 @@ class StorageLayout(val root: File) {
     val agent: File get() = File(root, "agent")
 
     fun ensureDirs(): StorageLayout {
-        listOf(runtime, modelsDefault, modelsOptional, tools, workspaces, cache, logs, agent)
+        listOf(runtime, modelsDefault, modelsOptional, modelsWhisper, tools, workspaces, cache, logs, agent)
             .forEach { it.mkdirs() }
         return this
     }

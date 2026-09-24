@@ -163,6 +163,12 @@ class ServiceLocator(context: Context) {
     val modelManager: com.aicodemax.ai.runtime.ModelManager =
         com.aicodemax.ai.runtime.ModelManager(storage.modelsDefault.path, storage.modelsOptional.path)
 
+    /** CP-140: file-STT model download + whisper engine (lazy load on first use). */
+    val whisperManager: com.aicodemax.ai.runtime.WhisperManager =
+        com.aicodemax.ai.runtime.WhisperManager(storage.modelsWhisper.path)
+    val whisperEngine: com.aicodemax.ai.runtime.WhisperEngine =
+        com.aicodemax.ai.runtime.WhisperEngine(whisperManager)
+
     /** CP-127: device resources for adaptive AI (RAM/CPU/storage). */
     val aiResources: com.aicodemax.ai.runtime.ResourceManager =
         com.aicodemax.ai.runtime.ResourceManager(AndroidResourceReader(appContext))
