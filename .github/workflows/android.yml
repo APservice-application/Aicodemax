@@ -172,6 +172,40 @@ jobs:
           ls -la app/src/main/jniLibs/arm64-v8a/
           test "$(stat -c%s "$WSO")" -gt 1000000
           test "$("$TOOLCHAIN_BIN/llvm-nm" --undefined-only "$WSO" | grep -c "whisper_")" = "0"
+      - name: Restore bundled AI model (CP-144)
+        id: builtin-model-cache
+        uses: actions/cache@v4
+        with:
+          path: app/src/main/assets/ai/builtin-model.gguf
+          key: builtin-model-qwen25-0.5b-q4km-v1
+      - name: Download bundled AI model (CP-144)
+        if: steps.builtin-model-cache.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          # Qwen2.5-0.5B-Instruct Q4_K_M — Apache-2.0 (redistribution allowed, §19).
+          mkdir -p app/src/main/assets/ai
+          curl -L --fail --retry 3 -o app/src/main/assets/ai/builtin-model.gguf \
+            https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf
+          ls -la app/src/main/assets/ai/
+          test "$(stat -c%s app/src/main/assets/ai/builtin-model.gguf)" -gt 380000000
+          test "$(head -c 4 app/src/main/assets/ai/builtin-model.gguf)" = "GGUF"
+      - name: Real-inference smoke test (CP-144 §14)
+        if: steps.builtin-model-cache.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          git clone --depth 1 --branch v0.4.1 https://github.com/ggml-org/llama.cpp.git /tmp/llamahost
+          cmake -S /tmp/llamahost -B /tmp/llamahost/build-host \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+            -DGGML_OPENMP=OFF
+          cmake --build /tmp/llamahost/build-host --config Release -j"$(nproc)"
+          CLI=$(find /tmp/llamahost/build-host -name "llama-cli" -o -name "main" | head -1)
+          echo "cli: $CLI"
+          test -n "$CLI" && test -x "$CLI"
+          OUT=$(timeout 300 "$CLI" -m app/src/main/assets/ai/builtin-model.gguf -p "สวัสดี" -n 32 -c 2048 2>/dev/null | tail -c 2000)
+          echo "--- model output tail ---"
+          echo "$OUT"
+          test "$(printf '%s' "$OUT" | wc -c)" -gt 40
       - name: Assemble
         run: ./gradlew assembleDebug --stacktrace
       - name: Upload APK

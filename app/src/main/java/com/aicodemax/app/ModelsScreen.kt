@@ -58,6 +58,9 @@ fun ModelsScreen(services: ServiceLocator) {
     // CP-132: local runtime section (§35).
     val runtimeState by services.aiRuntime.state.collectAsState()
     val runtimeError by services.aiRuntime.error.collectAsState()
+    // CP-144: built-in provision progress + refresh tick for the optional model row.
+    val provisionProgress by services.aiRuntime.provisionProgress.collectAsState()
+    var builtinTick by remember { mutableStateOf(0) }
     var runtimeBusy by remember { mutableStateOf(false) }
     var runtimeNote by remember { mutableStateOf<String?>(null) }
     var runtimePressure by remember { mutableStateOf<String?>(null) }
@@ -112,52 +115,103 @@ fun ModelsScreen(services: ServiceLocator) {
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         item(key = "__runtime__") {
-            Text("รันไทม์ในเครื่อง", style = MaterialTheme.typography.titleMedium)
+            Text("AI ในตัว (มากับแอป)", style = MaterialTheme.typography.titleMedium)
+            val builtinLabel = if (services.aiRuntime.isBuiltinActive()) "AicodeMax Built-in" else "โมเดลเสริม"
             Text(
-                when (runtimeState) {
+                "$builtinLabel • " + when (runtimeState) {
                     com.aicodemax.ai.runtime.AiRuntimeState.READY -> "พร้อมใช้ ✅"
                     com.aicodemax.ai.runtime.AiRuntimeState.GENERATING -> "กำลังตอบ…"
                     com.aicodemax.ai.runtime.AiRuntimeState.LOADING_MODEL,
                     com.aicodemax.ai.runtime.AiRuntimeState.INITIALIZING,
-                    -> "กำลังเตรียม… (${runtimeState.name})"
-                    com.aicodemax.ai.runtime.AiRuntimeState.OFFLINE -> "ออฟไลน์ — ยังไม่มีโมเดลในเครื่อง"
+                    -> {
+                        val progress = provisionProgress
+                        if (progress != null) "กำลังเตรียม AI ครั้งแรก… ${(progress * 100).toInt()}%"
+                        else "กำลังเตรียม… (${runtimeState.name})"
+                    }
+                    com.aicodemax.ai.runtime.AiRuntimeState.OFFLINE -> "ออฟไลน์: ${runtimeError ?: "—"}"
                     com.aicodemax.ai.runtime.AiRuntimeState.ERROR -> "ผิดพลาด: ${runtimeError ?: "ไม่ทราบสาเหตุ"}"
                     else -> runtimeState.name
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
+            // CP-144: optional-model row (the built-in AI never needs downloads).
+            val optionalProfile = remember(builtinTick) {
+                services.modelManager.find("qwen2.5-1.5b-q4_k_m")
+            }
+            val optionalReady = remember(builtinTick, optionalProfile) {
+                optionalProfile != null &&
+                    services.modelManager.status(optionalProfile) is com.aicodemax.ai.runtime.ModelInstallStatus.Ready
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 TextButton(
                     enabled = !runtimeBusy,
                     onClick = {
                         scope.launch {
                             runtimeBusy = true
-                            runtimeNote = "กำลังติดตั้งโมเดลหลัก…"
                             runtimePressure = services.aiRuntime.pressure()?.name?.let { "แรงดันหน่วยความจำ: $it" }
-                            val job = services.aiRuntime.installActiveModel { done, total ->
-                                runtimeNote = if (total != null && total > 0) {
-                                    "ดาวน์โหลด ${done * 100 / total}%"
-                                } else {
-                                    "ดาวน์โหลด ${done / 1024 / 1024}MB"
-                                }
-                            }
-                            withContext(Dispatchers.IO) { job.join() }
-                            runtimeNote = if (runtimeError != null) runtimeError else "เสร็จ — ${runtimeState.name}"
-                            runtimeBusy = false
-                        }
-                    },
-                ) { Text("ติดตั้ง+โหลดโมเดลหลัก") }
-                TextButton(
-                    enabled = !runtimeBusy,
-                    onClick = {
-                        scope.launch {
-                            runtimeBusy = true
                             withContext(Dispatchers.IO) { services.aiRuntime.recover().join() }
                             runtimeNote = "กู้คืนแล้ว — ${services.aiRuntime.state.value.name}"
+                            builtinTick++
                             runtimeBusy = false
                         }
                     },
                 ) { Text("กู้คืน") }
+                if (optionalProfile != null && !optionalReady) {
+                    TextButton(
+                        enabled = !runtimeBusy,
+                        onClick = {
+                            scope.launch {
+                                runtimeBusy = true
+                                runtimeNote = "กำลังโหลดโมเดลเสริม…"
+                                val res = withContext(Dispatchers.IO) {
+                                    services.modelManager.install(optionalProfile) { done, total ->
+                                        runtimeNote = if (total != null && total > 0) {
+                                            "โหลดเสริม ${done * 100 / total}%"
+                                        } else {
+                                            "โหลดเสริม ${done / 1024 / 1024}MB"
+                                        }
+                                    }
+                                }
+                                res.fold(
+                                    onSuccess = { runtimeNote = "โหลดเสร็จ — กด 'สลับไปใช้ 1.5B'" },
+                                    onFailure = { runtimeNote = it.message },
+                                )
+                                builtinTick++
+                                runtimeBusy = false
+                            }
+                        },
+                    ) { Text("โหลดโมเดลเสริม 1.5B") }
+                }
+                if (optionalReady && services.aiRuntime.isBuiltinActive()) {
+                    TextButton(
+                        enabled = !runtimeBusy,
+                        onClick = {
+                            scope.launch {
+                                runtimeBusy = true
+                                withContext(Dispatchers.IO) {
+                                    services.aiRuntime.switchModel("qwen2.5-1.5b-q4_k_m").join()
+                                }
+                                builtinTick++
+                                runtimeBusy = false
+                            }
+                        },
+                    ) { Text("สลับไปใช้ 1.5B") }
+                }
+                if (optionalReady && !services.aiRuntime.isBuiltinActive()) {
+                    TextButton(
+                        enabled = !runtimeBusy,
+                        onClick = {
+                            scope.launch {
+                                runtimeBusy = true
+                                withContext(Dispatchers.IO) {
+                                    services.aiRuntime.loadBuiltin(services.builtinModelFile.path).join()
+                                }
+                                builtinTick++
+                                runtimeBusy = false
+                            }
+                        },
+                    ) { Text("กลับมาใช้ AI ในตัว") }
+                }
             }
             runtimePressure?.let {
                 Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)

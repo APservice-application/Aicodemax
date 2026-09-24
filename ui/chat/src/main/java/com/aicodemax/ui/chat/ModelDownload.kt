@@ -4,33 +4,34 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * CP-139: one-tap default-model download card.
- * [progress] is 0f..1f while downloading, null when idle.
+ * CP-144: built-in AI status card (replaces the CP-139 download banner).
+ * The core AI ships with the app — this card only reports provisioning
+ * progress or errors. It NEVER asks the user to download the core model.
+ * [progress] is 0f..1f while the bundled asset is copied (first launch),
+ * null otherwise.
  */
-data class ModelDownloadUi(
+data class BuiltinAiUi(
     val title: String,
     val detail: String,
     val progress: Float? = null,
-    val busy: Boolean = false,
-    val buttonLabel: String = "ดาวน์โหลดและติดตั้ง",
-    val downloadingLabel: String = "กำลังดาวน์โหลด… ห้ามปิดแอป",
+    val showModelsLink: Boolean = false,
 )
 
 @Composable
-fun ModelDownloadBanner(
-    ui: ModelDownloadUi,
-    onDownload: () -> Unit,
+fun BuiltinAiCard(
+    ui: BuiltinAiUi,
+    onOpenModels: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
@@ -45,17 +46,13 @@ fun ModelDownloadBanner(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
-            if (ui.busy) {
-                Text(ui.downloadingLabel, style = MaterialTheme.typography.bodySmall)
-                val current = ui.progress
-                if (current != null) {
-                    LinearProgressIndicator(progress = { current }, modifier = Modifier.fillMaxWidth())
-                    Text("${(current * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
-                } else {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-            } else {
-                Button(onClick = onDownload) { Text(ui.buttonLabel) }
+            val current = ui.progress
+            if (current != null) {
+                LinearProgressIndicator(progress = { current }, modifier = Modifier.fillMaxWidth())
+                Text("${(current * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+            }
+            if (ui.showModelsLink) {
+                TextButton(onClick = onOpenModels) { Text("ดูโมเดล") }
             }
         }
     }

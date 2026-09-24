@@ -195,6 +195,13 @@ fun AboutScreen() {
                 "• Android-Terminal-Emulator lineage — Apache 2.0.",
             style = MaterialTheme.typography.bodyMedium,
         )
+        SectionHeader("AI ในตัว (มากับแอป ไม่ต้องดาวน์โหลด)")
+        Text(
+            "• Qwen2.5-0.5B-Instruct (Q4_K_M) — Apache 2.0, https://huggingface.co/Qwen\n" +
+                "• llama.cpp — MIT, https://github.com/ggml-org/llama.cpp\n" +
+                "• whisper.cpp (ฟีเจอร์ถอดเสียง) — MIT, https://github.com/ggml-org/whisper.cpp",
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Text(
             "Source code: https://github.com/APservice-application/Aicodemax",
             style = MaterialTheme.typography.bodyMedium,

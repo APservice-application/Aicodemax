@@ -177,7 +177,7 @@ class ServiceLocator(context: Context) {
     val appScope: kotlinx.coroutines.CoroutineScope =
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
 
-    /** CP-128: local AI lifecycle (JNI runtime + active model + RAM gate). */
+    /** CP-128/144: local AI lifecycle (built-in model first, RAM gate). */
     val aiRuntime: com.aicodemax.ai.runtime.AiRuntimeManager =
         com.aicodemax.ai.runtime.AiRuntimeManager(
             appScope,
@@ -185,7 +185,11 @@ class ServiceLocator(context: Context) {
             modelManager,
             storage.runtime.path,
             resources = aiResources,
+            expectBuiltin = true,
         )
+
+    /** CP-144: built-in AI model file (bundled asset, provisioned on first launch). */
+    val builtinModelFile: File = File(storage.modelsDefault.path, "builtin-qwen2.5-0.5b-q4_k_m.gguf")
 
     val workspaceDir: File = storage.workspaces
     val files: FilePort = SandboxFileStore(workspaceDir)
@@ -422,6 +426,8 @@ class ServiceLocator(context: Context) {
         )
         // CP-128: background AI init (§21 — returns immediately, never blocks startup).
         aiRuntime.initialize()
+        // CP-144: provision the bundled built-in AI (local asset copy, then load).
+        BuiltinAiProvisioner(appContext, aiRuntime, builtinModelFile, appScope).provision()
         // CP-139: mirror local models into registry; refresh when runtime state changes.
         syncLocalModels()
         appScope.launch { aiRuntime.state.collect { syncLocalModels() } }
@@ -469,5 +475,35 @@ class ServiceLocator(context: Context) {
             if (models.get(profile.id) == null) models.register(descriptor)
             else models.update(descriptor)
         }
+        // CP-144: the built-in AI in the unified registry (§6 OUR AI).
+        val builtinStatus = when (aiRuntime.state.value) {
+            com.aicodemax.ai.runtime.AiRuntimeState.READY,
+            com.aicodemax.ai.runtime.AiRuntimeState.GENERATING,
+            -> ModelStatus.LOADED
+            else -> ModelStatus.UNKNOWN
+        }
+        val builtinDetail = when (aiRuntime.state.value) {
+            com.aicodemax.ai.runtime.AiRuntimeState.READY -> "AI ในตัวพร้อมใช้ ✅"
+            com.aicodemax.ai.runtime.AiRuntimeState.GENERATING -> "AI ในตัวกำลังตอบ…"
+            com.aicodemax.ai.runtime.AiRuntimeState.INITIALIZING,
+            com.aicodemax.ai.runtime.AiRuntimeState.LOADING_MODEL,
+            -> "AI ในตัวกำลังเตรียม…"
+            com.aicodemax.ai.runtime.AiRuntimeState.ERROR,
+            com.aicodemax.ai.runtime.AiRuntimeState.OFFLINE,
+            -> aiRuntime.error.value ?: aiRuntime.state.value.name
+            else -> aiRuntime.state.value.name
+        }
+        val builtinDescriptor = ModelDescriptor(
+            id = "builtin-aicodemax",
+            name = "AicodeMax Built-in",
+            kind = ModelKind.LOCAL_FULL,
+            provider = "built-in",
+            sizeBytes = if (builtinModelFile.isFile) builtinModelFile.length() else 397_000_000L,
+            status = builtinStatus,
+            capabilities = listOf("chat"),
+            statusDetail = builtinDetail,
+        )
+        if (models.get(builtinDescriptor.id) == null) models.register(builtinDescriptor)
+        else models.update(builtinDescriptor)
     }
 }

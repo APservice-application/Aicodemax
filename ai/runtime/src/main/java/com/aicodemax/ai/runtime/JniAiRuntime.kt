@@ -77,12 +77,15 @@ class JniAiRuntime(
             if (prompt.isBlank()) throw IllegalArgumentException("missing prompt")
             if (!generating.compareAndSet(false, true)) throw IllegalStateException("กำลัง generate อยู่แล้ว")
             try {
-                val full = applyTemplate(params.systemPrompt, prompt)
+                // CP-144: prompt arrives FULLY templated from the caller
+                // (AiRuntimeManager/LocalModelProvider apply ChatTemplate::qwen25).
+                // Never wrap again — double ChatML breaks the model (audit W1).
                 val stops = (params.stopSequences + "<|im_end|>").toSet().toTypedArray()
                 val sink = AicodeJni.TokenCallback { piece -> onToken.onToken(piece) }
-                val text = jni.generate(h, full, params.maxTokens, params.temperature, params.topP, params.topK, stops, sink)
+                val text = jni.generate(h, prompt, params.maxTokens, params.temperature, params.topP, params.topK, stops, sink)
                 val err = jni.lastError()
                 if (text.isEmpty() && err.isNotEmpty()) throw IllegalStateException("generate ล้มเหลว: $err")
+                if (text.isBlank()) throw IllegalStateException("โมเดลตอบว่าง — ลองใหม่ (ถ้าเป็นซ้ำให้ recover)")
                 GenResult(text)
             } finally {
                 generating.set(false)
@@ -116,11 +119,5 @@ class JniAiRuntime(
 
     override fun setParams(params: GenParams) {
         this.params = params
-    }
-
-    companion object {
-        /** Qwen2.5 ChatML framing (default model family). */
-        fun applyTemplate(system: String, user: String): String =
-            ChatTemplate.singleTurn(system, user)
     }
 }

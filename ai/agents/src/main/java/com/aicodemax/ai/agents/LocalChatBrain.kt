@@ -13,8 +13,11 @@ import com.aicodemax.core.common.fold
 
 /**
  * CP-128: primary chat brain — on-device model via [AiRuntimeManager].
- * Offline-first: works without network once the model is installed.
- * Honest about every non-ready state (guides toward install/recover).
+ * Offline-first: works without network (the model ships with the app).
+ * Honest about every non-ready state.
+ *
+ * CP-144 (§6 OUR AI): prepends the AicodeMax identity + Thai-first system
+ * prompt unless the history already carries a system message.
  */
 class LocalChatBrain(
     private val ai: AiRuntimeManager,
@@ -34,14 +37,18 @@ class LocalChatBrain(
             AiRuntimeState.STOPPING, AiRuntimeState.UNLOADING, AiRuntimeState.RECOVERING ->
                 return Outcome.Failure(AppError("BRAIN_BUSY", "AI กำลัง${ai.state.value} — รอสักครู่"))
         }
-        val messages = history.mapNotNull { turn ->
+        val turns = history.mapNotNull { turn ->
             when (turn.role.lowercase()) {
                 "user" -> ChatMessage(ChatRole.USER, turn.content)
                 "assistant" -> ChatMessage(ChatRole.ASSISTANT, turn.content)
                 "system" -> ChatMessage(ChatRole.SYSTEM, turn.content)
                 else -> null
             }
-        } + ChatMessage(ChatRole.USER, text)
+        }
+        val messages = (
+            if (turns.none { it.role == ChatRole.SYSTEM }) listOf(ChatMessage(ChatRole.SYSTEM, SYSTEM_PROMPT))
+            else emptyList()
+            ) + turns + ChatMessage(ChatRole.USER, text)
         return ai.chat(messages, params).fold(
             onSuccess = { Outcome.Success(it.text) },
             onFailure = { Outcome.Failure(it) },
@@ -50,11 +57,20 @@ class LocalChatBrain(
 
     private fun offlineGuidance(): String {
         val reason = ai.error.value.orEmpty()
-        return if (reason.contains("ยังไม่ติดตั้ง")) {
-            "ยังไม่มีโมเดลบนเครื่อง — ใช้ model.download เพื่อโหลด Qwen ~400MB (ครั้งเดียว) แล้ว AI จะพร้อมแบบออฟไลน์"
+        return if (reason.contains("กำลังเตรียม AI")) {
+            "AI ในตัวกำลังเตรียมครั้งแรก — รอสักครู่แล้วลองใหม่"
         } else {
             "AI ออฟไลน์: $reason"
         }
+    }
+
+    companion object {
+        /** OUR AI identity (§6): the app's own assistant, Thai-first. */
+        const val SYSTEM_PROMPT =
+            "You are AicodeMax, the built-in AI assistant of the AicodeMax Android app. " +
+                "The user speaks Thai — always reply in Thai unless asked otherwise. " +
+                "Be concise, direct, and helpful. You can see the app's files, tools and " +
+                "conversation context; use them to answer accurately."
     }
 }
 

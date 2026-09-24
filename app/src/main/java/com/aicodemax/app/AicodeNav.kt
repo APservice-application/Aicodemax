@@ -38,7 +38,7 @@ import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.ui.chat.ChatModelOption
 import com.aicodemax.ui.chat.ChatRoute
 import com.aicodemax.ui.chat.ChatViewModel
-import com.aicodemax.ui.chat.ModelDownloadUi
+import com.aicodemax.ui.chat.BuiltinAiUi
 import com.aicodemax.ui.designsystem.AicodeSize
 import com.aicodemax.ui.designsystem.AicodeTopBar
 import com.aicodemax.ui.settings.AboutScreen
@@ -174,60 +174,43 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
             ApprovalOverlay(services)
             NavHost(navController = nav, startDestination = Routes.CHAT, modifier = Modifier.padding(padding)) {
                 composable(Routes.CHAT) {
-                    // CP-139: one-tap default-model download state (first run).
-                    var modelTick by remember { mutableStateOf(0) }
-                    var dlBusy by remember { mutableStateOf(false) }
-                    var dlProgress by remember { mutableStateOf<Float?>(null) }
-                    var dlError by remember { mutableStateOf<String?>(null) }
-                    val chatScope = rememberCoroutineScope()
-                    val modelOptions = remember(modelTick) { chatModelOptions(services) }
-                    val showDownload = modelOptions.none { it.active }
-                    val defaultProfile = remember { services.modelManager.active() }
+                    // CP-144: built-in AI status (never a download gate).
+                    val runtimeState by services.aiRuntime.state.collectAsState()
+                    val runtimeError by services.aiRuntime.error.collectAsState()
+                    val provisionProgress by services.aiRuntime.provisionProgress.collectAsState()
+                    val modelOptions = remember(runtimeState) { chatModelOptions(services) }
+                    val builtinCard = when (runtimeState) {
+                        com.aicodemax.ai.runtime.AiRuntimeState.READY,
+                        com.aicodemax.ai.runtime.AiRuntimeState.GENERATING,
+                        -> null
+                        else -> com.aicodemax.ui.chat.BuiltinAiUi(
+                            title = "AI ในตัว",
+                            detail = when (runtimeState) {
+                                com.aicodemax.ai.runtime.AiRuntimeState.INITIALIZING,
+                                com.aicodemax.ai.runtime.AiRuntimeState.LOADING_MODEL,
+                                -> if (provisionProgress != null) {
+                                    "กำลังเตรียม AI ครั้งแรก… (แตกไฟล์ในเครื่อง ไม่ใช้เน็ต)"
+                                } else {
+                                    "กำลังเตรียม AI…"
+                                }
+                                com.aicodemax.ai.runtime.AiRuntimeState.OFFLINE,
+                                com.aicodemax.ai.runtime.AiRuntimeState.ERROR,
+                                -> runtimeError ?: runtimeState.name
+                                else -> runtimeState.name
+                            },
+                            progress = provisionProgress,
+                            showModelsLink = runtimeState == com.aicodemax.ai.runtime.AiRuntimeState.ERROR ||
+                                runtimeState == com.aicodemax.ai.runtime.AiRuntimeState.OFFLINE,
+                        )
+                    }
                     ChatRoute(
                         chatViewModel,
                         onOpenTasks = { nav.navigateSingle(Routes.TASKS) },
                         workingSet = services.workingSet,
                         models = modelOptions,
                         onOpenModels = { nav.navigateSingle(Routes.MODELS) },
-                        showModelDownload = showDownload,
-                        modelDownload = if (showDownload) {
-                            ModelDownloadUi(
-                                title = "ดาวน์โหลดสมอง AI ครั้งเดียว",
-                                detail = (defaultProfile?.displayName ?: "โมเดลเริ่มต้น") +
-                                    " (~400MB) — โหลดครั้งเดียว ใช้ฟรีตลอดไป ไม่ต้องต่อเน็ต" +
-                                    (dlError?.let { "\nผิดพลาด: $it" } ?: ""),
-                                progress = dlProgress,
-                                busy = dlBusy,
-                                buttonLabel = if (dlError == null) "ดาวน์โหลดและติดตั้ง" else "ลองใหม่",
-                            )
-                        } else {
-                            null
-                        },
-                        onDownloadDefault = {
-                            if (dlBusy) return@ChatRoute
-                            dlBusy = true
-                            dlError = null
-                            dlProgress = null
-                            chatScope.launch {
-                                val job = services.aiRuntime.installActiveModel(
-                                    onProgress = { done, total ->
-                                        dlProgress = if (total != null && total > 0) {
-                                            (done.toFloat() / total).coerceIn(0f, 1f)
-                                        } else {
-                                            null
-                                        }
-                                    },
-                                )
-                                job.join()
-                                dlBusy = false
-                                val runtimeError = services.aiRuntime.error.value
-                                if (runtimeError != null) {
-                                    dlError = runtimeError
-                                }
-                                services.syncLocalModels()
-                                modelTick++
-                            }
-                        },
+                        showBuiltinCard = builtinCard != null,
+                        builtinAi = builtinCard,
                     )
                 }
                 composable(Routes.SEARCH) {

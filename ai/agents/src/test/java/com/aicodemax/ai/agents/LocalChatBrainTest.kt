@@ -73,7 +73,7 @@ class LocalChatBrainTest {
     }
 
     @Test
-    fun offlineGuidesToDownload(): Unit = runBlocking {
+    fun offlineExplainsHonestlyWithoutDownloadGate(): Unit = runBlocking {
         val scope = CoroutineScope(Dispatchers.Unconfined)
         try {
             val models = ModelManager(
@@ -86,7 +86,10 @@ class LocalChatBrainTest {
             assertEquals(AiRuntimeState.OFFLINE, mgr.state.value)
             val res = LocalChatBrain(mgr).reply("hi", emptyList())
             assertTrue(res is Outcome.Failure)
-            assertTrue((res as Outcome.Failure).error.message.contains("model.download"))
+            // CP-144: honest reason, never a download gate for the core AI.
+            val message = (res as Outcome.Failure).error.message
+            assertTrue(message.contains("AI ออฟไลน์"))
+            assertTrue(!message.contains("model.download"))
         } finally {
             scope.cancel()
         }

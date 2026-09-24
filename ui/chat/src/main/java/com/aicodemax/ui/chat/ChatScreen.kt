@@ -81,10 +81,9 @@ fun ChatRoute(
     workingSet: com.aicodemax.core.state.WorkingSetStore? = null,
     models: List<ChatModelOption> = emptyList(),
     onOpenModels: () -> Unit = {},
-    // CP-139: first-run one-tap default-model download.
-    showModelDownload: Boolean = false,
-    modelDownload: ModelDownloadUi? = null,
-    onDownloadDefault: () -> Unit = {},
+    // CP-144: built-in AI status card (never a download gate).
+    showBuiltinCard: Boolean = false,
+    builtinAi: BuiltinAiUi? = null,
 ) {
     val state by viewModel.state.collectAsState()
     val ws by workingSet?.workingSet?.collectAsState()
@@ -154,9 +153,8 @@ fun ChatRoute(
         fileChipCount = ws?.selectedFiles?.size ?: 0,
         onClearProject = { workingSet?.setProject(null) },
         onClearFiles = { workingSet?.setSelectedFiles(emptyList()) },
-        showModelDownload = showModelDownload,
-        modelDownload = modelDownload,
-        onDownloadDefault = onDownloadDefault,
+        showBuiltinCard = showBuiltinCard,
+        builtinAi = builtinAi,
     )
     if (showModels) {
         ModelSelectorSheet(
@@ -337,10 +335,9 @@ fun ChatScreen(
     fileChipCount: Int = 0,
     onClearProject: () -> Unit = {},
     onClearFiles: () -> Unit = {},
-    // CP-139: first-run one-tap default-model download.
-    showModelDownload: Boolean = false,
-    modelDownload: ModelDownloadUi? = null,
-    onDownloadDefault: () -> Unit = {},
+    // CP-144: built-in AI status card (never a download gate).
+    showBuiltinCard: Boolean = false,
+    builtinAi: BuiltinAiUi? = null,
 ) {
     val spacing = LocalSpacing.current
     var input by remember { mutableStateOf("") }
@@ -375,9 +372,9 @@ fun ChatScreen(
             EmptyChat(
                 modifier = Modifier.weight(1f),
                 onSuggest = onSend,
-                showModelDownload = showModelDownload,
-                modelDownload = modelDownload,
-                onDownloadDefault = onDownloadDefault,
+                showBuiltinCard = showBuiltinCard,
+                builtinAi = builtinAi,
+                onOpenModels = onOpenModels,
             )
         } else {
             LazyColumn(
@@ -474,9 +471,9 @@ private fun ContextChipRow(
 private fun EmptyChat(
     modifier: Modifier = Modifier,
     onSuggest: (String) -> Unit,
-    showModelDownload: Boolean = false,
-    modelDownload: ModelDownloadUi? = null,
-    onDownloadDefault: () -> Unit = {},
+    showBuiltinCard: Boolean = false,
+    builtinAi: BuiltinAiUi? = null,
+    onOpenModels: () -> Unit = {},
 ) {
     val spacing = LocalSpacing.current
     Column(
@@ -484,9 +481,9 @@ private fun EmptyChat(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // CP-139: first-run one-tap download card above the greeting.
-        if (showModelDownload && modelDownload != null) {
-            ModelDownloadBanner(ui = modelDownload, onDownload = onDownloadDefault)
+        // CP-144: built-in AI status (never a download gate).
+        if (showBuiltinCard && builtinAi != null) {
+            BuiltinAiCard(ui = builtinAi, onOpenModels = onOpenModels)
         }
         Text("สวัสดี 👋", style = MaterialTheme.typography.titleLarge)
         Text(

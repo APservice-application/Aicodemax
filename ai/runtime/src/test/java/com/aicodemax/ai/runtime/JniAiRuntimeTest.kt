@@ -63,12 +63,12 @@ class JniAiRuntimeTest {
         assertTrue(rt.isModelLoaded())
 
         val pieces = mutableListOf<String>()
-        val gen = rt.generate("hi", onToken = TokenSink { pieces.add(it) }) as Outcome.Success
+        val chatml = "<|im_start|>system\nS\n<|im_end|>\n<|im_start|>user\nhi\n<|im_end|>\n<|im_start|>assistant\n"
+        val gen = rt.generate(chatml, onToken = TokenSink { pieces.add(it) }) as Outcome.Success
         assertEquals("สวัสดี", gen.value.text)
         assertEquals("สวัสดี", pieces.joinToString(""))
-        // ChatML template applied.
-        assertTrue(edge.lastPrompt.contains("<|im_start|>user"))
-        assertTrue(edge.lastPrompt.endsWith("<|im_start|>assistant\n"))
+        // CP-144: prompt passes through UNCHANGED (callers own the template).
+        assertEquals(chatml, edge.lastPrompt)
 
         rt.unloadModel()
         assertTrue(!rt.isModelLoaded())
@@ -83,6 +83,16 @@ class JniAiRuntimeTest {
         val outcome = rt.generate("hi")
         assertTrue(outcome is Outcome.Failure)
         assertTrue((outcome as Outcome.Failure).error.message.contains("decode failed"))
+    }
+
+    @Test
+    fun blankResponseFailsHonestly() {
+        val model = tmp.newFile("q.gguf").apply { writeBytes(ByteArray(8)) }
+        val rt = JniAiRuntime(FakeEdge(genText = "  ", genError = ""))
+        rt.loadModel(model.path)
+        val outcome = rt.generate("hi")
+        assertTrue(outcome is Outcome.Failure)
+        assertTrue((outcome as Outcome.Failure).error.message.contains("ตอบว่าง"))
     }
 
     @Test
@@ -102,13 +112,5 @@ class JniAiRuntimeTest {
         rt.loadModel(model.path)
         rt.stopGeneration()
         assertEquals(7L, edge.stopped)
-    }
-
-    @Test
-    fun templateShapesChatML() {
-        val text = JniAiRuntime.applyTemplate("SYS", "USER")
-        assertTrue(text.startsWith("<|im_start|>system\nSYS"))
-        assertTrue(text.contains("<|im_start|>user\nUSER"))
-        assertTrue(text.endsWith("<|im_start|>assistant\n"))
     }
 }
