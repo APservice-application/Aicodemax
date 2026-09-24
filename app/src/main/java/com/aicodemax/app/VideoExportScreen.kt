@@ -106,7 +106,7 @@ internal fun VideoExportScreen(services: ServiceLocator, projectId: String, onBa
                     if (actualPreview != null) 0 else previewAtMs,
                     modifier = Modifier.fillMaxSize().padding(5.dp).background(VideoInk.raised, RoundedCornerShape(12.dp)))
                 Text(if (actualPreview != null) "ผลเรนเดอร์จริง" else "ภาพอ้างอิงจากคลิปสุดท้าย",
-                    modifier = Modifier.align(Alignment.BottomStart).background(VideoInk.background.copy(alpha = .82f), RoundedCornerShape(8.dp)).padding(8.dp),
+                    modifier = Modifier.align(Alignment.BottomStart).background(VideoInk.background.copy(alpha = 0.82f), RoundedCornerShape(8.dp)).padding(8.dp),
                     color = VideoInk.text, style = MaterialTheme.typography.labelSmall)
             }
             Text(project?.name ?: "กำลังโหลด…", color = VideoInk.text, style = MaterialTheme.typography.titleMedium)

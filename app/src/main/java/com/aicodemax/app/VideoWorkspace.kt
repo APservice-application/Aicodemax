@@ -1,10 +1,16 @@
 package com.aicodemax.app
 
 import android.content.Context
+import android.content.Intent
+import android.content.ClipData
+import android.app.Activity
+import android.provider.MediaStore
+import android.webkit.MimeTypeMap
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,6 +43,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +67,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 import java.text.DateFormat
 import java.util.Date
 
@@ -251,7 +260,7 @@ private fun VideoHome(
                 ) {
                     Text("＋", style = MaterialTheme.typography.headlineMedium, color = VideoInk.text)
                     Text("สร้างโปรเจกต์ใหม่", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = VideoInk.text)
-                    Text("เริ่มจากรูปภาพหรือวิดีโอของคุณ", style = MaterialTheme.typography.bodySmall, color = VideoInk.text.copy(alpha = .84f))
+                    Text("เริ่มจากรูปภาพหรือวิดีโอของคุณ", style = MaterialTheme.typography.bodySmall, color = VideoInk.text.copy(alpha = 0.84f))
                 }
             }
             item {
@@ -312,12 +321,41 @@ private fun pickedName(context: Context, uri: Uri): String =
 private fun pickedKind(context: Context, uri: Uri): MediaKind? {
     val mime = context.contentResolver.getType(uri).orEmpty()
     val name = pickedName(context, uri).substringAfterLast('.', "").lowercase()
+    // Do not offer HEIC/HEVC images as importable when MediaProjectPort cannot ingest them.
     return when {
-        mime.startsWith("video/") || name in listOf("mp4", "mov", "mkv", "webm", "3gp") -> MediaKind.VIDEO
-        mime.startsWith("image/") || name in listOf("jpg", "jpeg", "png", "webp", "heic") -> MediaKind.IMAGE
-        mime.startsWith("audio/") || name in listOf("mp3", "m4a", "wav", "ogg", "flac") -> MediaKind.AUDIO
+        name in listOf("mp4", "mov", "mkv", "webm", "3gp") -> MediaKind.VIDEO
+        name in listOf("jpg", "jpeg", "png", "webp", "gif", "bmp") -> MediaKind.IMAGE
+        name in listOf("mp3", "m4a", "wav", "ogg", "flac") -> MediaKind.AUDIO
+        '.' !in pickedName(context, uri) && mime.startsWith("video/") -> MediaKind.VIDEO
+        '.' !in pickedName(context, uri) && mime.startsWith("image/") && mime != "image/heic" -> MediaKind.IMAGE
+        '.' !in pickedName(context, uri) && mime.startsWith("audio/") -> MediaKind.AUDIO
         else -> null
     }
+}
+
+/** One temporary directory per picked asset preserves its human filename in the project. */
+internal fun copyVideoPickedUri(context: Context, workspaceDir: File, uri: Uri): String? {
+    val directory = File(workspaceDir, "video-import/${UUID.randomUUID()}")
+    return try {
+        directory.mkdirs()
+        val name = pickedName(context, uri)
+        val mime = context.contentResolver.getType(uri).orEmpty()
+        val suffix = if ('.' in name) "" else "." + (MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "mp4")
+        val safe = (name + suffix).replace(Regex("[^\\p{L}\\p{N}._ -]"), "_").take(96)
+        val file = File(directory, safe)
+        val input = context.contentResolver.openInputStream(uri) ?: throw java.io.IOException("เปิดสื่อไม่ได้")
+        input.use { file.outputStream().use { dst -> it.copyTo(dst) } }
+        file.absolutePath
+    } catch (_: Exception) {
+        directory.deleteRecursively()
+        null
+    }
+}
+
+internal fun clearVideoPickedCopy(path: String) {
+    val file = File(path)
+    file.delete()
+    file.parentFile?.takeIf { it.parentFile?.name == "video-import" }?.delete()
 }
 
 @Composable
@@ -329,11 +367,16 @@ private fun VideoNewProject(services: ServiceLocator, defaultAspect: String, onB
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var capturedUri by remember { mutableStateOf<Uri?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { incoming ->
+    var capturedFile by remember { mutableStateOf<File?>(null) }
+    val finalCapture by rememberUpdatedState(capturedFile)
+    DisposableEffect(Unit) { onDispose { finalCapture?.delete() } }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(50)) { incoming ->
         selected = (selected + incoming).distinct()
     }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { success ->
-        if (success) capturedUri?.let { selected = (selected + it).distinct() }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK && (capturedFile?.length() ?: 0L) > 0L) {
+            capturedUri?.let { selected = (selected + it).distinct() }
+        } else error = "กล้องไม่ได้บันทึกวิดีโอ กรุณาลองใหม่"
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -354,7 +397,7 @@ private fun VideoNewProject(services: ServiceLocator, defaultAspect: String, onB
                                 var imported = 0
                                 for (uri in selected) {
                                     if (pickedKind(context, uri) == null) { error = "ชนิดไฟล์ไม่รองรับ: ${pickedName(context, uri)}"; continue }
-                                    val temp = withContext(Dispatchers.IO) { copyUriIntoWorkspace(context, services.workspaceDir, "video-import", uri) }
+                                    val temp = withContext(Dispatchers.IO) { copyVideoPickedUri(context, services.workspaceDir, uri) }
                                     if (temp == null) { error = "อ่านไฟล์ไม่ได้: ${pickedName(context, uri)}"; continue }
                                     try {
                                         val asset = services.media.importAsset(project.id, temp, "HUMAN").fold({ it }, { error = it.message; null })
@@ -369,7 +412,7 @@ private fun VideoNewProject(services: ServiceLocator, defaultAspect: String, onB
                                                 onFailure = { error = it.message },
                                             )
                                         }
-                                    } finally { withContext(Dispatchers.IO) { File(temp).delete() } }
+                                    } finally { withContext(Dispatchers.IO) { clearVideoPickedCopy(temp) } }
                                 }
                                 if (imported > 0) {
                                     services.media.setCanvas(project.id, aspect, "HUMAN").fold(
@@ -405,8 +448,8 @@ private fun VideoNewProject(services: ServiceLocator, defaultAspect: String, onB
         ) {
             item {
                 Column(
-                    modifier = Modifier.aspectRatio(.85f).clip(RoundedCornerShape(13.dp)).background(VideoInk.surface)
-                        .clickable(enabled = !busy, onClickLabel = "เลือกวิดีโอหรือรูปภาพ") { picker.launch(arrayOf("video/*", "image/*")) },
+                    modifier = Modifier.aspectRatio(0.85f).clip(RoundedCornerShape(13.dp)).background(VideoInk.surface)
+                        .clickable(enabled = !busy, onClickLabel = "เลือกวิดีโอหรือรูปภาพ") { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -416,13 +459,18 @@ private fun VideoNewProject(services: ServiceLocator, defaultAspect: String, onB
             }
             item {
                 Column(
-                    modifier = Modifier.aspectRatio(.85f).clip(RoundedCornerShape(13.dp)).background(VideoInk.surface)
+                    modifier = Modifier.aspectRatio(0.85f).clip(RoundedCornerShape(13.dp)).background(VideoInk.surface)
                         .clickable(enabled = !busy, onClickLabel = "เปิดกล้องถ่ายวิดีโอ") {
                             try {
                                 val dir = File(context.cacheDir, "video-capture").apply { mkdirs() }
                                 val file = File.createTempFile("clip-", ".mp4", dir)
+                                capturedFile = file
                                 capturedUri = FileProvider.getUriForFile(context, "${context.packageName}.video-provider", file)
-                                camera.launch(capturedUri!!)
+                                camera.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE).apply {
+                                    putExtra(MediaStore.EXTRA_OUTPUT, capturedUri)
+                                    clipData = ClipData.newUri(context.contentResolver, "Video capture", capturedUri!!)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                                })
                             } catch (e: Exception) { error = e.message ?: "เปิดกล้องไม่ได้" }
                         },
                     verticalArrangement = Arrangement.Center,
@@ -433,10 +481,10 @@ private fun VideoNewProject(services: ServiceLocator, defaultAspect: String, onB
                 }
             }
             itemsIndexed(selected, key = { _, uri -> uri.toString() }) { index, uri ->
-                Box(Modifier.aspectRatio(.85f).clip(RoundedCornerShape(13.dp)).border(1.dp, VideoInk.green, RoundedCornerShape(13.dp))) {
+                Box(Modifier.aspectRatio(0.85f).clip(RoundedCornerShape(13.dp)).border(1.dp, VideoInk.green, RoundedCornerShape(13.dp))) {
                     VideoFrame(uri.toString(), pickedKind(context, uri)?.name ?: "VIDEO", modifier = Modifier.fillMaxSize())
                     Text("${index + 1}", modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(VideoInk.green, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 2.dp), color = VideoInk.text, style = MaterialTheme.typography.labelSmall)
-                    Text(pickedName(context, uri), modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(VideoInk.background.copy(alpha = .85f)).padding(5.dp), color = VideoInk.text, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(pickedName(context, uri), modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(VideoInk.background.copy(alpha = 0.85f)).padding(5.dp), color = VideoInk.text, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     VideoIconButton("×", "เอาไฟล์ที่ ${index + 1} ออก", { selected = selected.filterNot { it == uri } }, modifier = Modifier.align(Alignment.TopStart).size(40.dp), enabled = !busy)
                 }
             }

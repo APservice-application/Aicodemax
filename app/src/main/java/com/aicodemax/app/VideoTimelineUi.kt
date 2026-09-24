@@ -136,10 +136,10 @@ internal fun VideoPlaybackPreview(
                     )
                 }
             } else {
-                VideoFrame(source, kind, sourceTime, Modifier.fillMaxSize(), description = "เฟรมจริง ณ ${videoTime(timeMs)}")
+                VideoFrame(source, kind, sourceTime, Modifier.fillMaxSize(), description = "เฟรมจริง ณ ${videoTime(timeMs)}", precise = true)
             }
             if (!playing && source != null) {
-                Box(Modifier.size(52.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = .55f)), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(52.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
                     Text("▶", color = VideoInk.text, style = MaterialTheme.typography.titleLarge)
                 }
             }
@@ -147,14 +147,14 @@ internal fun VideoPlaybackPreview(
             if (texts.any { timeMs >= it.startMs && timeMs < it.endMs }) {
                 // Metadata indicator, not a composited result preview.
                 Text("T  ${texts.count { timeMs >= it.startMs && timeMs < it.endMs }} ข้อความในช่วงนี้", color = VideoInk.text, style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.align(Alignment.BottomStart).background(Color.Black.copy(alpha = .7f)).padding(5.dp))
+                    modifier = Modifier.align(Alignment.BottomStart).background(Color.Black.copy(alpha = 0.7f)).padding(5.dp))
             }
         }
         Text(
             "ตัวอย่างคลิปต้นฉบับ · สี / FX / เสียงผสม ดูผลจริงหลังเรนเดอร์",
             color = VideoInk.muted,
             style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = .7f)).padding(horizontal = 10.dp, vertical = 4.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.7f)).padding(horizontal = 10.dp, vertical = 4.dp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -165,7 +165,7 @@ internal fun VideoPlaybackPreview(
 @Composable
 internal fun VideoTimelinePanel(
     timeline: Timeline?, assets: List<MediaAsset>, paths: Map<String, String>,
-    playheadMs: Long, selectedId: String?, zoom: Float, playing: Boolean,
+    playheadMs: Long, selectedId: String?, zoom: Float, playing: Boolean, externalSeekKey: Boolean,
     onSeek: (Long) -> Unit, onSelect: (String) -> Unit, onZoom: (Float) -> Unit,
     onAdd: () -> Unit,
     onMove: (Clip, Long) -> Unit,
@@ -187,6 +187,10 @@ internal fun VideoTimelinePanel(
                     onSeek(ms.coerceIn(0, duration))
                 }
             }
+        }
+        // Match a persisted playhead on open, after edits, and after full-screen scrubbing.
+        LaunchedEffect(duration, pixelsPerSecond, externalSeekKey) {
+            if (!scroll.isScrollInProgress) scroll.scrollTo((playheadMs / 1000f * pixelsPerSecond * density.density).toInt())
         }
         LaunchedEffect(playing, playheadMs, pixelsPerSecond) {
             if (playing) scroll.scrollTo((playheadMs / 1000f * pixelsPerSecond * density.density).toInt())
@@ -273,7 +277,7 @@ internal fun VideoTimelinePanel(
         Box(Modifier.align(Alignment.TopCenter).width(2.dp).fillMaxHeight().background(VideoInk.text))
         Box(Modifier.align(Alignment.TopCenter).size(width = 14.dp, height = 11.dp).background(VideoInk.text, RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp)))
         Text("V / A / T", color = VideoInk.muted, style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.BottomStart).background(VideoInk.background.copy(alpha = .8f)).padding(4.dp))
+            modifier = Modifier.align(Alignment.BottomStart).background(VideoInk.background.copy(alpha = 0.8f)).padding(4.dp))
     }
 }
 
@@ -309,7 +313,7 @@ private fun VideoClipTile(
                     VideoFrame(source, kind.name, clip.startMs + clip.durationMs * index / frameCount, Modifier.weight(1f).fillMaxHeight())
                 }
             }
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .24f)))
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.24f)))
         }
         Text(
             name,
@@ -318,13 +322,13 @@ private fun VideoClipTile(
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color.Black.copy(alpha = .6f)).padding(start = if (selected) 17.dp else 5.dp, top = 2.dp, bottom = 2.dp),
+            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color.Black.copy(alpha = 0.6f)).padding(start = if (selected) 17.dp else 5.dp, top = 2.dp, bottom = 2.dp),
         )
         if (selected) {
             listOf(true, false).forEach { isLeft ->
                 var dragPx by remember(clip.id, isLeft) { mutableFloatStateOf(0f) }
                 Box(Modifier.align(if (isLeft) Alignment.CenterStart else Alignment.CenterEnd).width(18.dp).fillMaxHeight()
-                    .background(VideoInk.yellow.copy(alpha = .9f))
+                    .background(VideoInk.yellow.copy(alpha = 0.9f))
                     .pointerInput(clip.id, pixelsPerSecond, isLeft) {
                         detectHorizontalDragGestures(
                             onDragEnd = {

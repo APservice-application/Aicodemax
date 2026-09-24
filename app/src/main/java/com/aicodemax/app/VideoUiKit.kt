@@ -134,17 +134,20 @@ private val frameCache = object : LruCache<String, Bitmap>(12 * 1024 * 1024) {
     override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
 }
 
-private fun readVideoFrame(context: Context, source: String, atMs: Long): Bitmap? {
+private fun readVideoFrame(context: Context, source: String, atMs: Long, precise: Boolean): Bitmap? {
     val retriever = MediaMetadataRetriever()
     return try {
         if (source.startsWith("content:")) retriever.setDataSource(context, Uri.parse(source))
         else retriever.setDataSource(source)
+        val frameOption = if (precise) MediaMetadataRetriever.OPTION_CLOSEST else MediaMetadataRetriever.OPTION_CLOSEST_SYNC
         val original = if (android.os.Build.VERSION.SDK_INT >= 27) {
-            retriever.getScaledFrameAtTime(atMs.coerceAtLeast(0) * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 256, 160)
-        } else retriever.getFrameAtTime(atMs.coerceAtLeast(0) * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            retriever.getScaledFrameAtTime(atMs.coerceAtLeast(0) * 1000, frameOption, 256, 160)
+        } else retriever.getFrameAtTime(atMs.coerceAtLeast(0) * 1000, frameOption)
         if (original != null && (original.width > 320 || original.height > 240)) {
             val ratio = minOf(320f / original.width, 240f / original.height)
-            Bitmap.createScaledBitmap(original, (original.width * ratio).toInt().coerceAtLeast(1), (original.height * ratio).toInt().coerceAtLeast(1), true)
+            Bitmap.createScaledBitmap(original, (original.width * ratio).toInt().coerceAtLeast(1), (original.height * ratio).toInt().coerceAtLeast(1), true).also {
+                if (it !== original) original.recycle()
+            }
         } else original
     } catch (_: Exception) {
         null
@@ -175,18 +178,20 @@ internal fun VideoFrame(
     atMs: Long = 0,
     modifier: Modifier = Modifier,
     description: String? = null,
+    precise: Boolean = false,
 ) {
     val context = LocalContext.current
-    val bucket = if (kind == "IMAGE") 0 else (atMs.coerceAtLeast(0) / 500) * 500
+    val interval = if (precise) 200 else 1000
+    val bucket = if (kind == "IMAGE") 0 else (atMs.coerceAtLeast(0) / interval) * interval
     val image = produceState<Bitmap?>(null, source, kind, bucket) {
         if (source.isNullOrBlank() || (!source.startsWith("content:") && !File(source).isFile)) {
             value = null
             return@produceState
         }
-        val cacheKey = "$source#$kind#$bucket"
+        val cacheKey = "$source#$kind#$bucket#$precise"
         val found = synchronized(frameCache) { frameCache.get(cacheKey) }
         value = found ?: withContext(Dispatchers.IO) {
-            if (kind == "IMAGE") readImageFrame(context, source) else if (kind == "VIDEO") readVideoFrame(context, source, bucket) else null
+            if (kind == "IMAGE") readImageFrame(context, source) else if (kind == "VIDEO") readVideoFrame(context, source, bucket, precise) else null
         }?.also { synchronized(frameCache) { frameCache.put(cacheKey, it) } }
     }
     Box(modifier.background(VideoInk.raised), contentAlignment = Alignment.Center) {

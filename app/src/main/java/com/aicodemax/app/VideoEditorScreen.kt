@@ -7,6 +7,7 @@ import android.content.pm.ActivityInfo
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -179,7 +180,7 @@ internal fun VideoEditorScreen(
             var added = 0
             try {
                 for (uri in uris) {
-                    val temp = withContext(Dispatchers.IO) { copyUriIntoWorkspace(context, services.workspaceDir, "video-import", uri) }
+                    val temp = withContext(Dispatchers.IO) { copyVideoPickedUri(context, services.workspaceDir, uri) }
                     if (temp == null) { message = "เปิดไฟล์ที่เลือกไม่ได้"; continue }
                     try {
                         val asset = services.media.importAsset(projectId, temp, "HUMAN")
@@ -191,7 +192,7 @@ internal fun VideoEditorScreen(
                         services.media.addClip(projectId, asset.id, 0, duration, end, actor = "HUMAN").fold(
                             onSuccess = { added++ }, onFailure = { message = it.message },
                         )
-                    } finally { withContext(Dispatchers.IO) { File(temp).delete() } }
+                    } finally { withContext(Dispatchers.IO) { clearVideoPickedCopy(temp) } }
                 }
                 // addClip currently reconstructs Timeline without canvas/background; restore both.
                 if (added > 0) {
@@ -204,7 +205,7 @@ internal fun VideoEditorScreen(
             finally { busy = false }
         }
     }
-    val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { addFromUris(it) }
+    val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(50)) { addFromUris(it) }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { addFromUris(it) }
     val current = timeline
     val selected = current?.findClip(selectedId ?: "")?.second
@@ -320,10 +321,11 @@ internal fun VideoEditorScreen(
                 selectedId = selectedId,
                 zoom = zoom,
                 playing = playing,
+                externalSeekKey = fullscreen,
                 onSeek = { playheadMs = it.coerceIn(0, duration) },
                 onSelect = { selectedId = if (selectedId == it) null else it; sheet = null },
                 onZoom = { zoom = it.coerceIn(20f, 160f) },
-                onAdd = { mediaPicker.launch(arrayOf("video/*", "image/*")) },
+                onAdd = { mediaPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
                 onMove = { clip, at -> execute { services.media.moveClip(projectId, clip.id, at, null, "HUMAN") } },
                 onTrim = { clip, start, end, at -> execute { services.media.trimClip(projectId, clip.id, start, end, at, "HUMAN") } },
                 modifier = Modifier.fillMaxSize(),
@@ -404,7 +406,7 @@ internal fun VideoEditorScreen(
                 busy = busy,
                 onRun = ::execute,
                 onGateway = ::gateway,
-                onImportVideo = { mediaPicker.launch(arrayOf("video/*", "image/*")) },
+                onImportVideo = { mediaPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
                 onImportAudio = { audioPicker.launch(arrayOf("audio/*")) },
                 onAdvanced = { sheet = null; onAdvanced() },
                 onOpenRoute = { sheet = null; onOpen(it) },
