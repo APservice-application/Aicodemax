@@ -105,6 +105,44 @@ object ImageOps {
         return PixelImage(src.width, src.height, out)
     }
 
+    /**
+     * CP-142: composites [layers] bottom → top (Porter-Duff source-over).
+     * Canvas is the largest layer; every layer is top-left aligned.
+     */
+    fun flatten(layers: List<PixelImage>): PixelImage {
+        require(layers.isNotEmpty()) { "ต้องมีอย่างน้อย 1 เลเยอร์" }
+        val w = layers.maxOf { it.width }
+        val h = layers.maxOf { it.height }
+        val out = IntArray(w * h) // transparent canvas
+        for (layer in layers) {
+            for (y in 0 until layer.height) {
+                for (x in 0 until layer.width) {
+                    val i = y * w + x
+                    out[i] = blendOver(out[i], layer.pixel(x, y))
+                }
+            }
+        }
+        return PixelImage(w, h, out)
+    }
+
+    /** Source-over alpha blend of single ARGB pixels. */
+    fun blendOver(dst: Int, src: Int): Int {
+        val sa = alphaOf(src) / 255.0
+        if (sa <= 0.0) return dst
+        if (sa >= 1.0) return src
+        val da = alphaOf(dst) / 255.0
+        val outA = sa + da * (1 - sa)
+        if (outA <= 0.0) return 0
+        fun ch(s: Int, d: Int): Int =
+            ((s * sa + d * da * (1 - sa)) / outA).toInt().coerceIn(0, 255)
+        return argb(
+            (outA * 255).toInt().coerceIn(0, 255),
+            ch(redOf(src), redOf(dst)),
+            ch(greenOf(src), greenOf(dst)),
+            ch(blueOf(src), blueOf(dst)),
+        )
+    }
+
     private fun bilinear(src: PixelImage, fx: Double, fy: Double): Int {
         val x0 = fx.toInt().coerceIn(0, src.width - 1)
         val y0 = fy.toInt().coerceIn(0, src.height - 1)

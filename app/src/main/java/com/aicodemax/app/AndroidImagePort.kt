@@ -105,27 +105,58 @@ class AndroidImagePort : ImagePort {
         } catch (e: IllegalArgumentException) {
             return@withContext Outcome.Failure(AppError(code, e.message ?: "bad args"))
         }
+        encode(out, dst, code)
+    }
+
+    override suspend fun flatten(srcs: List<String>, dst: String): Outcome<ImageInfo> =
+        withContext(Dispatchers.IO) {
+            if (srcs.isEmpty()) {
+                return@withContext Outcome.Failure(AppError("IMAGE_FLATTEN", "ต้องมีอย่างน้อย 1 เลเยอร์"))
+            }
+            val layers = mutableListOf<PixelImage>()
+            for (src in srcs) {
+                val bitmap = try {
+                    BitmapFactory.decodeFile(src)
+                } catch (e: Exception) {
+                    return@withContext Outcome.Failure(AppError("IMAGE_FLATTEN", "เปิดรูปไม่ได้: ${e.message}"))
+                } ?: return@withContext Outcome.Failure(AppError("IMAGE_FLATTEN", "เปิดรูปไม่ได้ (ไฟล์เสียหรือไม่ใช่รูป): $src"))
+                val w = bitmap.width
+                val h = bitmap.height
+                val pixels = IntArray(w * h)
+                bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
+                bitmap.recycle()
+                layers += PixelImage(w, h, pixels)
+            }
+            val out = try {
+                ImageOps.flatten(layers)
+            } catch (e: IllegalArgumentException) {
+                return@withContext Outcome.Failure(AppError("IMAGE_FLATTEN", e.message ?: "bad args"))
+            }
+            encode(out, dst, "IMAGE_FLATTEN")
+        }
+
+    private fun encode(out: PixelImage, dst: String, code: String): Outcome<ImageInfo> {
         val format = formatFor(dst)
-            ?: return@withContext Outcome.Failure(AppError(code, "นามสกุลไฟล์ปลายทางต้องเป็น .png/.jpg/.webp: $dst"))
+            ?: return Outcome.Failure(AppError(code, "นามสกุลไฟล์ปลายทางต้องเป็น .png/.jpg/.webp: $dst"))
         try {
             val result = Bitmap.createBitmap(out.width, out.height, Bitmap.Config.ARGB_8888)
             result.setPixels(out.pixels, 0, out.width, 0, 0, out.width, out.height)
             FileOutputStream(dst).use { fo ->
                 if (!result.compress(format, 92, fo)) {
                     result.recycle()
-                    return@withContext Outcome.Failure(AppError(code, "เขียนไฟล์ปลายทางไม่ได้: $dst"))
+                    return Outcome.Failure(AppError(code, "เขียนไฟล์ปลายทางไม่ได้: $dst"))
                 }
             }
             result.recycle()
         } catch (e: Exception) {
-            return@withContext Outcome.Failure(AppError(code, "เขียนไฟล์ไม่ได้: ${e.message}"))
+            return Outcome.Failure(AppError(code, "เขียนไฟล์ไม่ได้: ${e.message}"))
         }
         val size = try {
             File(dst).length()
         } catch (_: Exception) {
             -1L
         }
-        Outcome.Success(ImageInfo(dst, format.name, out.width, out.height, size))
+        return Outcome.Success(ImageInfo(dst, format.name, out.width, out.height, size))
     }
 
     private fun formatFor(dst: String): Bitmap.CompressFormat? = when (dst.substringAfterLast('.', "").lowercase()) {

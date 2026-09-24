@@ -30,6 +30,8 @@ interface ImagePort {
     suspend fun adjust(src: String, dst: String, brightness: Int, contrast: Int, saturation: Int, sharpness: Int): Outcome<ImageInfo>
     suspend fun upscale(src: String, dst: String, scale: Int): Outcome<ImageInfo>
     suspend fun restore(src: String, dst: String, denoise: Boolean, deFade: Boolean, whiteBalance: Boolean): Outcome<ImageInfo>
+    // CP-142 layer flatten (§47): composite [srcs] bottom -> top into [dst].
+    suspend fun flatten(srcs: List<String>, dst: String): Outcome<ImageInfo>
 }
 
 /**
@@ -75,6 +77,24 @@ class InMemoryImagePort : ImagePort {
 
     override suspend fun restore(src: String, dst: String, denoise: Boolean, deFade: Boolean, whiteBalance: Boolean): Outcome<ImageInfo> =
         edit(src, dst, "IMAGE_RESTORE") { PhotoOps.restore(it, denoise, deFade, whiteBalance) }
+
+    override suspend fun flatten(srcs: List<String>, dst: String): Outcome<ImageInfo> {
+        if (srcs.isEmpty()) {
+            return Outcome.Failure(AppError("IMAGE_FLATTEN", "ต้องมีอย่างน้อย 1 เลเยอร์"))
+        }
+        val layers = mutableListOf<PixelImage>()
+        for (src in srcs) {
+            layers += store[src]
+                ?: return Outcome.Failure(AppError("IMAGE_FLATTEN", "ไม่พบรูป $src (fake นี้ต้อง put() ก่อน)"))
+        }
+        return try {
+            val out = ImageOps.flatten(layers)
+            store[dst] = out
+            Outcome.Success(ImageInfo(dst, "MEM", out.width, out.height))
+        } catch (e: IllegalArgumentException) {
+            Outcome.Failure(AppError("IMAGE_FLATTEN", e.message ?: "bad args"))
+        }
+    }
 
     override suspend fun scopes(path: String): Outcome<FrameScopes> {
         val image = store[path]

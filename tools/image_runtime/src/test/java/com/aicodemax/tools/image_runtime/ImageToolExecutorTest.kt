@@ -80,4 +80,15 @@ class ImageToolExecutorTest {
         assertTrue(!r.ok)
         assertTrue(r.error.contains("unknown action"))
     }
+
+    @Test
+    fun flattenCompositesBottomToTop() {
+        val p = port()
+        p.put("/tmp/b.png", PixelImage(8, 4, IntArray(8 * 4) { argb(255, 200, 0, 0) }))
+        val r = run(p, "flatten", mapOf("srcs" to "/tmp/a.png\n/tmp/b.png"))
+        assertTrue(r.output.ifBlank { r.error }, r.ok && r.output.contains("รวม 2 เลเยอร์"))
+        assertEquals(argb(255, 200, 0, 0), p.get("/tmp/a-flat.png")!!.pixel(0, 0))
+        val missing = run(p, "flatten", emptyMap())
+        assertTrue(!missing.ok)
+    }
 }

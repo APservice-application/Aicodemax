@@ -11,7 +11,7 @@ fun imageDescriptorToday(): ToolDescriptor = ToolDescriptor(
     displayName = "Image",
     version = "0.1.0",
     layers = listOf(
-        LayerCapability(CapabilityLayer.UI, CapabilityStatus.PARTIAL, "via chat (ย่อรูป:/ครอปรูป:)"),
+        LayerCapability(CapabilityLayer.UI, CapabilityStatus.AVAILABLE, "ImageEditorScreen + layers (CP-142)"),
         LayerCapability(CapabilityLayer.CONTROLLER, CapabilityStatus.AVAILABLE, "ImagePort"),
         LayerCapability(CapabilityLayer.CAPABILITY_API, CapabilityStatus.AVAILABLE, "info/resize/crop/rotate/grayscale/scopes/adjust/upscale/restore"),
         LayerCapability(

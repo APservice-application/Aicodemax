@@ -117,7 +117,20 @@ class ImageToolExecutor(private val images: ImagePort = InMemoryImagePort()) : T
                         onFailure = { done(false, error = it.message) },
                     )
                 }
-                else -> done(false, error = "unknown action '${call.action}' (have: info/resize/crop/rotate/grayscale/scopes/adjust/upscale/restore)")
+                "flatten" -> {
+                    // CP-142: composite layers bottom -> top; paths joined by newline.
+                    val srcs = call.args["srcs"]?.split('\n')?.map { it.trim() }?.filter { it.isNotEmpty() }
+                        ?: emptyList()
+                    if (srcs.isEmpty()) {
+                        return@withContext done(false, error = "missing arg: srcs (newline-separated, bottom -> top)")
+                    }
+                    val dst = call.args["dst"] ?: defaultDst(srcs.first(), "flat")
+                    images.flatten(srcs, dst).fold(
+                        onSuccess = { done(true, "รวม ${srcs.size} เลเยอร์แล้ว ${it.path}: ${it.summary}") },
+                        onFailure = { done(false, error = it.message) },
+                    )
+                }
+                else -> done(false, error = "unknown action '${call.action}' (have: info/resize/crop/rotate/grayscale/scopes/adjust/upscale/restore/flatten)")
             }
         }
 
