@@ -118,6 +118,7 @@ import com.aicodemax.tools.terminal_runtime.SystemShellPort
 import com.aicodemax.tools.terminal_runtime.TerminalToolExecutor
 import com.aicodemax.tools.terminal_runtime.UnwiredTerminalPort
 import java.io.File
+import kotlinx.coroutines.launch
 
 /** Manual DI root (Phase 1). A Hilt migration later must not change any interface. */
 class ServiceLocator(context: Context) {
@@ -415,9 +416,52 @@ class ServiceLocator(context: Context) {
         )
         // CP-128: background AI init (§21 — returns immediately, never blocks startup).
         aiRuntime.initialize()
+        // CP-139: mirror local models into registry; refresh when runtime state changes.
+        syncLocalModels()
+        appScope.launch { aiRuntime.state.collect { syncLocalModels() } }
     }
 
     fun refreshAutonomy(level: AutonomyLevel) {
         autonomyLevel = level
+    }
+
+    /**
+     * CP-139: mirror locally-installed GGUF models into the unified [ModelRegistry]
+     * so Chat/router can see them (§6). Missing → UNKNOWN (install prompt),
+     * Ready → READY, loaded in runtime → LOADED, broken → ERROR.
+     */
+    fun syncLocalModels() {
+        val runtimeState = aiRuntime.state.value
+        val activeId = modelManager.active()?.id
+        for (profile in modelManager.list()) {
+            val loaded = runtimeState == com.aicodemax.ai.runtime.AiRuntimeState.READY &&
+                activeId == profile.id
+            val installStatus = modelManager.status(profile)
+            val status = when {
+                loaded -> ModelStatus.LOADED
+                installStatus is com.aicodemax.ai.runtime.ModelInstallStatus.Ready -> ModelStatus.READY
+                installStatus is com.aicodemax.ai.runtime.ModelInstallStatus.Invalid -> ModelStatus.ERROR
+                else -> ModelStatus.UNKNOWN
+            }
+            val detail = when (val st = installStatus) {
+                is com.aicodemax.ai.runtime.ModelInstallStatus.Ready ->
+                    "ติดตั้งแล้ว (${com.aicodemax.ai.runtime.ModelManager.formatSize(st.bytes)})"
+                is com.aicodemax.ai.runtime.ModelInstallStatus.Invalid -> st.reason
+                else -> "ยังไม่ติดตั้ง — กดดาวน์โหลดครั้งเดียว (~400MB)"
+            }
+            val descriptor = ModelDescriptor(
+                id = profile.id,
+                name = profile.displayName,
+                kind = ModelKind.LOCAL_FULL,
+                provider = "local-gguf",
+                sizeBytes = (installStatus as? com.aicodemax.ai.runtime.ModelInstallStatus.Ready)?.bytes
+                    ?: profile.expectedBytes ?: 0L,
+                status = status,
+                capabilities = listOf("chat"),
+                statusDetail = detail,
+            )
+            if (models.get(profile.id) == null) models.register(descriptor)
+            else models.update(descriptor)
+        }
     }
 }

@@ -81,6 +81,10 @@ fun ChatRoute(
     workingSet: com.aicodemax.core.state.WorkingSetStore? = null,
     models: List<ChatModelOption> = emptyList(),
     onOpenModels: () -> Unit = {},
+    // CP-139: first-run one-tap default-model download.
+    showModelDownload: Boolean = false,
+    modelDownload: ModelDownloadUi? = null,
+    onDownloadDefault: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     val ws by workingSet?.workingSet?.collectAsState()
@@ -150,6 +154,9 @@ fun ChatRoute(
         fileChipCount = ws?.selectedFiles?.size ?: 0,
         onClearProject = { workingSet?.setProject(null) },
         onClearFiles = { workingSet?.setSelectedFiles(emptyList()) },
+        showModelDownload = showModelDownload,
+        modelDownload = modelDownload,
+        onDownloadDefault = onDownloadDefault,
     )
     if (showModels) {
         ModelSelectorSheet(
@@ -330,6 +337,10 @@ fun ChatScreen(
     fileChipCount: Int = 0,
     onClearProject: () -> Unit = {},
     onClearFiles: () -> Unit = {},
+    // CP-139: first-run one-tap default-model download.
+    showModelDownload: Boolean = false,
+    modelDownload: ModelDownloadUi? = null,
+    onDownloadDefault: () -> Unit = {},
 ) {
     val spacing = LocalSpacing.current
     var input by remember { mutableStateOf("") }
@@ -361,7 +372,13 @@ fun ChatScreen(
             onClearFiles = onClearFiles,
         )
         if (messages.isEmpty()) {
-            EmptyChat(modifier = Modifier.weight(1f), onSuggest = onSend)
+            EmptyChat(
+                modifier = Modifier.weight(1f),
+                onSuggest = onSend,
+                showModelDownload = showModelDownload,
+                modelDownload = modelDownload,
+                onDownloadDefault = onDownloadDefault,
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -454,13 +471,23 @@ private fun ContextChipRow(
 }
 
 @Composable
-private fun EmptyChat(modifier: Modifier = Modifier, onSuggest: (String) -> Unit) {
+private fun EmptyChat(
+    modifier: Modifier = Modifier,
+    onSuggest: (String) -> Unit,
+    showModelDownload: Boolean = false,
+    modelDownload: ModelDownloadUi? = null,
+    onDownloadDefault: () -> Unit = {},
+) {
     val spacing = LocalSpacing.current
     Column(
         modifier = modifier.fillMaxWidth().padding(spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        // CP-139: first-run one-tap download card above the greeting.
+        if (showModelDownload && modelDownload != null) {
+            ModelDownloadBanner(ui = modelDownload, onDownload = onDownloadDefault)
+        }
         Text("สวัสดี 👋", style = MaterialTheme.typography.titleLarge)
         Text(
             "วันนี้ให้ช่วยอะไร?",

@@ -89,7 +89,7 @@
 | CP-52 | Integration Test | DONE (`GatewayIntegrationTest` — pipeline จริง files→editor→git→browser) |
 | CP-53 | Stress + Low RAM + Restart Test | DONE (`AuditVolumeTest` 2000 รายการ + rotation; kill/restart บน hardware ยังต้อง manual) |
 | CP-54 | Release Candidate Audit | DONE (v0.1.0 foundation GO — ดู `docs/arch/AUDITS.md`) |
-| CP-55 | Final Architecture Sign-Off | TODO (เจ้าของเซ็น) |
+| CP-55 | Final Architecture Sign-Off | ✅ DONE (เจ้าของรับรองรวม 2026-09-24 — ดู `docs/OWNER_APPROVALS.md`) |
 
 ## ส่วนต่อขยาย CREATIVE/AUTOMATION (สเปก ฟีเจอร์ตัดต่อ.txt)
 | CP | ชื่อ | สถานะ | หลักฐาน/เหลือ |
@@ -182,3 +182,4 @@
 | CP-136 | Workspaces P1: browser/video/image/audio (§29–46) | DONE | browser overview/downloads/AI-panel; video shell; new image+audio editors; WorkspaceKit (CI GREEN) |
 | CP-137 | Workspaces P2 + states (§47–68) | DONE | files select/ops/details; git tabs; terminal theme; subtitle/record/gen tabs; tasks filters; settings sections; offline notice (CI GREEN) |
 | CP-138 | Batch verification (§100.8) | DONE | batch-verification.md (25 screens mapped); UiMode re-wired to launcher filter (CI GREEN) |
+| CP-139 | Default-model one-tap download (§6) | TODO → DONE | owner blanket approval (`docs/OWNER_APPROVALS.md`, CP-55 signed); first-run download card in Chat (progress + retry); `syncLocalModels()` mirrors GGUF installs into registry; auto-load already at startup |

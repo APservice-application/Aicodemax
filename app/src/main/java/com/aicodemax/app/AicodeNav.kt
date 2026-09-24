@@ -17,7 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,6 +38,7 @@ import com.aicodemax.tools.gateway.ToolCall
 import com.aicodemax.ui.chat.ChatModelOption
 import com.aicodemax.ui.chat.ChatRoute
 import com.aicodemax.ui.chat.ChatViewModel
+import com.aicodemax.ui.chat.ModelDownloadUi
 import com.aicodemax.ui.designsystem.AicodeSize
 import com.aicodemax.ui.designsystem.AicodeTopBar
 import com.aicodemax.ui.settings.AboutScreen
@@ -170,12 +174,60 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
             ApprovalOverlay(services)
             NavHost(navController = nav, startDestination = Routes.CHAT, modifier = Modifier.padding(padding)) {
                 composable(Routes.CHAT) {
+                    // CP-139: one-tap default-model download state (first run).
+                    var modelTick by remember { mutableStateOf(0) }
+                    var dlBusy by remember { mutableStateOf(false) }
+                    var dlProgress by remember { mutableStateOf<Float?>(null) }
+                    var dlError by remember { mutableStateOf<String?>(null) }
+                    val chatScope = rememberCoroutineScope()
+                    val modelOptions = remember(modelTick) { chatModelOptions(services) }
+                    val showDownload = modelOptions.none { it.active }
+                    val defaultProfile = remember { services.modelManager.active() }
                     ChatRoute(
                         chatViewModel,
                         onOpenTasks = { nav.navigateSingle(Routes.TASKS) },
                         workingSet = services.workingSet,
-                        models = chatModelOptions(services),
+                        models = modelOptions,
                         onOpenModels = { nav.navigateSingle(Routes.MODELS) },
+                        showModelDownload = showDownload,
+                        modelDownload = if (showDownload) {
+                            ModelDownloadUi(
+                                title = "ดาวน์โหลดสมอง AI ครั้งเดียว",
+                                detail = (defaultProfile?.displayName ?: "โมเดลเริ่มต้น") +
+                                    " (~400MB) — โหลดครั้งเดียว ใช้ฟรีตลอดไป ไม่ต้องต่อเน็ต" +
+                                    (dlError?.let { "\nผิดพลาด: $it" } ?: ""),
+                                progress = dlProgress,
+                                busy = dlBusy,
+                                buttonLabel = if (dlError == null) "ดาวน์โหลดและติดตั้ง" else "ลองใหม่",
+                            )
+                        } else {
+                            null
+                        },
+                        onDownloadDefault = {
+                            if (dlBusy) return@ChatRoute
+                            dlBusy = true
+                            dlError = null
+                            dlProgress = null
+                            chatScope.launch {
+                                val job = services.aiRuntime.installActiveModel(
+                                    onProgress = { done, total ->
+                                        dlProgress = if (total != null && total > 0) {
+                                            (done.toFloat() / total).coerceIn(0f, 1f)
+                                        } else {
+                                            null
+                                        }
+                                    },
+                                )
+                                job.join()
+                                dlBusy = false
+                                val runtimeError = services.aiRuntime.error.value
+                                if (runtimeError != null) {
+                                    dlError = runtimeError
+                                }
+                                services.syncLocalModels()
+                                modelTick++
+                            }
+                        },
                     )
                 }
                 composable(Routes.SEARCH) {
