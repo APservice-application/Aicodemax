@@ -190,16 +190,17 @@ jobs:
           test "$(stat -c%s app/src/main/assets/ai/builtin-model.gguf)" -gt 380000000
           test "$(head -c 4 app/src/main/assets/ai/builtin-model.gguf)" = "GGUF"
       - name: Real-inference smoke test (CP-144 §14)
-        if: steps.builtin-model-cache.outputs.cache-hit != 'true'
         run: |
           set -e
           git clone --depth 1 --branch v0.4.1 https://github.com/ggml-org/llama.cpp.git /tmp/llamahost
+          # NOTE v0.4.1: tools/cli (llama-cli target) requires LLAMA_BUILD_SERVER=ON;
+          # app/llama-app is broken upstream at this tag (stale build-info.h) -> APP=OFF,
+          # and build only the llama-cli target instead of 'all'.
           cmake -S /tmp/llamahost -B /tmp/llamahost/build-host \
             -DCMAKE_BUILD_TYPE=Release \
-            -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+            -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_APP=OFF \
             -DGGML_OPENMP=OFF
-          cmake --build /tmp/llamahost/build-host --config Release -j"$(nproc)" || \
-          cmake --build /tmp/llamahost/build-host --config Release -j1
+          cmake --build /tmp/llamahost/build-host --config Release -j"$(nproc)" --target llama-cli
           CLI=$(find /tmp/llamahost/build-host -name "llama-cli" -o -name "main" | head -1)
           echo "cli: $CLI"
           test -n "$CLI" && test -x "$CLI"
