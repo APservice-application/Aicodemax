@@ -126,7 +126,7 @@ class ChatViewModel(
         _state.value = _state.value.copy(sending = true, error = null, phase = phase, runningTool = null)
         sendJob?.cancel()
         sendJob = viewModelScope.launch {
-            when (val result = orchestrator.handleUserMessage(id, trimmed)) {
+            when (val result = orchestrator.handleUserMessage(id, trimmed, attachments)) {
                 is Outcome.Failure ->
                     _state.value = _state.value.copy(
                         sending = false, error = result.error.message,
@@ -172,7 +172,7 @@ class ChatViewModel(
     private fun reportStatus(id: String) {
         val mon = monitor
         if (mon == null) {
-            postStatus(id, "ดูสถานะเครื่องได้ที่หน้า Home ครับ")
+            postStatus(id, "เครื่องนี้ยังไม่ต่อระบบวัดทรัพยากรครับ")
             return
         }
         _state.value = _state.value.copy(sending = true, error = null, phase = ChatPhase.THINKING)

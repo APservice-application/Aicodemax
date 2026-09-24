@@ -53,8 +53,8 @@ object AicodeColors {
 private val LightScheme = lightColorScheme(
     primary = AicodeColors.LightPrimary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFDBEAFE),
-    onPrimaryContainer = Color(0xFF1E40AF),
+    primaryContainer = Color(0xFFE2E7FF),
+    onPrimaryContainer = Color(0xFF1E2FAF),
     secondary = AicodeColors.LightSecondary,
     background = AicodeColors.LightBackground,
     onBackground = Color(0xFF111827),
@@ -67,7 +67,9 @@ private val LightScheme = lightColorScheme(
 
 private val DarkScheme = darkColorScheme(
     primary = AicodeColors.DarkPrimary,
-    onPrimary = Color(0xFF0F1115),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF2A3566),
+    onPrimaryContainer = Color(0xFFDCE3FF),
     secondary = AicodeColors.DarkSecondary,
     background = AicodeColors.DarkBackground,
     onBackground = AicodeColors.DarkText,

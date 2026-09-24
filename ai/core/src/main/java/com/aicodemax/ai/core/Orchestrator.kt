@@ -22,7 +22,11 @@ data class StepObservation(
 )
 
 interface Orchestrator {
-    suspend fun handleUserMessage(conversationId: String, text: String): Outcome<OrchestratorReply>
+    suspend fun handleUserMessage(
+        conversationId: String,
+        text: String,
+        attachments: List<String> = emptyList(),
+    ): Outcome<OrchestratorReply>
 }
 
 /**
@@ -46,8 +50,12 @@ class BootstrapOrchestrator(
     private val learner: LearningEngine? = null,
 ) : Orchestrator {
 
-    override suspend fun handleUserMessage(conversationId: String, text: String): Outcome<OrchestratorReply> {
-        conversations.appendMessage(conversationId, MessageRole.USER, text)
+    override suspend fun handleUserMessage(
+        conversationId: String,
+        text: String,
+        attachments: List<String>,
+    ): Outcome<OrchestratorReply> {
+        conversations.appendMessage(conversationId, MessageRole.USER, text, attachments)
 
         // Pending questionnaire? Treat this message as the answer.
         questionnaires.pending(conversationId)?.let { state ->

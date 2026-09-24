@@ -2,21 +2,25 @@ package com.aicodemax.app
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -28,15 +32,19 @@ import com.aicodemax.core.common.fold
 import com.aicodemax.tools.gateway.ApprovalRequest
 import com.aicodemax.tools.gateway.PermissionDecision
 import com.aicodemax.tools.gateway.ToolCall
+import com.aicodemax.ui.chat.ChatModelOption
 import com.aicodemax.ui.chat.ChatRoute
 import com.aicodemax.ui.chat.ChatViewModel
+import com.aicodemax.ui.designsystem.AicodeSize
+import com.aicodemax.ui.designsystem.AicodeTopBar
 import com.aicodemax.ui.settings.AboutScreen
 import com.aicodemax.ui.settings.SettingsRoute
 import com.aicodemax.ui.workspace.ToolsScreen
+import kotlinx.coroutines.launch
 
 object Routes {
-    const val HOME = "home"
     const val CHAT = "chat"
+    const val SEARCH = "search"
     const val PROJECTS = "projects"
     const val TASKS = "tasks"
     const val MODELS = "models"
@@ -63,13 +71,13 @@ private fun NavHostController.navigateSingle(route: String) {
     navigate(route) {
         launchSingleTop = true
         restoreState = true
-        popUpTo(Routes.HOME) { saveState = true }
+        popUpTo(Routes.CHAT) { saveState = true }
     }
 }
 
 private fun titleFor(route: String): String = when (route) {
-    Routes.HOME -> "Aicodemax"
-    Routes.CHAT -> "แชท"
+    Routes.CHAT -> "AI Chat"
+    Routes.SEARCH -> "ค้นหา"
     Routes.PROJECTS -> "โปรเจกต์"
     Routes.TASKS -> "งาน"
     Routes.MODELS -> "AI"
@@ -93,105 +101,160 @@ private fun titleFor(route: String): String = when (route) {
     else -> "Aicodemax"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
-    val route = backStack?.destination?.route ?: Routes.HOME
+    val route = backStack?.destination?.route ?: Routes.CHAT
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    fun openDrawer() {
+        scope.launch { drawerState.open() }
+    }
+    fun go(route: String) {
+        scope.launch { drawerState.close() }
+        nav.navigateSingle(route)
+    }
 
     // Keep gateway autonomy in sync with persisted settings.
     val autonomy by services.settings.autonomy.collectAsState(initial = null)
     LaunchedEffect(autonomy) { autonomy?.let { services.refreshAutonomy(it) } }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(titleFor(route)) },
-                actions = {
-                    TextButton(onClick = { nav.navigateSingle(Routes.TOOLS) }) { Text("Tools") }
-                    TextButton(onClick = { nav.navigateSingle(Routes.SETTINGS) }) { Text("ตั้งค่า") }
-                },
-            )
+    // Shell drawer reads chat history straight from the ChatViewModel.
+    val conversations by chatViewModel.conversationsList.collectAsState()
+    val chatState by chatViewModel.state.collectAsState()
+    LaunchedEffect(Unit) { chatViewModel.refreshConversations() }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                ShellDrawerContent(
+                    conversations = conversations,
+                    activeConversationId = chatState.conversationId,
+                    onNewChat = {
+                        chatViewModel.newChat()
+                        go(Routes.CHAT)
+                    },
+                    onSelectConversation = { id ->
+                        chatViewModel.openConversation(id)
+                        go(Routes.CHAT)
+                    },
+                    onDeleteConversation = chatViewModel::deleteConversation,
+                    onRenameConversation = chatViewModel::renameConversation,
+                    onOpen = ::go,
+                    onOpenChat = { go(Routes.CHAT) },
+                )
+            }
         },
-        bottomBar = { AicodeBottomBar(route) { nav.navigateSingle(it) } },
-    ) { padding ->
-        ApprovalOverlay(services)
-        NavHost(navController = nav, startDestination = Routes.HOME, modifier = Modifier.padding(padding)) {
-            composable(Routes.HOME) {
-                HomeScreen(
-                    services = services,
-                    onOpen = { nav.navigateSingle(it) },
-                    onNewChat = { chatViewModel.newChat(); nav.navigateSingle(Routes.CHAT) },
+    ) {
+        Scaffold(
+            topBar = {
+                AicodeTopBar(
+                    title = titleFor(route),
+                    onMenu = ::openDrawer,
+                    onSearch = if (route == Routes.SEARCH) null else ({ nav.navigateSingle(Routes.SEARCH) }),
                 )
+            },
+        ) { padding ->
+            ApprovalOverlay(services)
+            NavHost(navController = nav, startDestination = Routes.CHAT, modifier = Modifier.padding(padding)) {
+                composable(Routes.CHAT) {
+                    ChatRoute(
+                        chatViewModel,
+                        onOpenTasks = { nav.navigateSingle(Routes.TASKS) },
+                        workingSet = services.workingSet,
+                        models = chatModelOptions(services),
+                        onOpenModels = { nav.navigateSingle(Routes.MODELS) },
+                    )
+                }
+                composable(Routes.SEARCH) {
+                    SearchScreen(
+                        services = services,
+                        onOpen = { nav.navigateSingle(it) },
+                        onOpenConversation = { id ->
+                            chatViewModel.openConversation(id)
+                            nav.navigateSingle(Routes.CHAT)
+                        },
+                    )
+                }
+                composable(Routes.PROJECTS) { ProjectsScreen(services, onOpen = { nav.navigateSingle(it) }) }
+                composable(Routes.TASKS) { TasksScreen(services) }
+                composable(Routes.MODELS) { ModelsScreen(services) }
+                composable(Routes.TOOLS) {
+                    ToolsScreen(
+                        tools = services.toolRegistry.all(),
+                        onOpenTool = { toolId ->
+                            if (toolId == "files" || toolId == "editor") nav.navigateSingle(Routes.PROJECTS)
+                            if (toolId == "browser") nav.navigateSingle(Routes.BROWSER)
+                            if (toolId == "git") nav.navigateSingle(Routes.GIT)
+                            if (toolId == "terminal") nav.navigateSingle(Routes.TERMINAL)
+                            if (toolId == "build") nav.navigateSingle(Routes.BUILD)
+                            if (toolId == "skill") nav.navigateSingle(Routes.SKILLS)
+                            if (toolId == "render") nav.navigateSingle(Routes.RENDER)
+                            if (toolId == "media") nav.navigateSingle(Routes.TIMELINE)
+                            if (toolId == "video") nav.navigateSingle(Routes.TIMELINE)
+                            if (toolId == "subtitle") nav.navigateSingle(Routes.SUBTITLE)
+                            if (toolId == "audio") nav.navigateSingle(Routes.RECORD)
+                            if (toolId == "image") nav.navigateSingle(Routes.GEN)
+                            if (toolId == "memory") nav.navigateSingle(Routes.MEMORY)
+                            if (toolId == "debug") nav.navigateSingle(Routes.CHAT)
+                        },
+                        onSelfTest = { toolId -> selfTest(services, toolId) },
+                    )
+                }
+                composable(Routes.SETTINGS) {
+                    val grants = rememberGrantSnapshot(services)
+                    SettingsRoute(
+                        services.settings,
+                        onOpenAbout = { nav.navigateSingle(Routes.ABOUT) },
+                        permissionLine = grants.first,
+                        denies = grants.second,
+                        onRevokeAll = { services.permissionGrants.revokeAll() },
+                        onOpenAudit = { nav.navigateSingle(Routes.AUDIT) },
+                    )
+                }
+                composable(Routes.ABOUT) { AboutScreen() }
+                composable(Routes.AUDIT) { AuditScreen(services) }
+                composable(Routes.BROWSER) {
+                    BrowserScreen(
+                        services,
+                        onHandToChat = { prompt ->
+                            services.workingSet.handPrompt(prompt)
+                            nav.navigateSingle(Routes.CHAT)
+                        },
+                    )
+                }
+                composable(Routes.TERMINAL) { TerminalScreen(services) }
+                composable(Routes.AGENTS) { AgentsScreen(services) }
+                composable(Routes.GIT) { GitScreen(services) }
+                composable(Routes.BUILD) { BuildScreen(services) }
+                composable(Routes.SKILLS) { SkillsScreen(services) }
+                composable(Routes.RENDER) { RenderScreen(services) }
+                composable(Routes.TIMELINE) { TimelineScreen(services) }
+                composable(Routes.TEMPLATES) { TemplatesScreen(services) }
+                composable(Routes.GEN) { GenScreen(services) }
+                composable(Routes.RECORD) { RecordScreen(services) }
+                composable(Routes.SUBTITLE) { SubtitleScreen(services) }
+                composable(Routes.MEMORY) { MemoryScreen(services) }
             }
-            composable(Routes.CHAT) {
-                ChatRoute(
-                    chatViewModel,
-                    onOpenTasks = { nav.navigateSingle(Routes.TASKS) },
-                    workingSet = services.workingSet,
-                )
-            }
-            composable(Routes.PROJECTS) { ProjectsScreen(services, onOpen = { nav.navigateSingle(it) }) }
-            composable(Routes.TASKS) { TasksScreen(services) }
-            composable(Routes.MODELS) { ModelsScreen(services) }
-            composable(Routes.TOOLS) {
-                ToolsScreen(
-                    tools = services.toolRegistry.all(),
-                    onOpenTool = { toolId ->
-                        if (toolId == "files" || toolId == "editor") nav.navigateSingle(Routes.PROJECTS)
-                        if (toolId == "browser") nav.navigateSingle(Routes.BROWSER)
-                        if (toolId == "git") nav.navigateSingle(Routes.GIT)
-                        if (toolId == "terminal") nav.navigateSingle(Routes.TERMINAL)
-                        if (toolId == "build") nav.navigateSingle(Routes.BUILD)
-                        if (toolId == "skill") nav.navigateSingle(Routes.SKILLS)
-                        if (toolId == "render") nav.navigateSingle(Routes.RENDER)
-                        if (toolId == "media") nav.navigateSingle(Routes.TIMELINE)
-                        if (toolId == "video") nav.navigateSingle(Routes.TIMELINE)
-                        if (toolId == "subtitle") nav.navigateSingle(Routes.SUBTITLE)
-                        if (toolId == "audio") nav.navigateSingle(Routes.RECORD)
-                        if (toolId == "image") nav.navigateSingle(Routes.GEN)
-                        if (toolId == "memory") nav.navigateSingle(Routes.MEMORY)
-                        if (toolId == "debug") nav.navigateSingle(Routes.CHAT)
-                    },
-                    onSelfTest = { toolId -> selfTest(services, toolId) },
-                )
-            }
-            composable(Routes.SETTINGS) {
-                val grants = rememberGrantSnapshot(services)
-                SettingsRoute(
-                    services.settings,
-                    onOpenAbout = { nav.navigateSingle(Routes.ABOUT) },
-                    permissionLine = grants.first,
-                    denies = grants.second,
-                    onRevokeAll = { services.permissionGrants.revokeAll() },
-                    onOpenAudit = { nav.navigateSingle(Routes.AUDIT) },
-                )
-            }
-            composable(Routes.ABOUT) { AboutScreen() }
-            composable(Routes.AUDIT) { AuditScreen(services) }
-            composable(Routes.BROWSER) {
-                BrowserScreen(
-                    services,
-                    onHandToChat = { prompt ->
-                        services.workingSet.handPrompt(prompt)
-                        nav.navigateSingle(Routes.CHAT)
-                    },
-                )
-            }
-            composable(Routes.TERMINAL) { TerminalScreen(services) }
-            composable(Routes.AGENTS) { AgentsScreen(services) }
-            composable(Routes.GIT) { GitScreen(services) }
-            composable(Routes.BUILD) { BuildScreen(services) }
-            composable(Routes.SKILLS) { SkillsScreen(services) }
-            composable(Routes.RENDER) { RenderScreen(services) }
-            composable(Routes.TIMELINE) { TimelineScreen(services) }
-            composable(Routes.TEMPLATES) { TemplatesScreen(services) }
-            composable(Routes.GEN) { GenScreen(services) }
-            composable(Routes.RECORD) { RecordScreen(services) }
-            composable(Routes.SUBTITLE) { SubtitleScreen(services) }
-            composable(Routes.MEMORY) { MemoryScreen(services) }
         }
+    }
+}
+
+/** CP-135: registry models → chat selector options; router pick = active. */
+private fun chatModelOptions(services: ServiceLocator): List<ChatModelOption> {
+    val activeId = services.router.pick().fold(
+        onSuccess = { it.id },
+        onFailure = { null },
+    )
+    return services.models.all().map {
+        ChatModelOption(
+            id = it.id,
+            name = it.name,
+            statusLabel = "${it.provider} • ${it.status.name}",
+            active = it.id == activeId,
+        )
     }
 }
 
@@ -254,12 +317,27 @@ private fun ApprovalDialog(request: ApprovalRequest, onDecide: (PermissionDecisi
             }
         },
         confirmButton = {
-            TextButton(onClick = { onDecide(PermissionDecision.ALLOW_ONCE) }) { Text("ครั้งเดียว") }
+            TextButton(
+                onClick = { onDecide(PermissionDecision.ALLOW_ONCE) },
+                modifier = Modifier
+                    .heightIn(min = AicodeSize.MinTouch)
+                    .semantics { contentDescription = "อนุญาตครั้งเดียว" },
+            ) { Text("ครั้งเดียว") }
         },
         dismissButton = {
             Row {
-                TextButton(onClick = { onDecide(PermissionDecision.DENY) }) { Text("ปฏิเสธ") }
-                TextButton(onClick = { onDecide(PermissionDecision.ALLOW_FOR_TASK) }) { Text("ทั้งงาน") }
+                TextButton(
+                    onClick = { onDecide(PermissionDecision.DENY) },
+                    modifier = Modifier
+                        .heightIn(min = AicodeSize.MinTouch)
+                        .semantics { contentDescription = "ปฏิเสธ" },
+                ) { Text("ปฏิเสธ") }
+                TextButton(
+                    onClick = { onDecide(PermissionDecision.ALLOW_FOR_TASK) },
+                    modifier = Modifier
+                        .heightIn(min = AicodeSize.MinTouch)
+                        .semantics { contentDescription = "อนุญาตทั้งงาน" },
+                ) { Text("ทั้งงาน") }
             }
         },
     )
@@ -272,25 +350,4 @@ private fun ApprovalRow(label: String, value: String) {
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(vertical = 2.dp),
     )
-}
-
-@Composable
-private fun AicodeBottomBar(route: String, onSelect: (String) -> Unit) {
-    val tabs = listOf(
-        Triple(Routes.HOME, "Home", "🏠"),
-        Triple(Routes.CHAT, "Chat", "💬"),
-        Triple(Routes.PROJECTS, "Projects", "📁"),
-        Triple(Routes.TASKS, "Tasks", "✅"),
-        Triple(Routes.MODELS, "AI", "🤖"),
-    )
-    NavigationBar {
-        for ((id, label, glyph) in tabs) {
-            NavigationBarItem(
-                selected = route == id,
-                onClick = { onSelect(id) },
-                icon = { Text(glyph) },
-                label = { Text(label) },
-            )
-        }
-    }
 }
