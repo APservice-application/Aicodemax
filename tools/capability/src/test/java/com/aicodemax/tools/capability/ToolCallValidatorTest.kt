@@ -51,6 +51,14 @@ class ToolCallValidatorTest {
     }
 
     @Test
+    fun offlineBlocksNetworkPrecondition() {
+        // CP-133 (P21): no network → model.download rejected with guidance.
+        val r = ToolCallValidator.validate("model", "download", mapOf("id" to "qwen2.5-0.5b"), bindings) { false }
+        val invalid = r as ToolCallValidator.Result.Invalid
+        assertTrue(invalid.errors.single().contains("network"))
+    }
+
+    @Test
     fun highRiskNeedsApproval() {
         // files.delete carries fs.delete → high.
         val r = ToolCallValidator.validate("files", "delete", mapOf("path" to "a.txt"), bindings)

@@ -175,4 +175,6 @@
 - DONE ได้เมื่อผ่าน §59 ครบ 13 ข้อ + ไม่มีงานค้างของ CP นั้น
 - ห้ามทำหลาย CP พร้อมกัน — ทำทีละตัวตาม §57
 | CP-131 | P17–19 agent retrieval + self-correction | DONE | ToolPromptBuilder; LlmBrain validate+record+few-shot (CI GREEN) |
-| CP-132 | §32–33 trace + phases + runtime UI | DONE | ToolTracer→audit; ChatPhase THINKING/RUNNING_TOOL/RETRY; runtime section (CI pending) |
+| CP-132 | §32–33 trace + phases + runtime UI | DONE | ToolTracer→audit; ChatPhase THINKING/RUNNING_TOOL/RETRY; runtime section (CI GREEN) |
+| CP-133 | P21–24 hardening + v0.1.5 APK | DONE | offline/low-RAM/crash passes; HARDENING.md; device checklist (CI pending — same push as CP-134) |
+| CP-134 | UI overhaul specs (§100–105) | DONE | 27 docs: architecture×4, ui×14, ui-reference×8, migration checkpoint (CI pending) |
