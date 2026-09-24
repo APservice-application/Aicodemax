@@ -16,13 +16,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Design tokens mapped from 1.2.txt §§4–14 (v1 mapping; full spec stays in requirements). */
+/** Design tokens from the master UI spec การปรับ ui ครั้งใหญ่ §§69–72 (CP-135). */
 object AicodeColors {
     // Light
     val LightBackground = Color(0xFFF7F7F8)
     val LightSurface = Color(0xFFFFFFFF)
-    val LightPrimary = Color(0xFF2563EB)
-    val LightPrimaryDark = Color(0xFF1D4ED8)
+    val LightPrimary = Color(0xFF4F6FFF)
+    val LightPrimaryDark = Color(0xFF3D5BF0)
     val LightSecondary = Color(0xFF6B7280)
     val LightTertiary = Color(0xFF9CA3AF)
     val LightBorder = Color(0xFFE5E7EB)
@@ -31,11 +31,11 @@ object AicodeColors {
     val LightDanger = Color(0xFFDC2626)
     val LightInfo = Color(0xFF0284C7)
 
-    // Dark
-    val DarkBackground = Color(0xFF0F1115)
-    val DarkSurface = Color(0xFF1B202A)
-    val DarkSurfaceVariant = Color(0xFF171B23)
-    val DarkPrimary = Color(0xFF60A5FA)
+    // Dark (§69: bg #0B0D10, accent #6C8CFF)
+    val DarkBackground = Color(0xFF0B0D10)
+    val DarkSurface = Color(0xFF15181D)
+    val DarkSurfaceVariant = Color(0xFF1C2027)
+    val DarkPrimary = Color(0xFF6C8CFF)
     val DarkSecondary = Color(0xFFA1A1AA)
     val DarkTertiary = Color(0xFF71717A)
     val DarkBorder = Color(0xFF272D38)
@@ -99,6 +99,23 @@ data class AicodeSpacing(
 )
 
 val LocalSpacing = staticCompositionLocalOf { AicodeSpacing() }
+
+/** Corner radii from §71: 8 / 12 / 14 / 20 / 24 + chat bubble 18. */
+object AicodeRadii {
+    val S = 8.dp
+    val M = 12.dp
+    val L = 14.dp
+    val XL = 20.dp
+    val XXL = 24.dp
+    val ChatBubble = 18.dp
+}
+
+/** Layout tokens from §§70–72: 4dp grid, 48dp targets, chat widths. */
+object AicodeSize {
+    val MinTouch = 48.dp
+    const val UserBubbleWidth = 0.82f
+    const val AiBubbleWidth = 0.96f
+}
 
 enum class StatusKind { SUCCESS, WARNING, DANGER, INFO }
 

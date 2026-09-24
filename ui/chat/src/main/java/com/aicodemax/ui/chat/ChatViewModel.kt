@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** CP-132: chat phase states (spec §33). */
-enum class ChatPhase { READY, THINKING, RUNNING_TOOL, RETRY }
+/** CP-132: chat phase states (spec §33). CP-135: LISTENING for voice input. */
+enum class ChatPhase { READY, THINKING, RUNNING_TOOL, RETRY, LISTENING }
 
 data class ChatUiState(
     val conversationId: String? = null,
@@ -95,8 +95,22 @@ class ChatViewModel(
         }
     }
 
-    fun send(text: String) {
-        sendInternal(text.trim(), ChatPhase.THINKING)
+    /** CP-135: rename a conversation (drawer long-press). */
+    fun renameConversation(conversationId: String, title: String) {
+        val trimmed = title.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            conversations.rename(conversationId, trimmed)
+            refreshConversations()
+        }
+    }
+
+    /** CP-135: send with optional attachment paths (stored on the USER message). */
+    fun send(text: String, attachments: List<String> = emptyList()) {
+        val names = attachments.map { it.substringAfterLast('/').substringAfterLast('\\') }
+        val annotated = if (names.isEmpty()) text.trim()
+        else (text.trim() + "\n[แนบไฟล์: " + names.joinToString(", ") + "]").trim()
+        sendInternal(annotated, ChatPhase.THINKING, attachments)
     }
 
     /** CP-132: retry the last user message with the RETRY phase (spec §33). */
@@ -106,7 +120,7 @@ class ChatViewModel(
         sendInternal(last, ChatPhase.RETRY)
     }
 
-    private fun sendInternal(trimmed: String, phase: ChatPhase) {
+    private fun sendInternal(trimmed: String, phase: ChatPhase, attachments: List<String> = emptyList()) {
         if (trimmed.isEmpty()) return
         val id = _state.value.conversationId ?: return
         // CP-57: chat-handled intents (real, local — no task pipeline needed).
@@ -211,7 +225,7 @@ class ChatViewModel(
             onError("เครื่องนี้ยังไม่ต่อระบบเสียง")
             return
         }
-        _state.value = _state.value.copy(sending = true, phase = ChatPhase.THINKING)
+        _state.value = _state.value.copy(sending = true, phase = ChatPhase.LISTENING)
         viewModelScope.launch {
             when (val result = port.listen()) {
                 is Outcome.Success -> onText(result.value.text)
