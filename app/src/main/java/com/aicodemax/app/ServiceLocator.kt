@@ -445,7 +445,7 @@ class ServiceLocator(context: Context) {
             }
             val detail = when (val st = installStatus) {
                 is com.aicodemax.ai.runtime.ModelInstallStatus.Ready ->
-                    "ติดตั้งแล้ว (${com.aicodemax.ai.runtime.ModelManager.formatSize(st.bytes)})"
+                    "ติดตั้งแล้ว (${st.bytes / 1024 / 1024}MB)"
                 is com.aicodemax.ai.runtime.ModelInstallStatus.Invalid -> st.reason
                 else -> "ยังไม่ติดตั้ง — กดดาวน์โหลดครั้งเดียว (~400MB)"
             }
