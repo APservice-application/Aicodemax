@@ -85,8 +85,8 @@ fun AicodeSearchField(
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         trailingIcon = {
             if (value.isNotEmpty()) {
-                IconButton(onClick = { onValueChange(\"\") }) {
-                    Icon(Icons.Filled.Close, contentDescription = \"ล้างคำค้น\")
+                IconButton(onClick = { onValueChange("") }) {
+                    Icon(Icons.Filled.Close, contentDescription = "ล้างคำค้น")
                 }
             }
         },
@@ -110,7 +110,7 @@ fun ConfirmDialog(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    dismissLabel: String = \"ยกเลิก\",
+    dismissLabel: String = "ยกเลิก",
     destructive: Boolean = false,
 ) {
     AlertDialog(
@@ -152,11 +152,11 @@ fun OfflineBanner(onRetry: () -> Unit, modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = LocalSpacing.current.md),
         ) {
             Text(
-                text = \"ออฟไลน์ — งานในเครื่องยังใช้ได้\",
+                text = "ออฟไลน์ — งานในเครื่องยังใช้ได้",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onRetry) { Text(\"ลองใหม่\") }
+            TextButton(onClick = onRetry) { Text("ลองใหม่") }
         }
     }
 }
@@ -180,7 +180,7 @@ data class LauncherEntry(
     val id: String,
     val label: String,
     val glyph: String,
-    val hint: String = \"\",
+    val hint: String = "",
 )
 
 /** CP-135 launcher grid (§13): the app drawer behind ☰. */
@@ -242,7 +242,7 @@ fun LabeledField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = \"\",
+    placeholder: String = "",
     singleLine: Boolean = true,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
