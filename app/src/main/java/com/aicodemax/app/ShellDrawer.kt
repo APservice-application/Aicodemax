@@ -52,6 +52,12 @@ private val systemEntries = listOf(
  * CP-135 shell drawer (§12): chat history + app launcher + system entries.
  * One drawer for the whole app; the chat screen no longer owns its own.
  */
+/** CP-138: SIMPLE mode shows core apps only (dev/pro tools hidden). */
+private val simpleAppIds = setOf(
+    Routes.BROWSER, Routes.TIMELINE, Routes.IMAGE, Routes.AUDIO,
+    Routes.GEN, Routes.RECORD, Routes.SUBTITLE, Routes.PROJECTS, Routes.ABOUT,
+)
+
 @Composable
 fun ShellDrawerContent(
     conversations: List<Conversation>,
@@ -62,6 +68,7 @@ fun ShellDrawerContent(
     onRenameConversation: (String, String) -> Unit,
     onOpen: (String) -> Unit,
     onOpenChat: () -> Unit,
+    simpleMode: Boolean = false,
 ) {
     val spacing = LocalSpacing.current
     Column(
@@ -85,8 +92,11 @@ fun ShellDrawerContent(
             onDelete = onDeleteConversation,
             onRename = onRenameConversation,
         )
-        SectionHeader("แอป")
-        LauncherGrid(entries = appEntries, onOpen = onOpen)
+        SectionHeader("แอป" + if (simpleMode) " (โหมดง่าย)" else "")
+        LauncherGrid(
+            entries = if (simpleMode) appEntries.filter { it.id in simpleAppIds } else appEntries,
+            onOpen = onOpen,
+        )
         SectionHeader("ระบบ")
         for ((route, label, hint) in systemEntries) {
             TextButton(

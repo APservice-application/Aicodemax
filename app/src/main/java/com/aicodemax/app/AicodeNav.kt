@@ -124,6 +124,11 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
     val autonomy by services.settings.autonomy.collectAsState(initial = null)
     LaunchedEffect(autonomy) { autonomy?.let { services.refreshAutonomy(it) } }
 
+    // CP-138: SIMPLE mode filters the launcher to core apps.
+    val uiMode by services.settings.uiMode.collectAsState(
+        initial = com.aicodemax.core.state.UiMode.PRO,
+    )
+
     // Shell drawer reads chat history straight from the ChatViewModel.
     val conversations by chatViewModel.conversationsList.collectAsState()
     val chatState by chatViewModel.state.collectAsState()
@@ -148,6 +153,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                     onRenameConversation = chatViewModel::renameConversation,
                     onOpen = ::go,
                     onOpenChat = { go(Routes.CHAT) },
+                    simpleMode = uiMode == com.aicodemax.core.state.UiMode.SIMPLE,
                 )
             }
         },
