@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -59,6 +60,7 @@ import kotlinx.coroutines.withContext
  * layer. Layer panel is a bottom sheet in portrait, a side panel in
  * landscape. Tap selects; long-press renames/duplicates/deletes/merges.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageEditorScreen(services: ServiceLocator) {
     val spacing = LocalSpacing.current
