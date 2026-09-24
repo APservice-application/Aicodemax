@@ -106,6 +106,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
+    implementation("androidx.core:core:1.13.1") // FileProvider for in-app camera capture
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
