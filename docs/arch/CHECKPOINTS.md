@@ -182,4 +182,4 @@
 | CP-136 | Workspaces P1: browser/video/image/audio (§29–46) | DONE | browser overview/downloads/AI-panel; video shell; new image+audio editors; WorkspaceKit (CI GREEN) |
 | CP-137 | Workspaces P2 + states (§47–68) | DONE | files select/ops/details; git tabs; terminal theme; subtitle/record/gen tabs; tasks filters; settings sections; offline notice (CI GREEN) |
 | CP-138 | Batch verification (§100.8) | DONE | batch-verification.md (25 screens mapped); UiMode re-wired to launcher filter (CI GREEN) |
-| CP-139 | Default-model one-tap download (§6) | TODO → DONE | owner blanket approval (`docs/OWNER_APPROVALS.md`, CP-55 signed); first-run download card in Chat (progress + retry); `syncLocalModels()` mirrors GGUF installs into registry; auto-load already at startup |
+| CP-139 | Default-model one-tap download (§6) | DONE | owner blanket approval (`docs/OWNER_APPROVALS.md`, CP-55 signed); first-run download card in Chat (progress + retry); `syncLocalModels()` mirrors GGUF installs into registry; auto-load already at startup (CI GREEN) |
