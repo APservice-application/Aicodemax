@@ -164,11 +164,15 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
     ) {
         Scaffold(
             topBar = {
-                AicodeTopBar(
-                    title = titleFor(route),
-                    onMenu = ::openDrawer,
-                    onSearch = if (route == Routes.SEARCH) null else ({ nav.navigateSingle(Routes.SEARCH) }),
-                )
+                // Video has its own back/project/export header from the owner's editor spec.
+                // Do not stack a generic app bar above its preview and shrink the timeline.
+                if (route != Routes.TIMELINE) {
+                    AicodeTopBar(
+                        title = titleFor(route),
+                        onMenu = ::openDrawer,
+                        onSearch = if (route == Routes.SEARCH) null else ({ nav.navigateSingle(Routes.SEARCH) }),
+                    )
+                }
             },
         ) { padding ->
             ApprovalOverlay(services)

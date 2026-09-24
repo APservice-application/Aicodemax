@@ -11,6 +11,16 @@
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:allowBackup="true"
         android:supportsRtl="true">
+        <!-- Camera capture uses an app-owned URI; never expose file:// URIs to camera apps. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.video-provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/video_capture_paths" />
+        </provider>
         <activity
             android:name=".MainActivity"
             android:exported="true"
