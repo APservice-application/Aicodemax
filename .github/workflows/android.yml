@@ -198,7 +198,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
             -DGGML_OPENMP=OFF
-          cmake --build /tmp/llamahost/build-host --config Release -j"$(nproc)"
+          cmake --build /tmp/llamahost/build-host --config Release -j"$(nproc)" || \
+          cmake --build /tmp/llamahost/build-host --config Release -j1
           CLI=$(find /tmp/llamahost/build-host -name "llama-cli" -o -name "main" | head -1)
           echo "cli: $CLI"
           test -n "$CLI" && test -x "$CLI"
