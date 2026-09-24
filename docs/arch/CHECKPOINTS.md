@@ -183,4 +183,4 @@
 | CP-137 | Workspaces P2 + states (§47–68) | DONE | files select/ops/details; git tabs; terminal theme; subtitle/record/gen tabs; tasks filters; settings sections; offline notice (CI GREEN) |
 | CP-138 | Batch verification (§100.8) | DONE | batch-verification.md (25 screens mapped); UiMode re-wired to launcher filter (CI GREEN) |
 | CP-139 | Default-model one-tap download (§6) | DONE | owner blanket approval (`docs/OWNER_APPROVALS.md`, CP-55 signed); first-run download card in Chat (progress + retry); `syncLocalModels()` mirrors GGUF installs into registry; auto-load already at startup (CI GREEN) |
-| CP-140 | File STT via whisper.cpp base (subtitle) | TODO → DONE | whisper.cpp v1.9.4 JNI (`libaicode_whisper.so`, CI-built arm64); one-tap base-model download (~148MB, MIT); MediaCodec→16kHz decoder; STT tab in Subtitle (transcribe + handoff to MAKE) |
+| CP-140 | File STT via whisper.cpp base (subtitle) | DONE | whisper.cpp v1.9.4 JNI (`libaicode_whisper.so`, CI-built arm64); one-tap base-model download (~148MB, MIT); MediaCodec→16kHz decoder; STT tab in Subtitle (transcribe + handoff to MAKE) (CI GREEN) |
