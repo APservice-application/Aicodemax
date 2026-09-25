@@ -2,10 +2,15 @@ package com.aicodemax.app
 
 import android.content.Context
 import android.webkit.WebView
+import com.aicodemax.ai.agents.BuiltinLlmProvider
 import com.aicodemax.ai.agents.LlmBrain
+import com.aicodemax.ai.agents.LlmPlanner
+import com.aicodemax.ai.agents.LlmRePlanner
 import com.aicodemax.ai.agents.RoutedChatBrain
 import com.aicodemax.ai.agents.LocalAgentRunner
+import com.aicodemax.ai.core.AgentMemory
 import com.aicodemax.ai.core.BootstrapOrchestrator
+import com.aicodemax.ai.core.CascadePlanner
 import com.aicodemax.ai.core.EditingPlanner
 import com.aicodemax.ai.core.InMemoryQuestionnaireStore
 import com.aicodemax.ai.core.LearningEngine
@@ -146,6 +151,8 @@ class ServiceLocator(context: Context) {
     val checkpoints: CheckpointStore = FileCheckpointStore(File(appContext.filesDir, "state"))
     val conversations: ConversationStore = FileConversationStore(File(appContext.filesDir, "state"))
     val memory: MemoryStore = FileMemoryStore(File(appContext.filesDir, "state"))
+    /** CP-148: agent memory scopes over the same store (spec §35). */
+    private val agentMemory = AgentMemory(memory)
     val skills: FileSkillStore = FileSkillStore(File(appContext.filesDir, "skills"))
     val voice: VoicePort = AndroidVoicePort(appContext)
     val images: ImagePort = AndroidImagePort()
@@ -200,6 +207,12 @@ class ServiceLocator(context: Context) {
             resources = aiResources,
             expectBuiltin = true,
         )
+
+    /** CP-148: the embedded Qwen3 as an LlmProvider (on-device plan/re-plan/chat-tools, no keys). */
+    private val builtinProvider = BuiltinLlmProvider.fromManager(aiRuntime)
+
+    private fun builtinIfReady(): LlmProvider? =
+        builtinProvider.takeIf { aiRuntime.state.value == com.aicodemax.ai.runtime.AiRuntimeState.READY }
 
     /** CP-144: built-in AI model file (bundled asset, provisioned on first launch). */
     val builtinModelFile: File = File(storage.modelsDefault.path, "builtin-qwen3-4b-q4_k_m.gguf")
@@ -316,9 +329,14 @@ class ServiceLocator(context: Context) {
             "Never invent tool results. If no tool fits, answer directly."
     }
 
-    private fun makeLlmBrain(provider: () -> LlmProvider?, model: () -> String): LlmBrain =
+    private fun makeLlmBrain(
+        provider: () -> LlmProvider?,
+        model: () -> String,
+        maxSteps: Int = 8,
+    ): LlmBrain =
         LlmBrain(
             provider, model, gateway, llmSystemPrompt(),
+            maxSteps = maxSteps,
             toolsSection = { query -> toolPrompts.section(query) },
             bindings = com.aicodemax.tools.capability.StandardCapabilities.bindings(),
             promptBuilder = toolPrompts,
@@ -456,6 +474,13 @@ class ServiceLocator(context: Context) {
         }
         webAiServer = WebAiBridgeServer(webAiAgents, webAiTokens)
         val manualBrain = makeLlmBrain({ llmProvider }, { llmModel })
+        // CP-148: on-device tool brain (embedded Qwen3) — acts with tools, no API key.
+        val builtinToolBrain = makeLlmBrain({ builtinIfReady() }, { "qwen3-4b-builtin" }, maxSteps = 4)
+        // CP-148: LLM planner (rules first via CascadePlanner below; LLM catches the rest).
+        val llmPlanner = LlmPlanner(
+            { builtinIfReady() }, { "qwen3-4b-builtin" }, capabilities,
+            com.aicodemax.tools.capability.StandardCapabilities.bindings(), agentMemory,
+        )
         routedBrain = RoutedChatBrain(
             router,
             resolve = { descriptor ->
@@ -466,14 +491,23 @@ class ServiceLocator(context: Context) {
             manual = { if (llmProvider == null) null else manualBrain },
         )
         orchestrator = BootstrapOrchestrator(
-            tasks, RuleBasedPlanner(capabilities, EditingPlanner(media, capabilities)), agent, RuleVerifier(), checkpoints, conversations,
+            tasks, CascadePlanner(RuleBasedPlanner(capabilities, EditingPlanner(media, capabilities)), llmPlanner), agent, RuleVerifier(), checkpoints, conversations,
             recovery = RecoveryLadderPolicy(),
             questionnaires = InMemoryQuestionnaireStore(),
             brain = com.aicodemax.ai.agents.FallbackChatBrain(
-                com.aicodemax.ai.agents.LocalChatBrain(aiRuntime),
-                routedBrain,
+                builtinToolBrain,
+                com.aicodemax.ai.agents.FallbackChatBrain(
+                    com.aicodemax.ai.agents.LocalChatBrain(aiRuntime),
+                    routedBrain,
+                ),
             ),
             learner = learn,
+            rePlanner = LlmRePlanner(
+                { builtinIfReady() }, { "qwen3-4b-builtin" }, capabilities,
+                com.aicodemax.tools.capability.StandardCapabilities.bindings(), agentMemory,
+            ),
+            maxReplans = 2,
+            agentMemory = agentMemory,
         )
         // CP-128: background AI init (§21 — returns immediately, never blocks startup).
         aiRuntime.initialize()

@@ -48,7 +48,50 @@ class BootstrapOrchestrator(
     private val brain: ChatBrain? = null,
     /** CP-114 learning loop (null = no learning; tests may omit). */
     private val learner: LearningEngine? = null,
+    /**
+     * CP-148 (spec §33–§34): null = v0 fail-fast with EXACT old messages;
+     * set = Diagnose → Correct → Execute Again with a bounded replan budget.
+     */
+    private val rePlanner: RePlanner? = null,
+    private val maxReplans: Int = 2,
+    /** CP-148 (spec §35): task notes (null = no memory writes). */
+    private val agentMemory: AgentMemory? = null,
 ) : Orchestrator {
+
+    /** CP-148 (spec §31): login handoffs parked per conversation (in-session). */
+    private data class HandoffState(
+        val taskId: String,
+        val goal: String,
+        val remaining: List<PlanStep>,
+        val executed: List<ExecutedStep>,
+        val outputs: List<StepResult>,
+        val observations: List<StepObservation>,
+        val replansUsed: Int,
+    )
+
+    private val pendingHandoffs = mutableMapOf<String, HandoffState>()
+
+    private data class StepRun(
+        val taskId: String,
+        val goal: String,
+        var steps: MutableList<PlanStep>,
+        val executed: MutableList<ExecutedStep>,
+        val outputs: MutableList<StepResult>,
+        val observations: MutableList<StepObservation>,
+        var replansUsed: Int,
+    )
+
+    private sealed interface StepOutcome {
+        data object Done : StepOutcome
+        data class Failed(val msg: String) : StepOutcome
+        data class Parked(val msg: String) : StepOutcome
+    }
+
+    private sealed interface RecoverResult {
+        data class Retry(val step: PlanStep, val attempt: Int) : RecoverResult
+        data object Replanned : RecoverResult
+        data class Stop(val outcome: StepOutcome) : RecoverResult
+    }
 
     override suspend fun handleUserMessage(
         conversationId: String,
@@ -68,6 +111,14 @@ class BootstrapOrchestrator(
             return runIntent(conversationId, advanced.completedIntent(), text)
         }
 
+        // CP-148 (spec §31): "ทำต่อ" resumes a login-parked task.
+        pendingHandoffs[conversationId]?.let { handoff ->
+            if (isResumeMessage(text)) {
+                pendingHandoffs.remove(conversationId)
+                return resumeHandoff(conversationId, handoff)
+            }
+        }
+
         val intent = IntentParser.parse(text)
 
         // Missing slots? Start the questionnaire instead of planning.
@@ -79,6 +130,10 @@ class BootstrapOrchestrator(
         }
         return runIntent(conversationId, intent, text)
     }
+
+    private fun isResumeMessage(text: String): Boolean =
+        Regex("ทำต่อ|เสร็จแล้ว|ล็อกอิน(เสร็จ|แล้ว)|login.?done|พร้อมแล้ว", RegexOption.IGNORE_CASE)
+            .containsMatchIn(text)
 
     private suspend fun statusReply(conversationId: String, text: String): Outcome<OrchestratorReply> {
         conversations.appendMessage(conversationId, MessageRole.STATUS, text)
@@ -144,6 +199,9 @@ class BootstrapOrchestrator(
             return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, status))))
         }
 
+        // A brand-new task supersedes any parked handoff in this conversation.
+        pendingHandoffs.remove(conversationId)
+
         val plan = when (val planned = planner.plan(intent)) {
             is Outcome.Failure -> {
                 val msg = planned.error.message
@@ -171,75 +229,291 @@ class BootstrapOrchestrator(
             }
         }
 
-        val outputs = mutableListOf<StepResult>()
-        val observations = mutableListOf<StepObservation>()
-        for (step in plan.steps) {
+        val ctx = StepRun(
+            taskId, text, plan.steps.toMutableList(),
+            mutableListOf(), mutableListOf(), mutableListOf(), 0,
+        )
+        return when (val outcome = runSteps(ctx, conversationId)) {
+            is StepOutcome.Parked -> Outcome.Success(
+                OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, outcome.msg)), taskId),
+            )
+            is StepOutcome.Failed -> Outcome.Success(
+                OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, outcome.msg)), taskId),
+            )
+            is StepOutcome.Done -> finishTask(conversationId, ctx)
+        }
+    }
+
+    /** Executes ctx.steps front-to-back; CP-148 recovery mutates the remainder in place. */
+    private suspend fun runSteps(ctx: StepRun, conversationId: String, startIndex: Int = 0): StepOutcome {
+        var index = startIndex
+        while (index < ctx.steps.size) {
+            var step = ctx.steps[index]
             var attempt = 0
-            while (true) {
-                when (val executed = agent.executeStep(taskId, step)) {
+            var advance = true
+            stepLoop@ while (true) {
+                when (val executed = agent.executeStep(ctx.taskId, step)) {
                     is Outcome.Failure -> {
-                        observations.add(StepObservation(step.id, false, executed.error.message, attempt))
+                        ctx.observations.add(StepObservation(step.id, false, executed.error.message, attempt))
                         val ladder = recovery?.decide(StepFailure(step.id, step.toolId, executed.error.message, attempt))
                         if (ladder is RecoveryStep.Retry) {
                             attempt += 1
-                            continue
+                            continue@stepLoop
                         }
-                        val note = when (ladder) {
-                            is RecoveryStep.Repair -> "ต้องวางแผนใหม่: ${ladder.hint}"
-                            is RecoveryStep.SwitchEngine -> "ต้องสลับเครื่องมือ ${ladder.fromCapability} → ${ladder.toCapability}"
-                            is RecoveryStep.RestoreLatest -> "ต้องย้อน checkpoint: ${ladder.reason}"
-                            is RecoveryStep.Escalate -> ladder.reason
-                            is RecoveryStep.Abort -> ladder.reason
-                            else -> executed.error.message
+                        if (rePlanner == null) {
+                            return failTask(ctx, conversationId, ladderNote(ladder, executed.error.message), step, executed.error.code)
                         }
-                        tasks.fail(taskId, note)
-                        checkpoints.save(taskId, "failed", "{\"error\":\"${note.sanitize()}\"}")
-                        learner?.observe(step.toolId + "." + step.action, false, executed.error.code)
-                        val msg = "ทำไม่สำเร็จครับ: $note"
-                        conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
-                        return Outcome.Success(
-                            OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, msg)), taskId),
-                        )
+                        when (val recovered = recover(ctx, conversationId, index, step, executed.error.code, executed.error.message, attempt, ladder)) {
+                            is RecoverResult.Retry -> {
+                                step = recovered.step
+                                attempt = recovered.attempt
+                                continue@stepLoop
+                            }
+                            is RecoverResult.Replanned -> {
+                                advance = false
+                                break@stepLoop
+                            }
+                            is RecoverResult.Stop -> return recovered.outcome
+                        }
                     }
                     is Outcome.Success -> {
-                        observations.add(
+                        ctx.observations.add(
                             StepObservation(step.id, executed.value.ok, executed.value.output, attempt),
                         )
-                        outputs.add(executed.value)
+                        if (!executed.value.ok && rePlanner != null) {
+                            val diag = PlanDiagnoser.diagnose(
+                                step.toolId, step.action, "", executed.value.error, attempt, step.args,
+                            )
+                            when (val recovered = recover(ctx, conversationId, index, step, "", executed.value.error, attempt, null, diag)) {
+                                is RecoverResult.Retry -> {
+                                    step = recovered.step
+                                    attempt = recovered.attempt
+                                    continue@stepLoop
+                                }
+                                is RecoverResult.Replanned -> {
+                                    advance = false
+                                    break@stepLoop
+                                }
+                                is RecoverResult.Stop -> return recovered.outcome
+                            }
+                        }
+                        ctx.outputs.add(executed.value)
+                        ctx.executed.add(ExecutedStep(step, executed.value))
                         learner?.observe(step.toolId + "." + step.action, executed.value.ok)
-                        break
+                        break@stepLoop
                     }
                 }
             }
+            if (advance) index++
         }
+        return StepOutcome.Done
+    }
 
-        val verified = verifier.verify(outputs)
-        if (verified is Outcome.Failure) {
-            tasks.fail(taskId, verified.error.message)
-            val msg = "ตรวจผลไม่ผ่าน: ${verified.error.message}"
-            conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
-            return Outcome.Success(
-                OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, msg)), taskId),
+    /**
+     * CP-148 recovery: explicit policy stops (Escalate/Abort/RestoreLatest)
+     * still stop; everything else goes through Diagnose → Correct → retry/replan/park.
+     */
+    private suspend fun recover(
+        ctx: StepRun,
+        conversationId: String,
+        index: Int,
+        step: PlanStep,
+        code: String,
+        message: String,
+        attempt: Int,
+        ladder: RecoveryStep?,
+        diag: Diagnosis = PlanDiagnoser.diagnose(step.toolId, step.action, code, message, attempt, step.args),
+    ): RecoverResult {
+        if (ladder is RecoveryStep.Escalate || ladder is RecoveryStep.Abort || ladder is RecoveryStep.RestoreLatest) {
+            return RecoverResult.Stop(failTask(ctx, conversationId, ladderNote(ladder, message), step, code))
+        }
+        return when (diag.action) {
+            FailureAction.HANDOFF_AUTH -> RecoverResult.Stop(parkHandoff(ctx, conversationId, index))
+            FailureAction.ABORT -> RecoverResult.Stop(failTask(ctx, conversationId, diag.hint, step, code))
+            FailureAction.RETRY -> RecoverResult.Retry(step, attempt + 1)
+            FailureAction.FIX_AND_RETRY -> {
+                if (attempt >= 1) {
+                    tryReplan(ctx, conversationId, index, step, diag)
+                } else {
+                    val fixed = step.copy(args = diag.fixedArgs)
+                    ctx.steps[index] = fixed
+                    RecoverResult.Retry(fixed, attempt + 1)
+                }
+            }
+            FailureAction.REPLAN -> tryReplan(ctx, conversationId, index, step, diag)
+        }
+    }
+
+    private suspend fun tryReplan(
+        ctx: StepRun,
+        conversationId: String,
+        index: Int,
+        failedStep: PlanStep?,
+        diag: Diagnosis,
+    ): RecoverResult {
+        if (ctx.replansUsed >= maxReplans) {
+            val msg = "วางแผนใหม่ครบ $maxReplans ครั้งแล้ว: ${diag.hint}"
+            val step = failedStep ?: ctx.steps.getOrNull(index) ?: PlanStep("unknown", "task", "run")
+            return RecoverResult.Stop(failTask(ctx, conversationId, msg, step, "REPLAN_EXHAUSTED"))
+        }
+        val planner = rePlanner ?: return RecoverResult.Stop(
+            failTask(ctx, conversationId, diag.hint, failedStep ?: PlanStep("unknown", "task", "run"), "NO_REPLANNER"),
+        )
+        return when (val rp = planner.replan(ReplanRequest(ctx.goal, ctx.executed.toList(), failedStep, diag, ctx.replansUsed + 1))) {
+            is Outcome.Failure -> {
+                val step = failedStep ?: ctx.steps.getOrNull(index) ?: PlanStep("unknown", "task", "run")
+                RecoverResult.Stop(failTask(ctx, conversationId, "วางแผนใหม่ไม่สำเร็จ: ${rp.error.message}", step, rp.error.code))
+            }
+            is Outcome.Success -> {
+                ctx.steps = (ctx.steps.take(index) + rp.value.steps).toMutableList()
+                ctx.replansUsed++
+                conversations.appendMessage(
+                    conversationId, MessageRole.STATUS,
+                    "🔄 วางแผนใหม่ (ครั้งที่ ${ctx.replansUsed}/$maxReplans): ${diag.hint}",
+                )
+                RecoverResult.Replanned
+            }
+        }
+    }
+
+    /** CP-148 (spec §31): park the task; the user logs in; "ทำต่อ" resumes. */
+    private suspend fun parkHandoff(ctx: StepRun, conversationId: String, index: Int): StepOutcome {
+        tasks.transition(ctx.taskId, TaskState.WAITING_USER, "waiting for user login")
+        val remaining = ctx.steps.drop(index)
+        checkpoints.save(
+            ctx.taskId, "handoff",
+            "{\"remaining\":${remaining.size},\"goal\":\"${ctx.goal.take(120).sanitize()}\"}",
+        )
+        pendingHandoffs[conversationId] = HandoffState(
+            ctx.taskId, ctx.goal, remaining,
+            ctx.executed.toList(), ctx.outputs.toList(), ctx.observations.toList(), ctx.replansUsed,
+        )
+        agentMemory?.taskNote(ctx.taskId, "⏸ รอล็อกอิน (เหลือ ${remaining.size} ขั้นตอน)")
+        val msg = "🔐 ต้องล็อกอินก่อนครับ (เหลือ ${remaining.size} ขั้นตอน) — ล็อกอินเสร็จแล้วพิมพ์ \"ทำต่อ\" ได้เลย"
+        conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
+        return StepOutcome.Parked(msg)
+    }
+
+    private suspend fun resumeHandoff(conversationId: String, handoff: HandoffState): Outcome<OrchestratorReply> {
+        tasks.transition(handoff.taskId, TaskState.RUNNING, "user resumed after login")
+        conversations.appendMessage(conversationId, MessageRole.STATUS, "👍 ล็อกอินเสร็จแล้ว ทำต่อครับ")
+        val ctx = StepRun(
+            handoff.taskId, handoff.goal, handoff.remaining.toMutableList(),
+            handoff.executed.toMutableList(), handoff.outputs.toMutableList(),
+            handoff.observations.toMutableList(), handoff.replansUsed,
+        )
+        return when (val outcome = runSteps(ctx, conversationId)) {
+            is StepOutcome.Parked -> Outcome.Success(
+                OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, outcome.msg)), handoff.taskId),
             )
+            is StepOutcome.Failed -> Outcome.Success(
+                OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, outcome.msg)), handoff.taskId),
+            )
+            is StepOutcome.Done -> finishTask(conversationId, ctx)
+        }
+    }
+
+    private suspend fun failTask(
+        ctx: StepRun,
+        conversationId: String,
+        note: String,
+        step: PlanStep,
+        code: String,
+    ): StepOutcome {
+        tasks.fail(ctx.taskId, note)
+        checkpoints.save(ctx.taskId, "failed", "{\"error\":\"${note.sanitize()}\"}")
+        learner?.observe(step.toolId + "." + step.action, false, code)
+        agentMemory?.taskNote(ctx.taskId, "❌ $note")
+        val msg = "ทำไม่สำเร็จครับ: $note"
+        conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
+        return StepOutcome.Failed(msg)
+    }
+
+    private fun ladderNote(ladder: RecoveryStep?, fallback: String): String = when (ladder) {
+        is RecoveryStep.Repair -> "ต้องวางแผนใหม่: ${ladder.hint}"
+        is RecoveryStep.SwitchEngine -> "ต้องสลับเครื่องมือ ${ladder.fromCapability} → ${ladder.toCapability}"
+        is RecoveryStep.RestoreLatest -> "ต้องย้อน checkpoint: ${ladder.reason}"
+        is RecoveryStep.Escalate -> ladder.reason
+        is RecoveryStep.Abort -> ladder.reason
+        else -> fallback
+    }
+
+    private suspend fun finishTask(conversationId: String, ctx: StepRun): Outcome<OrchestratorReply> {
+        // CP-148: verify-fail also gets a bounded replan budget (spec §34).
+        if (rePlanner != null) {
+            while (true) {
+                val failed = verifier.verify(ctx.outputs) as? Outcome.Failure ?: break
+                if (ctx.replansUsed >= maxReplans) {
+                    val msg = "ตรวจผลไม่ผ่าน: ${failed.error.message}"
+                    tasks.fail(ctx.taskId, msg)
+                    conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
+                    return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, msg)), ctx.taskId))
+                }
+                val diag = PlanDiagnoser.diagnose("verify", "verify", "VERIFY_FAILED", failed.error.message, ctx.replansUsed)
+                // Replan FIRST so a handoff parks fresh remaining steps (resume re-executes them).
+                val freshSteps: List<PlanStep>
+                when (val rp = rePlanner.replan(ReplanRequest(ctx.goal, ctx.executed.toList(), null, diag, ctx.replansUsed + 1))) {
+                    is Outcome.Failure -> {
+                        val msg = "ตรวจผลไม่ผ่าน: ${failed.error.message} (วางแผนใหม่ไม่สำเร็จ: ${rp.error.message})"
+                        tasks.fail(ctx.taskId, msg)
+                        conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
+                        return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, msg)), ctx.taskId))
+                    }
+                    is Outcome.Success -> freshSteps = rp.value.steps
+                }
+                ctx.steps.addAll(freshSteps)
+                ctx.replansUsed++
+                conversations.appendMessage(
+                    conversationId, MessageRole.STATUS,
+                    "🔄 วางแผนใหม่ (ครั้งที่ ${ctx.replansUsed}/$maxReplans): ${diag.hint}",
+                )
+                if (diag.action == FailureAction.HANDOFF_AUTH) {
+                    val parked = parkHandoff(ctx, conversationId, ctx.steps.size - freshSteps.size)
+                    return Outcome.Success(
+                        OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, (parked as StepOutcome.Parked).msg)), ctx.taskId),
+                    )
+                }
+                val resumeAt = ctx.steps.size - freshSteps.size
+                when (val again = runSteps(ctx, conversationId, resumeAt)) {
+                    is StepOutcome.Done -> Unit // loop back to verify
+                    else -> return Outcome.Success(
+                        OrchestratorReply(
+                            listOf(ReplyMessage(MessageRole.STATUS, (again as? StepOutcome.Failed)?.msg ?: (again as StepOutcome.Parked).msg)),
+                            ctx.taskId,
+                        ),
+                    )
+                }
+            }
+        } else {
+            val verified = verifier.verify(ctx.outputs)
+            if (verified is Outcome.Failure) {
+                tasks.fail(ctx.taskId, verified.error.message)
+                val msg = "ตรวจผลไม่ผ่าน: ${verified.error.message}"
+                conversations.appendMessage(conversationId, MessageRole.STATUS, msg)
+                return Outcome.Success(
+                    OrchestratorReply(listOf(ReplyMessage(MessageRole.STATUS, msg)), ctx.taskId),
+                )
+            }
         }
 
-        checkpoints.save(taskId, "done", "{\"steps\":${outputs.size}}")
-        tasks.transition(taskId, TaskState.VERIFYING, "verified")
-        tasks.transition(taskId, TaskState.COMPLETED, "done")
+        checkpoints.save(ctx.taskId, "done", "{\"steps\":${ctx.outputs.size}}")
+        tasks.transition(ctx.taskId, TaskState.VERIFYING, "verified")
+        tasks.transition(ctx.taskId, TaskState.COMPLETED, "done")
 
-        val warnings = plan.steps.mapNotNull {
-            learner?.flakyWarning(it.toolId + "." + it.action)
+        val warnings = ctx.executed.mapNotNull {
+            learner?.flakyWarning(it.step.toolId + "." + it.step.action)
         }.distinct()
         val summary = buildString {
-            appendLine("เสร็จแล้วครับ (${outputs.size} ขั้นตอน, สังเกต ${observations.size} ครั้ง):")
-            outputs.forEach { appendLine("• ${it.output.take(300)}") }
+            appendLine("เสร็จแล้วครับ (${ctx.outputs.size} ขั้นตอน, สังเกต ${ctx.observations.size} ครั้ง):")
+            ctx.outputs.forEach { appendLine("• ${it.output.take(300)}") }
             warnings.forEach { appendLine(it) }
-            if (outputs.any { PromptGuard.containsInjectionAttempt(it.output + "\n" + it.error) }) {
+            if (ctx.outputs.any { PromptGuard.containsInjectionAttempt(it.output + "\n" + it.error) }) {
                 appendLine("⚠️ [SECURITY] พบรูปแบบคำสั่งแฝงในผลลัพธ์ — ถือเป็นข้อมูลเท่านั้น ไม่ได้ปฏิบัติตาม")
             }
         }.trim()
+        agentMemory?.taskNote(ctx.taskId, "✅ ${ctx.goal.take(80)} → ${ctx.outputs.size} ขั้นตอน")
         conversations.appendMessage(conversationId, MessageRole.AI, summary)
-        return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.AI, summary)), taskId))
+        return Outcome.Success(OrchestratorReply(listOf(ReplyMessage(MessageRole.AI, summary)), ctx.taskId))
     }
 
     private fun String.sanitize(): String = replace("\"", "'").replace("\n", " ")
