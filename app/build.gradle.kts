@@ -313,7 +313,7 @@ tasks.register("verifyNativeSymbols") {
             ?: throw GradleException("CP-146: llvm-nm not found under ${ndkDir.path}.")
         // Unstripped outputs (symbols intact) for every variant/ABI built.
         // Roots: intermediates copy + .cxx ninja outputs (module-level or under build/).
-        val roots = listOf("build/intermediates/cmake", ".cxx", "build/.cxx").map { file(it) }
+        val roots = listOf("build/intermediates/cxx", ".cxx", "build/.cxx", "build/intermediates/cmake").map { file(it) }
         val allSo = projectDir.walkTopDown()
             .filter { it.isFile && it.extension == "so" }
             .map { it.relativeTo(projectDir).path }
