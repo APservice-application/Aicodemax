@@ -42,6 +42,7 @@ import com.aicodemax.tools.render.CodecInfo
 import com.aicodemax.tools.render.FileRenderQueue
 import com.aicodemax.tools.render.GpuReport
 import com.aicodemax.tools.render.Qc
+import com.aicodemax.tools.render.RenderAudio
 import com.aicodemax.tools.render.RenderJob
 import com.aicodemax.tools.render.RenderPort
 import com.aicodemax.tools.render.RenderPreset
@@ -59,15 +60,16 @@ import kotlinx.coroutines.withContext
  * Two paths:
  * - fast: a single full-quality video clip is stream-copied (no quality loss);
  * - full: multi-clip concat via decode → scale → AVC encode (≤ preset height,
- *   30fps), stills as repeated frames, A-track clips mixed to AAC.
+ *   30fps), stills as repeated frames, video-native audio and A-track clips
+ *   mixed together as AAC in bounded source/output windows.
  *
- * Honest v0 limits: video-clip audio is skipped in the full path (noted on
- * the job), audio mixes cap at 3 min, no mid-render cancel.
+ * Honest v0 limits: full audio mixes cap at 3 min (preflight), no mid-render
+ * cancel; fast-copy may render a longer unmodified single clip.
  */
 class AndroidRenderPort(
     private val media: MediaProjectPort,
     private val mediaRoot: File,
-    private val decodeAudio: (String) -> Outcome<PcmAudio>,
+    private val decodeAudio: (String, Long, Long) -> Outcome<PcmAudio>,
     private val video: VideoPort,
     private val appContext: Context,
 ) : RenderPort {
@@ -226,6 +228,11 @@ class AndroidRenderPort(
                 }
                 val plan = planRender(project, assets, job)
                     ?: return@withContext fail(current, planError(project, assets))
+                // Do not spend minutes encoding video before discovering the
+                // current full-mix length limit. Fast-copy does not need PCM.
+                if (!plan.fast && plan.wantAudio && plan.timeline.durationMs > 180_000) {
+                    return@withContext fail(current, "เสียงยาวเกิน 3 นาทีในทางเรนเดอร์เต็ม (ขีดจำกัดปัจจุบัน)")
+                }
                 progress(5)
                 val outPath = File(outDir, "${job.id}.mp4").path
                 val notes = mutableListOf<String>()
@@ -359,6 +366,21 @@ class AndroidRenderPort(
         val bgFile: File? = null,
     )
 
+    /** Probe native tracks, including MP4 files whose moov atom is past the fast-probe window. */
+    private fun hasAudioTrack(path: String): Boolean? {
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(path)
+            (0 until extractor.trackCount).any { index ->
+                (extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME) ?: "").startsWith("audio/")
+            }
+        } catch (_: Exception) {
+            null // Never silently export a possibly-audible video as mute.
+        } finally {
+            extractor.release()
+        }
+    }
+
     private suspend fun planRender(project: Project, assets: List<MediaAsset>, job: RenderJob): RenderPlan? {
         val timeline = project.timeline
         val byId = assets.associateBy { it.id }
@@ -381,14 +403,29 @@ class AndroidRenderPort(
             }
         }
         if (videoSegs.isEmpty()) return null
-        // Probe video dims for scaling decisions.
+        // Probe dimensions and native audio once per video asset. The same
+        // media asset may be split into many timeline clips.
+        val probeCache = mutableMapOf<String, com.aicodemax.tools.video.VideoInfo>()
+        val audioTrackCache = mutableMapOf<String, Boolean>()
+        val videoHasAudio = mutableMapOf<String, Boolean>()
         val probed = videoSegs.map { seg ->
             if (seg.kind != MediaKind.VIDEO) return@map seg
-            when (val info = video.info(seg.file.path)) {
+            val info = probeCache[seg.file.path] ?: when (val found = video.info(seg.file.path)) {
                 is Outcome.Failure -> return null
-                is Outcome.Success -> seg.copy(width = info.value.width, height = info.value.height)
+                is Outcome.Success -> found.value.also { probeCache[seg.file.path] = it }
             }
+            if (job.preset.includeAudio) {
+                // VideoInfo may come from a partial MP4 probe; MediaExtractor
+                // is authoritative for native audio presence on this device.
+                val native = audioTrackCache[seg.file.path] ?: hasAudioTrack(seg.file.path)
+                    ?.also { audioTrackCache[seg.file.path] = it } ?: return null
+                videoHasAudio[seg.clip.assetId] = native
+            }
+            seg.copy(width = info.width, height = info.height)
         }
+        val byClipId = (audioSegs + probed.filter { it.kind == MediaKind.VIDEO }).associateBy { it.clip.id }
+        val chosenAudio = RenderAudio.selectedClips(timeline, job.preset.includeAudio, videoHasAudio)
+            .mapNotNull { byClipId[it.id] }
         val single = probed.singleOrNull()
         val singleKeys = single?.clip?.keyframes
         val singleFx = single?.clip?.fx
@@ -401,7 +438,7 @@ class AndroidRenderPort(
             asset?.let { File(File(mediaRoot, "${project.id}/assets"), it.fileName).takeIf { f -> f.isFile } }
         }
         val fast = single != null && single.kind == MediaKind.VIDEO &&
-            audioSegs.isEmpty() && single.clip.volume == 100 &&
+            RenderAudio.canFastCopy(single.clip, chosenAudio.map { it.clip }) &&
             single.clip.atMs == 0L &&
             (single.transform == null || single.transform.isIdentity) &&
             single.height in 1..job.preset.maxHeight &&
@@ -418,8 +455,8 @@ class AndroidRenderPort(
         return RenderPlan(
             timeline = timeline,
             segments = probed.sortedBy { it.clip.atMs },
-            audioClips = audioSegs,
-            wantAudio = audioSegs.isNotEmpty(),
+            audioClips = chosenAudio,
+            wantAudio = chosenAudio.isNotEmpty(),
             fast = fast,
             texts = timeline.texts,
             bgFile = bgFile,
@@ -453,11 +490,14 @@ class AndroidRenderPort(
                     val startUs = seg.clip.startMs * 1000
                     val endUs = seg.clip.endMs * 1000
                     val indexMap = mutableMapOf<Int, Int>()
+                    var audioIncluded = false
                     for (i in 0 until ext.trackCount) {
                         val format = ext.getTrackFormat(i)
                         val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
-                        if (mime.startsWith("video/") || mime.startsWith("audio/")) {
+                        val copyAudio = plan.wantAudio && !audioIncluded && mime.startsWith("audio/")
+                        if (mime.startsWith("video/") || copyAudio) {
                             indexMap[i] = muxer.addTrack(format)
+                            if (copyAudio) audioIncluded = true
                         }
                     }
                     if (indexMap.isEmpty()) {
@@ -534,8 +574,9 @@ class AndroidRenderPort(
                 outH = preset.maxHeight and 1.inv()
                 outW = (preset.maxHeight * 16 / 9) and 1.inv()
             }
-            if (plan.segments.any { it.kind == MediaKind.VIDEO } && plan.audioClips.isEmpty()) {
-                notes += "ข้ามเสียงจากคลิปวิดีโอ (v0 รองรับเสียงจากแทร็ก A1/A2 เท่านั้น)"
+            val nativeAudioCount = plan.audioClips.count { it.kind == MediaKind.VIDEO }
+            if (nativeAudioCount > 0) {
+                notes += "ผสมเสียงต้นฉบับจากคลิปวิดีโอ $nativeAudioCount คลิปกับแทร็กเสียงอื่น"
             }
             val colorFormat = pickEncoderColorFormat()
                 ?: return@withContext Outcome.Failure(AppError("RENDER_CODEC", "เครื่องนี้เข้ารหัสวิดีโอแบบ CPU ไม่ได้"))
@@ -599,9 +640,40 @@ class AndroidRenderPort(
             try {
                 encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                 encoder.start()
+                muxer = MediaMuxer(dst, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+                val encInfo = MediaCodec.BufferInfo()
+                var sawEos = false
+                fun drain(waitForOutput: Boolean): Boolean {
+                    var didWork = false
+                    while (true) {
+                        val index = encoder.dequeueOutputBuffer(encInfo, if (waitForOutput) 10_000 else 0)
+                        when {
+                            index == MediaCodec.INFO_TRY_AGAIN_LATER -> return didWork
+                            index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                                check(!muxStarted) { "วิดีโอ encoder เปลี่ยนรูปแบบกลางคลิป" }
+                                trackIndex = muxer!!.addTrack(encoder.outputFormat)
+                                muxer!!.start()
+                                muxStarted = true
+                            }
+                            index >= 0 -> {
+                                val buffer = encoder.getOutputBuffer(index)
+                                if (encInfo.size > 0 && muxStarted && buffer != null &&
+                                    encInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
+                                ) {
+                                    muxer!!.writeSampleData(trackIndex, buffer, encInfo)
+                                }
+                                if (encInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) sawEos = true
+                                encoder.releaseOutputBuffer(index, false)
+                            }
+                            else -> return didWork
+                        }
+                        didWork = true
+                        if (waitForOutput || sawEos) return didWork
+                    }
+                }
                 var ptsUs = 0L
                 val feed = fun(yuv: ByteArray) {
-                    feedEncoder(encoder, yuv, ptsUs)
+                    feedEncoder(encoder, yuv, ptsUs, ::drain)
                     ptsUs += frameStepUs
                 }
                 val total = plan.segments.size
@@ -626,37 +698,24 @@ class AndroidRenderPort(
                     if (last != null) tails[seg.trackId] = last
                     progress(5 + 70 * (index + 1) / total.coerceAtLeast(1))
                 }
-                // Encoder EOS + drain.
-                var fed = false
-                while (!fed) {
-                    val inIndex = encoder.dequeueInputBuffer(10_000)
-                    if (inIndex >= 0) {
-                        encoder.queueInputBuffer(inIndex, 0, 0, ptsUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                        fed = true
+                // Feed EOS only after the last frame, draining a backed-up
+                // codec output queue while waiting for the final input slot.
+                var fedEos = false
+                var lastProgress = System.currentTimeMillis()
+                while (!fedEos) {
+                    val index = encoder.dequeueInputBuffer(10_000)
+                    if (index >= 0) {
+                        encoder.queueInputBuffer(index, 0, 0, ptsUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                        fedEos = true
+                    } else if (drain(true)) {
+                        lastProgress = System.currentTimeMillis()
                     }
+                    check(System.currentTimeMillis() - lastProgress < 30_000) { "วิดีโอ encoder ไม่รับ EOS" }
                 }
-                muxer = MediaMuxer(dst, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-                val encInfo = android.media.MediaCodec.BufferInfo()
-                var sawEos = false
+                lastProgress = System.currentTimeMillis()
                 while (!sawEos) {
-                    val outIndex = encoder.dequeueOutputBuffer(encInfo, 10_000)
-                    when {
-                        outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                            trackIndex = muxer.addTrack(encoder.outputFormat)
-                            muxer.start()
-                            muxStarted = true
-                        }
-                        outIndex >= 0 -> {
-                            val encoded = encoder.getOutputBuffer(outIndex)
-                            if (encInfo.size > 0 && muxStarted && encoded != null &&
-                                encInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
-                            ) {
-                                muxer.writeSampleData(trackIndex, encoded, encInfo)
-                            }
-                            if (encInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) sawEos = true
-                            encoder.releaseOutputBuffer(outIndex, false)
-                        }
-                    }
+                    if (drain(true)) lastProgress = System.currentTimeMillis()
+                    check(System.currentTimeMillis() - lastProgress < 30_000) { "วิดีโอ encoder หยุดตอบสนอง" }
                 }
             } finally {
                 try {
@@ -2148,21 +2207,22 @@ class AndroidRenderPort(
         return null
     }
 
-    private fun feedEncoder(encoder: MediaCodec, yuv: ByteArray, ptsUs: Long) {
-        var fed = false
-        while (!fed) {
-            val inIndex = encoder.dequeueInputBuffer(10_000)
-            if (inIndex >= 0) {
-                val buf = encoder.getInputBuffer(inIndex)
-                if (buf != null && buf.remaining() >= yuv.size) {
-                    buf.clear()
-                    buf.put(yuv)
-                    encoder.queueInputBuffer(inIndex, 0, yuv.size, ptsUs, 0)
-                } else {
-                    encoder.queueInputBuffer(inIndex, 0, 0, ptsUs, 0)
-                }
-                fed = true
+    private fun feedEncoder(encoder: MediaCodec, yuv: ByteArray, ptsUs: Long, drain: (Boolean) -> Boolean) {
+        val deadline = System.currentTimeMillis() + 30_000L
+        while (true) {
+            val index = encoder.dequeueInputBuffer(10_000)
+            if (index >= 0) {
+                val buffer = encoder.getInputBuffer(index)
+                    ?: throw IllegalStateException("วิดีโอ encoder ไม่มี input buffer")
+                buffer.clear()
+                check(buffer.remaining() >= yuv.size) { "วิดีโอ encoder input buffer เล็กกว่าเฟรม" }
+                buffer.put(yuv)
+                encoder.queueInputBuffer(index, 0, yuv.size, ptsUs, 0)
+                drain(false)
+                return
             }
+            drain(true) // Free output buffers before asking for more input.
+            check(System.currentTimeMillis() < deadline) { "วิดีโอ encoder หยุดตอบสนอง" }
         }
     }
 
@@ -2189,119 +2249,37 @@ class AndroidRenderPort(
 
     private fun mixAndEncodeAudio(plan: RenderPlan, dst: String): Outcome<Unit> {
         val totalMs = plan.timeline.durationMs
-        if (totalMs > 180_000) {
-            return Outcome.Failure(AppError("RENDER_AUDIO", "เสียงยาวเกิน 3 นาที (ขีดจำกัด v0)"))
+        if (totalMs <= 0 || totalMs > 180_000) {
+            return Outcome.Failure(AppError("RENDER_AUDIO", "ผสมเสียงได้เฉพาะไทม์ไลน์ 0–3 นาทีในรุ่นนี้"))
         }
         val rate = 44_100
-        val frames = ((totalMs * rate) / 1000).toInt().coerceAtLeast(rate)
-        val mix = FloatArray(frames * 2)
-        for (seg in plan.audioClips) {
-            when (val decoded = decodeAudio(seg.file.path)) {
-                is Outcome.Failure -> return Outcome.Failure(
-                    AppError("RENDER_AUDIO", "ถอดเสียง ${seg.file.name} ไม่ได้: ${decoded.error.message}"),
-                )
-                is Outcome.Success -> {
-                    val stereo = toStereo44100(decoded.value, rate)
-                    val startFrame = ((seg.clip.startMs * rate) / 1000).toInt().coerceIn(0, stereo.frames)
-                    val endFrame = ((seg.clip.endMs * rate) / 1000).toInt().coerceIn(startFrame, stereo.frames)
-                    val atFrame = ((seg.clip.atMs * rate) / 1000).toInt()
-                    val gain = seg.clip.volume / 100.0f
-                    val fadeIn = seg.clip.transitionIn?.takeUnless { it.kind == "cut" }?.durationMs ?: 0L
-                    val fadeOut = seg.clip.transitionOut?.takeUnless { it.kind == "cut" }?.durationMs ?: 0L
-                    mixAudioSlice(mix, frames, stereo, startFrame, endFrame, atFrame, gain, seg.speed, seg.clip.keyframes?.takeUnless { it.points("volume").isEmpty() }, fadeIn, fadeOut)
+        val totalFrames = (totalMs * rate / 1000).toInt().coerceAtLeast(1)
+        return encodeAac(totalFrames, rate, dst) { first, count ->
+            val mix = FloatArray(count * 2)
+            val startMs = first * 1000.0 / rate
+            val endMs = (first + count) * 1000.0 / rate
+            for (seg in plan.audioClips) {
+                val window = RenderAudio.sourceRange(seg.clip, startMs, endMs) ?: continue
+                when (val decoded = decodeAudio(seg.file.path, window.startMs, window.endMs)) {
+                    is Outcome.Failure -> return@encodeAac Outcome.Failure(
+                        AppError("RENDER_AUDIO", "ถอดเสียง ${seg.file.name} ไม่ได้: ${decoded.error.message}"),
+                    )
+                    is Outcome.Success -> RenderAudio.mixChunk(
+                        mix, first.toLong(), rate, seg.clip, decoded.value, window.startMs,
+                    )
                 }
             }
-        }
-        return encodeAac(mix, rate, dst)
-    }
-
-    /**
-     * CP-75: mixes one audio slice with optional speed (rate/reverse/curve).
-     * Curves walk the normalized profile incrementally (O(n), linear interp).
-     */
-    private fun mixAudioSlice(
-        mix: FloatArray,
-        mixFrames: Int,
-        stereo: PcmAudio,
-        startFrame: Int,
-        endFrame: Int,
-        atFrame: Int,
-        gain: Float,
-        speed: ClipSpeed?,
-        volKeys: ClipKeyframes? = null,
-        fadeInMs: Long = 0,
-        fadeOutMs: Long = 0,
-    ) {
-        fun volGain(outMs: Long): Float =
-            volKeys?.valueAt("volume", outMs)?.div(100f) ?: 1f
-        fun fadeGain(outMs: Double, totalMs: Double): Float {
-            var f = 1f
-            if (fadeInMs > 0) f *= (outMs / fadeInMs).toFloat().coerceIn(0f, 1f)
-            if (fadeOutMs > 0) f *= ((totalMs - outMs) / fadeOutMs).toFloat().coerceIn(0f, 1f)
-            return f
-        }
-        val stepMs = 1000.0 / stereo.sampleRate
-        if (speed == null) {
-            val totalMs = (endFrame - startFrame) * stepMs
-            var s = startFrame
-            var d = atFrame
-            while (s < endFrame && d < mixFrames) {
-                val outMs = (d - atFrame) * stepMs
-                val g = gain * volGain(outMs.toLong()) * fadeGain(outMs, totalMs)
-                mix[d * 2] += stereo.samples[s * 2] * g
-                mix[d * 2 + 1] += stereo.samples[s * 2 + 1] * g
-                s += 1
-                d += 1
-            }
-            return
-        }
-        val sliceLen = (endFrame - startFrame).coerceAtLeast(1)
-        val outLen = (sliceLen * 100 / speed.rate).coerceAtLeast(1)
-        val prof = speed.profile()
-        var srcMs = 0.0
-        var o = 0
-        var d = atFrame
-        while (o < outLen && d < mixFrames) {
-            val permill = ((o.toLong() * 1000) / outLen).toInt().coerceIn(0, 1000)
-            srcMs += prof[permill] * stepMs
-            var f = startFrame + srcMs * stereo.sampleRate / 1000.0
-            if (speed.reverse) f = endFrame - (f - startFrame)
-            val clamped = f.coerceIn(startFrame.toDouble(), (endFrame - 1).coerceAtLeast(startFrame).toDouble())
-            val i0 = clamped.toInt()
-            val i1 = (i0 + 1).coerceAtMost((endFrame - 1).coerceAtLeast(startFrame))
-            val frac = (clamped - i0).toFloat()
-            val l = stereo.samples[i0 * 2] * (1 - frac) + stereo.samples[i1 * 2] * frac
-            val r = stereo.samples[i0 * 2 + 1] * (1 - frac) + stereo.samples[i1 * 2 + 1] * frac
-            val g = gain * volGain((o * stepMs).toLong()) * fadeGain(o * stepMs, outLen * stepMs)
-            mix[d * 2] += l * g
-            mix[d * 2 + 1] += r * g
-            o += 1
-            d += 1
+            Outcome.Success(mix)
         }
     }
 
-    private fun toStereo44100(pcm: PcmAudio, rate: Int): PcmAudio {
-        val stereo = if (pcm.channels == 2) {
-            pcm.samples
-        } else {
-            FloatArray(pcm.frames * 2) { i -> pcm.samples[i / 2] }
-        }
-        if (pcm.sampleRate == rate) return PcmAudio(rate, 2, stereo)
-        val ratio = pcm.sampleRate.toDouble() / rate
-        val outFrames = (pcm.frames / ratio).toInt().coerceAtLeast(1)
-        val out = FloatArray(outFrames * 2)
-        for (i in 0 until outFrames) {
-            val pos = i * ratio
-            val a = pos.toInt().coerceIn(0, pcm.frames - 1)
-            val b = (a + 1).coerceIn(0, pcm.frames - 1)
-            val f = (pos - a).toFloat()
-            out[i * 2] = stereo[a * 2] * (1 - f) + stereo[b * 2] * f
-            out[i * 2 + 1] = stereo[a * 2 + 1] * (1 - f) + stereo[b * 2 + 1] * f
-        }
-        return PcmAudio(rate, 2, out)
-    }
-
-    private fun encodeAac(mix: FloatArray, rate: Int, dst: String): Outcome<Unit> {
+    /** Interleave codec input and output; never fill its input queue without draining. */
+    private fun encodeAac(
+        totalFrames: Int,
+        rate: Int,
+        dst: String,
+        renderChunk: (Int, Int) -> Outcome<FloatArray>,
+    ): Outcome<Unit> {
         var muxer: MediaMuxer? = null
         var muxStarted = false
         try {
@@ -2313,60 +2291,82 @@ class AndroidRenderPort(
             try {
                 encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                 encoder.start()
-                val chunkFrames = 2048
-                val totalFrames = mix.size / 2
-                var frame = 0
-                var fedEos = false
-                while (!fedEos) {
-                    val inIndex = encoder.dequeueInputBuffer(10_000)
-                    if (inIndex >= 0) {
-                        val buf = encoder.getInputBuffer(inIndex)!!
-                        buf.clear()
-                        val take = (totalFrames - frame).coerceAtMost(chunkFrames)
-                        if (take <= 0) {
-                            val pts = frame * 1_000_000L / rate
-                            encoder.queueInputBuffer(inIndex, 0, 0, pts, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                            fedEos = true
-                        } else {
-                            for (i in 0 until take) {
-                                buf.putShort((mix[(frame + i) * 2].coerceIn(-1f, 1f) * 32767).toInt().toShort())
-                                buf.putShort((mix[(frame + i) * 2 + 1].coerceIn(-1f, 1f) * 32767).toInt().toShort())
-                            }
-                            val pts = frame * 1_000_000L / rate
-                            encoder.queueInputBuffer(inIndex, 0, take * 4, pts, 0)
-                            frame += take
-                        }
-                    }
-                }
                 muxer = MediaMuxer(dst, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
                 var trackIndex = -1
-                val info = android.media.MediaCodec.BufferInfo()
+                val info = MediaCodec.BufferInfo()
                 var sawEos = false
-                while (!sawEos) {
-                    val outIndex = encoder.dequeueOutputBuffer(info, 10_000)
-                    when {
-                        outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                            trackIndex = muxer.addTrack(encoder.outputFormat)
-                            muxer.start()
-                            muxStarted = true
-                        }
-                        outIndex >= 0 -> {
-                            val encoded = encoder.getOutputBuffer(outIndex)
-                            if (info.size > 0 && muxStarted && encoded != null &&
-                                info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
-                            ) {
-                                muxer.writeSampleData(trackIndex, encoded, info)
+                fun drain(waitForOutput: Boolean): Boolean {
+                    var didWork = false
+                    while (true) {
+                        val index = encoder.dequeueOutputBuffer(info, if (waitForOutput) 10_000 else 0)
+                        when {
+                            index == MediaCodec.INFO_TRY_AGAIN_LATER -> return didWork
+                            index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                                check(!muxStarted) { "AAC เปลี่ยนรูปแบบกลางคลิป" }
+                                trackIndex = muxer!!.addTrack(encoder.outputFormat)
+                                muxer!!.start()
+                                muxStarted = true
                             }
-                            if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) sawEos = true
-                            encoder.releaseOutputBuffer(outIndex, false)
+                            index >= 0 -> {
+                                val buffer = encoder.getOutputBuffer(index)
+                                if (info.size > 0 && muxStarted && buffer != null &&
+                                    info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
+                                ) {
+                                    muxer!!.writeSampleData(trackIndex, buffer, info)
+                                }
+                                if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) sawEos = true
+                                encoder.releaseOutputBuffer(index, false)
+                            }
+                            else -> return didWork
                         }
+                        didWork = true
+                        if (waitForOutput || sawEos) return didWork
                     }
                 }
-            } finally {
-                try {
-                    encoder.stop()
-                } catch (_: Exception) {
+                var frame = 0
+                var chunkStart = 0
+                var chunk = FloatArray(0)
+                var fedEos = false
+                var lastProgress = System.currentTimeMillis()
+                while (!sawEos) {
+                    if (!fedEos) {
+                        val inIndex = encoder.dequeueInputBuffer(10_000)
+                        if (inIndex >= 0) {
+                            val buffer = encoder.getInputBuffer(inIndex)
+                                ?: throw IllegalStateException("AAC ไม่มี input buffer")
+                            buffer.clear()
+                            if (frame >= totalFrames) {
+                                encoder.queueInputBuffer(inIndex, 0, 0, frame * 1_000_000L / rate, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                fedEos = true
+                            } else {
+                                if (frame >= chunkStart + chunk.size / 2) {
+                                    chunkStart = frame
+                                    val count = (totalFrames - frame).coerceAtMost(rate * 5)
+                                    when (val rendered = renderChunk(frame, count)) {
+                                        is Outcome.Failure -> return rendered
+                                        is Outcome.Success -> chunk = rendered.value
+                                    }
+                                    check(chunk.size == count * 2) { "PCM ขนาดไม่ตรงช่วงเรนเดอร์" }
+                                }
+                                val take = minOf(2048, buffer.remaining() / 4, totalFrames - frame,
+                                    chunkStart + chunk.size / 2 - frame)
+                                check(take > 0) { "AAC input buffer ไม่พอสำหรับ stereo PCM" }
+                                for (i in 0 until take) {
+                                    val offset = (frame - chunkStart + i) * 2
+                                    buffer.putShort((chunk[offset].coerceIn(-1f, 1f) * 32767).toInt().toShort())
+                                    buffer.putShort((chunk[offset + 1].coerceIn(-1f, 1f) * 32767).toInt().toShort())
+                                }
+                                encoder.queueInputBuffer(inIndex, 0, take * 4, frame * 1_000_000L / rate, 0)
+                                frame += take
+                            }
+                            lastProgress = System.currentTimeMillis()
+                        }
+                    }
+                    if (drain(fedEos)) lastProgress = System.currentTimeMillis()
+                    check(System.currentTimeMillis() - lastProgress < 30_000) { "AAC encoder หยุดตอบสนอง" }
                 }
+            } finally {
+                try { encoder.stop() } catch (_: Exception) { }
                 encoder.release()
             }
             if (!muxStarted) return Outcome.Failure(AppError("RENDER_AUDIO", "encoder เสียงไม่ให้ข้อมูลออกมา"))
@@ -2374,10 +2374,7 @@ class AndroidRenderPort(
         } catch (e: Exception) {
             return Outcome.Failure(AppError("RENDER_AUDIO", e.message ?: "encode เสียงล้มเหลว"))
         } finally {
-            try {
-                if (muxStarted) muxer?.stop()
-            } catch (_: Exception) {
-            }
+            try { if (muxStarted) muxer?.stop() } catch (_: Exception) { }
             muxer?.release()
         }
     }

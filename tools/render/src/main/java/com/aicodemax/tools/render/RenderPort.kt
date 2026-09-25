@@ -11,8 +11,8 @@ import java.io.File
  *
  * Flow: enqueue → run (transcode + QC + previews) → approve (user) → export.
  * Honest v0 limits: no cancellation mid-render, always renders the latest
- * project state, video-clip audio is skipped in the full transcode path
- * (noted on the job).
+ * project state; full audio mixes currently cap at 3 minutes. Source video
+ * audio is selected explicitly by the render planner, not silently skipped.
  */
 interface RenderPort {
     suspend fun enqueue(projectId: String, presetName: String?): Outcome<RenderJob>
@@ -107,8 +107,8 @@ object Qc {
                 checks += QcCheck("height", v.height <= maxHeight + 2, "${v.height} ≤ $maxHeight")
                 checks += QcCheck(
                     "audio",
-                    if (wantAudio) v.hasAudio else true,
-                    if (wantAudio) "ต้องมีเสียง: ${v.hasAudio}" else "ไม่มีคลิปเสียง",
+                    v.hasAudio == wantAudio,
+                    if (wantAudio) "ต้องมีแทร็กเสียง: ${v.hasAudio}" else "ต้องไม่มีแทร็กเสียง: ${!v.hasAudio}",
                 )
                 if (scopes != null && scopes.pixels > 0) {
                     val broken = scopes.darkPct >= 95.0 || scopes.brightPct >= 95.0

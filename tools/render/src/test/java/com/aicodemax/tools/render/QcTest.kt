@@ -51,6 +51,15 @@ class QcTest {
     }
 
     @Test
+    fun unexpectedAudioFailsSilentPresetAndSilentOutputPasses() = runBlocking {
+        val out = File(temp.root, "silent.mp4").also { it.writeBytes(ByteArray(1_048_576)) }
+        val unexpected = fakeVideo(VideoInfo(out.path, "MP4", 10_000, 1280, 720, hasAudio = true))
+        assertFalse(Qc.check(10_000, false, out.path, 720, unexpected).passed)
+        val silent = fakeVideo(VideoInfo(out.path, "MP4", 10_000, 1280, 720, hasAudio = false))
+        assertTrue(Qc.check(10_000, false, out.path, 720, silent).passed)
+    }
+
+    @Test
     fun oddDimsOrBitrateFails() = runBlocking {
         val out = File(temp.root, "r.mp4").also { it.writeBytes(ByteArray(1024 * 1024)) }
         val odd = fakeVideo(VideoInfo(out.path, "MP4", 10_000, 1281, 720, hasAudio = true))

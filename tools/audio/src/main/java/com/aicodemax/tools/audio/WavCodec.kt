@@ -5,6 +5,7 @@ import com.aicodemax.core.common.Outcome
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.io.RandomAccessFile
 
 /** Pure-JVM WAV PCM read/write (8/16/24/32-bit int + 32-bit float). Runs on Android too. */
 object WavCodec {
@@ -18,6 +19,78 @@ object WavCodec {
             return Outcome.Failure(AppError("AUDIO_READ", "อ่านไฟล์ไม่ได้: ${e.message}"))
         }
         return decode(bytes)
+    }
+
+    /**
+     * Read only [startMs, endMs) from a PCM/float WAV. Unlike [read], this
+     * does not load the entire asset when rendering a short timeline slice.
+     * An empty window beyond EOF returns zero frames (the mixer supplies silence).
+     */
+    fun readRange(file: File, startMs: Long, endMs: Long): Outcome<PcmAudio> {
+        if (!file.isFile) return Outcome.Failure(AppError("AUDIO_NO_FILE", "ไม่พบไฟล์ ${file.path}"))
+        if (startMs < 0 || endMs <= startMs || endMs - startMs > 75_000) {
+            return Outcome.Failure(AppError("AUDIO_RANGE", "ช่วงเสียงต้องยาวกว่า 0 และไม่เกิน 75 วินาที"))
+        }
+        return try {
+            RandomAccessFile(file, "r").use { raf ->
+                if (raf.length() < 44) return Outcome.Failure(AppError("AUDIO_NO_WAV", "ไม่ใช่ไฟล์ WAV"))
+                val head = ByteArray(12)
+                raf.readFully(head)
+                if (ascii(head, 0, 4) != "RIFF" || ascii(head, 8, 4) != "WAVE") {
+                    return Outcome.Failure(AppError("AUDIO_NO_WAV", "ไม่ใช่ไฟล์ WAV"))
+                }
+                var fmt: ByteArray? = null
+                var dataOff = -1L
+                var dataBytes = 0L
+                while (raf.filePointer + 8 <= raf.length()) {
+                    val id = ByteArray(4).also { raf.readFully(it) }.toString(Charsets.US_ASCII)
+                    val size = ByteArray(4).also { raf.readFully(it) }.let {
+                        ByteBuffer.wrap(it).order(ByteOrder.LITTLE_ENDIAN).int.toLong() and 0xFFFF_FFFFL
+                    }
+                    val start = raf.filePointer
+                    if (id == "fmt " && size >= 16 && start + 16 <= raf.length()) {
+                        fmt = ByteArray(16).also { raf.readFully(it) }
+                    } else if (id == "data") {
+                        dataOff = start
+                        dataBytes = size.coerceAtMost(raf.length() - start)
+                    }
+                    val next = start + size + (size and 1L)
+                    if (fmt != null && dataOff >= 0) break
+                    if (next <= start || next > raf.length()) break
+                    raf.seek(next)
+                }
+                val formatBytes = fmt ?: return Outcome.Failure(AppError("AUDIO_WAV_FMT", "WAV นี้ไม่มี fmt/data"))
+                if (dataOff < 0) return Outcome.Failure(AppError("AUDIO_WAV_FMT", "WAV นี้ไม่มี fmt/data"))
+                val header = ByteBuffer.wrap(formatBytes).order(ByteOrder.LITTLE_ENDIAN)
+                val kind = header.short.toInt() and 0xFFFF
+                val channels = header.short.toInt() and 0xFFFF
+                val rate = header.int
+                header.int // average byte rate (recomputed from the actual PCM layout below)
+                header.short // block alignment
+                val bits = header.short.toInt() and 0xFFFF
+                if (kind !in listOf(1, 3) || channels !in 1..2 || rate !in 8_000..192_000 || bits !in listOf(8, 16, 24, 32) ||
+                    (kind == 3 && bits != 32)
+                ) return Outcome.Failure(AppError("AUDIO_WAV_FMT", "WAV นี้ไม่ใช่ PCM/float mono/stereo"))
+                val stride = channels * (bits / 8)
+                val totalFrames = dataBytes / stride
+                val first = (startMs * rate / 1000).coerceIn(0L, totalFrames)
+                val last = (endMs * rate / 1000).coerceIn(first, totalFrames)
+                val length = (last - first).toInt() * stride
+                if (length == 0) return Outcome.Success(PcmAudio(rate, channels, FloatArray(0)))
+                val raw = ByteArray(length)
+                raf.seek(dataOff + first * stride)
+                raf.readFully(raw)
+                val wrapped = ByteBuffer.allocate(44 + length).order(ByteOrder.LITTLE_ENDIAN).apply {
+                    put("RIFF".toByteArray(Charsets.US_ASCII)); putInt(36 + length)
+                    put("WAVE".toByteArray(Charsets.US_ASCII))
+                    put("fmt ".toByteArray(Charsets.US_ASCII)); putInt(16); put(formatBytes)
+                    put("data".toByteArray(Charsets.US_ASCII)); putInt(length); put(raw)
+                }.array()
+                decode(wrapped)
+            }
+        } catch (e: Exception) {
+            Outcome.Failure(AppError("AUDIO_READ", "อ่านช่วง WAV ไม่ได้: ${e.message}"))
+        }
     }
 
     fun decode(bytes: ByteArray): Outcome<PcmAudio> {
