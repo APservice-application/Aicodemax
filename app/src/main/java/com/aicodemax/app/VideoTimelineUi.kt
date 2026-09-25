@@ -70,13 +70,17 @@ import kotlin.math.min
 @Composable
 internal fun VideoPlaybackPreview(
     source: String?, kind: String, clip: Clip?, aspect: String, timeMs: Long, durationMs: Long,
-    playing: Boolean, texts: List<OverlayText>, onToggle: () -> Unit,
+    playing: Boolean, muted: Boolean, texts: List<OverlayText>, onToggle: () -> Unit,
     onPosition: (Long) -> Unit, onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val aspectValue = when (aspect) { "9:16" -> 9f / 16; "1:1" -> 1f; "4:5" -> 4f / 5; else -> 16f / 9 }
     val sourceTime = clip?.let { it.startMs + it.outputToSource(timeMs - it.atMs) } ?: 0L
     val videoView = remember(source, clip?.id) { mutableStateOf<VideoView?>(null) }
+    val player = remember(source, clip?.id) { mutableStateOf<android.media.MediaPlayer?>(null) }
+    // Original-media preview cannot mix A-tracks yet, but it must not play a
+    // muted/detached video source at full volume while export is silent.
+    val nativeGain = if (muted) 0f else (clip?.volume ?: 100).coerceIn(0, 100) / 100f
     val isRealVideo = source != null && kind == "VIDEO" && clip != null
     val latestTime by rememberUpdatedState(timeMs)
     LaunchedEffect(playing, source, clip?.id) {
@@ -96,7 +100,11 @@ internal fun VideoPlaybackPreview(
         }
     }
     DisposableEffect(source, clip?.id, playing) {
-        onDispose { videoView.value?.stopPlayback(); videoView.value = null }
+        onDispose {
+            videoView.value?.stopPlayback()
+            videoView.value = null
+            player.value = null
+        }
     }
     BoxWithConstraints(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
         val canvasWidth = min(maxWidth.value, maxHeight.value * aspectValue).dp
@@ -112,10 +120,12 @@ internal fun VideoPlaybackPreview(
                         factory = { ctx ->
                             VideoView(ctx).also { view ->
                                 videoView.value = view
-                                view.setOnPreparedListener { player ->
+                                view.setOnPreparedListener { prepared ->
+                                    player.value = prepared
+                                    prepared.setVolume(nativeGain, nativeGain)
                                     try {
                                         // Playback is original media. The non-destructive render applies effects on export.
-                                        player.playbackParams = player.playbackParams.setSpeed((clip.speed?.rate ?: 100) / 100f)
+                                        prepared.playbackParams = prepared.playbackParams.setSpeed((clip.speed?.rate ?: 100) / 100f)
                                     } catch (_: Exception) { }
                                     view.seekTo(sourceTime.toInt())
                                     view.start()
@@ -128,6 +138,7 @@ internal fun VideoPlaybackPreview(
                         },
                         update = { view ->
                             videoView.value = view
+                            player.value?.setVolume(nativeGain, nativeGain)
                             if (abs(view.currentPosition.toLong() - sourceTime) > 900 && view.isPlaying) {
                                 view.seekTo(sourceTime.toInt())
                             }

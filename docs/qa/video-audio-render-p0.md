@@ -11,7 +11,7 @@
 ## การแก้ใน checkpoint นี้
 
 - เลือกเสียงในวิดีโอเป็น source ของ audio graph เดียวกับ A-track; เคารพ video track mute/hidden, clip volume 0, การแยกเสียง (ต้นฉบับ volume 0), และ `RenderPreset.includeAudio`.
-- Fast copy ใช้เฉพาะคลิปเดี่ยวที่เสียงต้นฉบับไม่ถูกปรับ หรือไม่มีเสียงที่เลือก; audio track ถูกคัดลอกเฉพาะเมื่อ `plan.wantAudio`. QC บังคับมี/ไม่มี audio track ให้ตรงแผน.
+- Fast copy ใช้เฉพาะคลิปเดี่ยวที่เสียงต้นฉบับไม่ถูกปรับ หรือไม่มีเสียงที่เลือก; audio track ถูกคัดลอกเฉพาะเมื่อ `plan.wantAudio`. QC บังคับมี/ไม่มี audio track ให้ตรงแผน. Preview คลิปต้นฉบับเคารพ volume และ video-track mute (รวมถึงการแยกเสียงที่ทำให้ volume เดิมเป็น 0) แต่ **ยังไม่ mix A-track ใน preview**.
 - Full mix ถอดเฉพาะ source time window และผสมเป็นช่วง output 5 วินาทีแบบ frame-indexed; สุ่มตัวอย่าง mono/stereo, trim, rate/curve/reverse, volume keyframes/fades/overlap แล้ว encode AAC. WAV PCM/float ใช้ random-access range read.
 - AVC และ AAC encoder ระบายผลระหว่างป้อนข้อมูล เพิ่ม watchdog เพื่อไม่ปล่อยให้ค้างไม่สิ้นสุด. ระยะ full mix **ยังจำกัด 3 นาที**, แต่แจ้ง fail ตั้งแต่ก่อน encode video; fast-copy คลิปเดี่ยวที่ไม่ปรับเสียงไม่ติดข้อจำกัดนี้.
 
@@ -24,8 +24,8 @@
 | P0-01 fast-copy native | เพิ่มวิดีโอมีเสียง 10s ไม่แต่ง; export | มีภาพและเสียงตรงกัน ไม่ถูกตัดหัว/ท้าย |
 | P0-02 full composite native | เพิ่ม text หรือ crop ให้ forced full render; export | เสียงต้นฉบับไม่หาย, timeline ยาวใกล้ต้นฉบับ, export เสร็จไม่ค้าง |
 | P0-03 split + trim | ตัดคลิปกลางเรื่อง แล้ว split; export | ได้เสียงเฉพาะช่วงที่เลือกต่อเนื่องกับภาพ ไม่ย้อนกลับไปเสียงต้นไฟล์ |
-| P0-04 mute/volume | video volume 0, video track muted, video volume 50% ทีละเคส | 0/mute = ไม่มีแทร็กเสียงถ้าไม่มีแหล่งอื่น; 50% ลดระดับเสียงจริง |
-| P0-05 detached audio | กดแยกเสียง และ export ที่มี A-track | เสียงไม่ซ้อนทับ 2 เท่า, A-track ยังดัง, video volume 0 |
+| P0-04 mute/volume | video volume 0, video track muted, video volume 50% ทีละเคส | Preview ต้นฉบับ 0/mute ต้องเงียบ, 50% ต้องเบาจริง; export 0/mute = ไม่มีแทร็กเสียงถ้าไม่มีแหล่งอื่น |
+| P0-05 detached audio | กดแยกเสียง และ export ที่มี A-track | Preview ต้นฉบับเงียบ (ไม่ mix A-track ใน preview รุ่นนี้); export เสียงไม่ซ้อนทับ 2 เท่า, A-track ยังดัง, video volume 0 |
 | P0-06 overlay | คลิปมีเสียง + วาง WAV/MP3 อีกแทร็ก | ได้ยิน 2 แหล่ง, ไม่มีเสียงแตก/ค้าง, ย้าย audio clip แล้วเสียงตามตำแหน่ง |
 | P0-07 timing/speed | เพิ่ม clip speed 2×/reverse หรือ fades แล้ว export | จังหวะเสียงสัมพันธ์กับภาพในช่วงที่ renderer รองรับ; ไม่ค้าง |
 | P0-08 includeAudio=false | ใช้ preset ที่ `includeAudio=false` (ถ้ามีหน้าทดสอบ/เรียกพอร์ต) | MP4 **ไม่มี** audio track แม้ต้นฉบับมีเสียง |
