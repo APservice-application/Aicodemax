@@ -71,6 +71,8 @@ object Routes {
     const val MEMORY = "memory"
     const val IMAGE = "image"
     const val AUDIO = "audio"
+    const val SUPABASE = "supabase"
+    const val WEBAI = "webai"
 }
 
 private fun NavHostController.navigateSingle(route: String) {
@@ -106,6 +108,8 @@ private fun titleFor(route: String): String = when (route) {
     Routes.MEMORY -> "ความจำ"
     Routes.IMAGE -> "แต่งรูป"
     Routes.AUDIO -> "ตัดเสียง"
+    Routes.SUPABASE -> "Supabase"
+    Routes.WEBAI -> "WebAI Bridge"
     else -> "Aicodemax"
 }
 
@@ -256,6 +260,8 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                             if (toolId == "audio") nav.navigateSingle(Routes.AUDIO)
                             if (toolId == "image") nav.navigateSingle(Routes.IMAGE)
                             if (toolId == "memory") nav.navigateSingle(Routes.MEMORY)
+                            if (toolId == "supabase") nav.navigateSingle(Routes.SUPABASE)
+                            if (toolId == "webai") nav.navigateSingle(Routes.WEBAI)
                             if (toolId == "debug") nav.navigateSingle(Routes.CHAT)
                         },
                         onSelfTest = { toolId -> selfTest(services, toolId) },
@@ -322,6 +328,8 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                 composable(Routes.MEMORY) { MemoryScreen(services) }
                 composable(Routes.IMAGE) { ImageEditorScreen(services) }
                 composable(Routes.AUDIO) { AudioEditorScreen(services) }
+                composable(Routes.SUPABASE) { SupabaseScreen(services) }
+                composable(Routes.WEBAI) { WebAiScreen(services) }
             }
         }
     }

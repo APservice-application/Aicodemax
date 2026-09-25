@@ -40,7 +40,7 @@ interface RunningHandle {
     fun isRunning(): Boolean
 }
 
-/** Port to the embedded terminal runtime (Termux submodule wires in Phase 16). */
+/** Port to the embedded terminal runtime (managed shell; interactive PTY is [PtyPort], CP-32). */
 interface TerminalPort {
     fun descriptor(): ToolDescriptor
     fun createSession(title: String): Outcome<TerminalSession>

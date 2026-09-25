@@ -93,6 +93,19 @@ import com.aicodemax.tools.media_runtime.MediaToolExecutor
 import com.aicodemax.tools.subtitle.SubtitlePort
 import com.aicodemax.tools.subtitle.subtitleDescriptorToday
 import com.aicodemax.tools.subtitle_runtime.SubtitleToolExecutor
+import com.aicodemax.tools.supabase.JavaNetSupaTransport
+import com.aicodemax.tools.supabase.SupabaseClient
+import com.aicodemax.tools.supabase.SupabaseConfigStore
+import com.aicodemax.tools.supabase.supabaseDescriptorToday
+import com.aicodemax.tools.supabase_runtime.SupabaseToolExecutor
+import com.aicodemax.ai.agents.AgentRegistry
+import com.aicodemax.ai.agents.RegisteredAgent
+import com.aicodemax.ai.agents.fileAgentRunner
+import com.aicodemax.ai.agents.shellAgentRunner
+import com.aicodemax.tools.webai.BridgeTokenManager
+import com.aicodemax.tools.webai.WebAiBridgeServer
+import com.aicodemax.tools.terminal.JniPtyPort
+import com.aicodemax.tools.terminal.PtyPort
 import com.aicodemax.tools.video.VideoPort
 import com.aicodemax.tools.render.RenderPort
 import com.aicodemax.tools.render.renderDescriptorToday
@@ -307,11 +320,20 @@ class ServiceLocator(context: Context) {
     // CP-114: learning loop over real task outcomes (persisted in memory store).
     val learn: LearningEngine = LearningEngine(memory)
     val agent: LocalAgentRunner
+    // CP-69: localhost WebAI bridge (multi-agent).
+    val webAiTokens: BridgeTokenManager
+    val webAiAgents: AgentRegistry
+    val webAiServer: WebAiBridgeServer
     val compat: CompatEngine = CompatEngine(CliToolAdapter(shell), defaultCwd = workspaceDir.path)
     val projects: ProjectManager = ProjectManager(File(appContext.filesDir, "projects"))
     val builds: PipelineBuildEngine = PipelineBuildEngine(emptyList())
     val artifacts: ArtifactStore = ArtifactStore(File(appContext.filesDir, "artifacts"))
     val library: BrowserLibrary = BrowserLibrary(File(appContext.filesDir, "browser"))
+    // CP-68: user-owned Supabase keys (app-private prefs; devtool only).
+    val supabaseStore: SupabaseConfigStore = PrefSupabaseConfigStore(appContext)
+    val supabase: SupabaseClient = SupabaseClient(JavaNetSupaTransport(), supabaseStore::load)
+    // CP-32: managed native PTY (arm64 .so packed by CI).
+    val pty: PtyPort = JniPtyPort()
 
     private lateinit var routedBrain: RoutedChatBrain
 
@@ -335,6 +357,7 @@ class ServiceLocator(context: Context) {
         toolRegistry.register(subtitleDescriptorToday())
         toolRegistry.register(mediaDescriptorToday())
         toolRegistry.register(renderDescriptorToday())
+        toolRegistry.register(supabaseDescriptorToday())
 
         val nativeDir = appContext.applicationInfo.nativeLibraryDir
         gateway = DefaultToolGateway(
@@ -398,12 +421,23 @@ class ServiceLocator(context: Context) {
             com.aicodemax.tools.debug_runtime.ModelToolExecutor(modelsDir = storage.modelsDefault.path),
         )
         gateway.registerExecutor(RenderToolExecutor(render, media))
+        gateway.registerExecutor(SupabaseToolExecutor(supabase))
 
         capabilities = StandardCapabilities.overRegistry(toolRegistry) { toolId, action ->
             learn.preference("$toolId.$action")
         }
 
         agent = LocalAgentRunner(gateway)
+        // CP-69: bridge agents — local (broad) + file/shell specialists (allowlisted).
+        webAiTokens = BridgeTokenManager()
+        webAiAgents = AgentRegistry().apply {
+            register(RegisteredAgent("local", "Local Agent", listOf("files", "editor", "terminal", "browser"), agent))
+            val files = fileAgentRunner(agent)
+            register(RegisteredAgent(files.agentId, files.agentName, files.allowedTools.toList(), files))
+            val shell = shellAgentRunner(agent)
+            register(RegisteredAgent(shell.agentId, shell.agentName, shell.allowedTools.toList(), shell))
+        }
+        webAiServer = WebAiBridgeServer(webAiAgents, webAiTokens)
         val manualBrain = makeLlmBrain({ llmProvider }, { llmModel })
         routedBrain = RoutedChatBrain(
             router,

@@ -37,6 +37,8 @@ private val appEntries = listOf(
     LauncherEntry(Routes.TEMPLATES, "เทมเพลต", "📦"),
     LauncherEntry(Routes.AGENTS, "เอเจนต์", "🤖"),
     LauncherEntry(Routes.MEMORY, "ความจำ", "🧠"),
+    LauncherEntry(Routes.SUPABASE, "Supabase", "🗄️"),
+    LauncherEntry(Routes.WEBAI, "WebAI Bridge", "🌉"),
     LauncherEntry(Routes.TOOLS, "เครื่องมือ", "🧰"),
     LauncherEntry(Routes.ABOUT, "เกี่ยวกับ", "ℹ️"),
 )

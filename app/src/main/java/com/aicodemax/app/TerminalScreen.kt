@@ -60,6 +60,7 @@ fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}
     var cwdField by remember { mutableStateOf("") }
     var history by remember { mutableStateOf(listOf<String>()) }
     var timeoutMs by remember { mutableStateOf(60_000L) }
+    var ptyMode by remember { mutableStateOf(false) }
     val scroll = rememberScrollState()
 
     LaunchedEffect(transcript.length) { scroll.scrollTo(scroll.maxValue) }
@@ -111,10 +112,22 @@ fun TerminalScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {}
         liveHandle?.cancel()
     }
 
+    // CP-32: interactive PTY mode (managed native runtime, no Termux).
+    if (ptyMode) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            PtyModeBar(ptyMode = true, onMode = { ptyMode = it })
+            PtyConsole(services, modifier = Modifier.weight(1f))
+        }
+        return
+    }
     Column(
         modifier = Modifier.fillMaxSize().padding(spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
+        PtyModeBar(ptyMode = false, onMode = { ptyMode = it })
         Surface(
             shape = RoundedCornerShape(AicodeRadii.S),
             color = MaterialTheme.colorScheme.surfaceVariant,
