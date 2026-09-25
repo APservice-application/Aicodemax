@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -105,9 +104,7 @@ fun WebAiScreen(services: ServiceLocator) {
                 }) { Text("ออก token") }
                 val token = issued
                 if (token != null) {
-                    SelectionContainer {
-                        Text(token, style = MaterialTheme.typography.bodySmall)
-                    }
+                    Text(token, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
