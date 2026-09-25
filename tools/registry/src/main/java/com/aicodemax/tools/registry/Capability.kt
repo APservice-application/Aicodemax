@@ -25,6 +25,8 @@ data class ToolDescriptor(
     val version: String,
     val layers: List<LayerCapability>,
     val permissions: List<String> = emptyList(),
+    /** CP-147: real schema (§4) — null only for legacy descriptors. */
+    val schema: ToolSchema? = null,
 ) {
     fun layerStatus(layer: CapabilityLayer): CapabilityStatus =
         layers.firstOrNull { it.layer == layer }?.status ?: CapabilityStatus.MISSING

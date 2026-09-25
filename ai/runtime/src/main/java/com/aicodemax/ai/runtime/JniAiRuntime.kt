@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * CP-123: [AiRuntime] over the in-process JNI bridge (spec §3–§4 — the real
  * architecture, no localhost, no subprocess).
  *
- * Chat framing uses the Qwen2.5 ChatML template (the default model family);
+ * Chat framing uses the Qwen3 ChatML template (the default model family);
  * the native side tokenizes with parse_special so the control tokens work.
  */
 class JniAiRuntime(
@@ -78,7 +78,7 @@ class JniAiRuntime(
             if (!generating.compareAndSet(false, true)) throw IllegalStateException("กำลัง generate อยู่แล้ว")
             try {
                 // CP-144: prompt arrives FULLY templated from the caller
-                // (AiRuntimeManager/LocalModelProvider apply ChatTemplate::qwen25).
+                // (AiRuntimeManager/LocalModelProvider apply ChatTemplate::qwen3).
                 // Never wrap again — double ChatML breaks the model (audit W1).
                 val stops = (params.stopSequences + "<|im_end|>").toSet().toTypedArray()
                 val sink = AicodeJni.TokenCallback { piece -> onToken.onToken(piece) }

@@ -11,6 +11,10 @@ interface ToolRegistry {
     fun get(toolId: String): ToolDescriptor?
     fun all(): List<ToolDescriptor>
     fun runnable(): List<ToolDescriptor>
+
+    /** CP-147 (spec §4 `get_available_tools()`): only runnable tools — the AI
+     *  sees real executables, never guesses, never calls fakes. */
+    fun availableTools(): List<ToolDescriptor> = runnable()
 }
 
 class InMemoryToolRegistry : ToolRegistry {

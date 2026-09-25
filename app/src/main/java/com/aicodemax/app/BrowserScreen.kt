@@ -119,9 +119,7 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
         reloadDownloads()
     }
 
-    fun go(to: String) {
-        val url = to.trim()
-        if (url.isEmpty()) return
+    fun openOrNavigate(url: String) {
         mode = BrowserMode.TABS
         scope.launch {
             if (active == null) {
@@ -132,6 +130,61 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
             } else {
                 services.browser.navigate(active.id, url)
             }
+        }
+    }
+
+    fun runCommand(cmd: String) {
+        when (cmd) {
+            "new_tab" -> newTabOpen = true
+            "close_tab" -> active?.let { scope.launch { services.browser.closeTab(it.id) } }
+            "back" -> webView?.goBack()
+            "forward" -> webView?.goForward()
+            "reload" -> webView?.reload()
+            "stop" -> webView?.stopLoading()
+            "home" -> openOrNavigate("https://www.google.com")
+            "bookmark" -> addBookmark()
+            "history" -> { mode = BrowserMode.HISTORY; reloadLibrary() }
+            "downloads" -> { mode = BrowserMode.DOWNLOADS; reloadDownloads() }
+        }
+    }
+
+    // CP-147 (spec §7): address bar splits URL vs SEARCH vs COMMAND.
+    fun go(to: String) {
+        val input = to.trim()
+        if (input.isEmpty()) return
+        when (IntentResolver.resolve(input).let { it.intent to it.target }) {
+            else -> {}
+        }
+        val resolved = IntentResolver.resolve(input)
+        when (resolved.intent) {
+            NavIntent.URL -> openOrNavigate(resolved.target)
+            NavIntent.SEARCH -> openOrNavigate(SearchEngines.searchUrl(SearchEngines.DEFAULT, resolved.target))
+            NavIntent.COMMAND -> runCommand(resolved.target)
+        }
+    }
+
+    fun createTab() {
+        val url = newTabUrl.trim()
+        val name = newTabName.trim()
+        val note = newTabNote.trim()
+        newTabOpen = false
+        newTabName = ""
+        newTabUrl = ""
+        newTabNote = ""
+        mode = BrowserMode.TABS
+        scope.launch {
+            // Blank URL -> blank tab (spec §12); query text -> search it.
+            services.browser.openTab(url, name, note).fold(
+                onSuccess = { activeId = it.id },
+                onFailure = {
+                    if (url.isNotEmpty()) {
+                        services.browser.openTab(SearchEngines.searchUrl(SearchEngines.DEFAULT, url), name, note).fold(
+                            onSuccess = { activeId = it.id },
+                            onFailure = { },
+                        )
+                    }
+                },
+            )
         }
     }
 
@@ -168,7 +221,7 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { activeId = tab.id; mode = BrowserMode.TABS }) {
-                            Text((tab.title.ifBlank { tab.url }).take(18))
+                            Text(tab.name.ifBlank { tab.title.ifBlank { tab.url } }.take(18))
                         }
                         TextButton(
                             onClick = {
@@ -179,16 +232,8 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
                 }
             }
             item(key = "__new__") {
-                TextButton(
-                    onClick = {
-                        scope.launch {
-                            services.browser.openTab("duckduckgo.com").fold(
-                                onSuccess = { activeId = it.id; mode = BrowserMode.TABS },
-                                onFailure = { },
-                            )
-                        }
-                    },
-                ) { Text("＋") }
+                // CP-147 (spec 11): "+" opens new-tab SETUP, never auto-DDG.
+                TextButton(onClick = { newTabOpen = true }) { Text("＋") }
             }
         }
 
@@ -222,6 +267,46 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
             }
         }
 
+        // CP-147 (spec §11–§12): new-tab setup sheet (name + URL + note).
+        if (newTabOpen) {
+            ModalBottomSheet(onDismissRequest = { newTabOpen = false }) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                ) {
+                    Text("สร้างแท็บใหม่", style = MaterialTheme.typography.titleLarge)
+                    TextField(
+                        value = newTabName,
+                        onValueChange = { newTabName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("ชื่อแท็บ") },
+                        placeholder = { Text("เช่น Facebook ร้านค้า") },
+                    )
+                    TextField(
+                        value = newTabUrl,
+                        onValueChange = { newTabUrl = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("URL (เว้นว่างได้)") },
+                        placeholder = { Text("เช่น https://www.facebook.com") },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { createTab() }),
+                    )
+                    TextField(
+                        value = newTabNote,
+                        onValueChange = { newTabNote = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("โน้ต") },
+                        placeholder = { Text("เช่น ใช้สำหรับโพสต์งานร้านค้า") },
+                    )
+                    Button(onClick = { createTab() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("สร้างแท็บ")
+                    }
+                }
+            }
+        }
+
         when (mode) {
             BrowserMode.HISTORY -> HistoryPanel(
                 history = history,
@@ -246,14 +331,7 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
                 activeId = activeId,
                 onOpenTab = { activeId = it; mode = BrowserMode.TABS },
                 onCloseTab = { id -> scope.launch { services.browser.closeTab(id) } },
-                onNewTab = {
-                    scope.launch {
-                        services.browser.openTab("duckduckgo.com").fold(
-                            onSuccess = { activeId = it.id; mode = BrowserMode.TABS },
-                            onFailure = { },
-                        )
-                    }
-                },
+                onNewTab = { newTabOpen = true },
             )
             BrowserMode.DOWNLOADS -> DownloadsPanel(
                 downloads = downloads,
@@ -462,7 +540,7 @@ private fun OverviewPanel(
                 ) {
                     Column(modifier = Modifier.padding(spacing.sm)) {
                         Text(
-                            tab.title.ifBlank { tab.url },
+                            tab.name.ifBlank { tab.title.ifBlank { tab.url } },
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,

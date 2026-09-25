@@ -16,7 +16,7 @@ import com.aicodemax.core.common.fold
 /** Local inference through an [AiRuntime] (Fake/JNI/interim-server). */
 class LocalModelProvider(
     private val runtime: AiRuntime,
-    private val template: (List<ChatMessage>) -> String = ChatTemplate::qwen25,
+    private val template: (List<ChatMessage>) -> String = ChatTemplate::qwen3,
 ) : ModelProvider {
     override val providerId: String = "local"
     override val displayName: String = "โมเดลบนเครื่อง"
@@ -31,7 +31,8 @@ class LocalModelProvider(
         }
         val prompt = template(req.messages)
         return runtime.generate(prompt, req.params, onToken).fold(
-            onSuccess = { Outcome.Success(ChatReply(it.text, it.stoppedEarly, via = providerId)) },
+            // CP-147: Qwen3 must never leak raw <think> into chat.
+            onSuccess = { Outcome.Success(ChatReply(ChatTemplate.stripThinking(it.text), it.stoppedEarly, via = providerId)) },
             onFailure = { Outcome.Failure(it) },
         )
     }

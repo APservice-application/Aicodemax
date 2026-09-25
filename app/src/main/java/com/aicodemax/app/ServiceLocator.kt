@@ -202,7 +202,7 @@ class ServiceLocator(context: Context) {
         )
 
     /** CP-144: built-in AI model file (bundled asset, provisioned on first launch). */
-    val builtinModelFile: File = File(storage.modelsDefault.path, "builtin-qwen2.5-0.5b-q4_k_m.gguf")
+    val builtinModelFile: File = File(storage.modelsDefault.path, "builtin-qwen3-4b-q4_k_m.gguf")
 
     /** CP-145: collects the built-in AI checklist inputs (cheap metadata calls only). */
     fun builtinAiReport(): com.aicodemax.ai.runtime.BuiltinAiReport {

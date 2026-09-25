@@ -158,8 +158,8 @@ dependencies {
 // only (one-time fetch, then cached next to the sources); the installed app
 // runs fully OFFLINE.
 val builtinModelUrl =
-    "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf"
-val builtinModelSize = 491400032L // exact bytes (Qwen2.5-0.5B-Instruct Q4_K_M)
+    "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
+val builtinModelSize = 2497280256L // exact bytes (Qwen3-4B Q4_K_M, Apache-2.0)
 val builtinModelFile = file("src/main/assets/ai/builtin-model.gguf")
 val ffmpegArm64Dir = file("src/main/jniLibs/arm64-v8a")
 

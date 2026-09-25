@@ -47,7 +47,36 @@ data class ChatReply(
 
 /** ChatML framing per model family (pure functions, unit-tested). */
 object ChatTemplate {
-    /** Qwen2.5 ChatML (also works for Qwen3). */
+    /**
+     * CP-147: Qwen3 ChatML — same framing as Qwen2.5 plus `/no_think` on the
+     * last user turn. Qwen3 thinks by default (slow on-device, raw `<think>`
+     * in output); `/no_think` yields direct answers. A caller-provided
+     * `/think` is respected (never overridden).
+     */
+    fun qwen3(messages: List<ChatMessage>): String {
+        val adjusted = messages.toMutableList()
+        val lastUser = adjusted.indexOfLast { it.role == ChatRole.USER }
+        if (lastUser >= 0) {
+            val content = adjusted[lastUser].content
+            if (!content.contains("/no_think") && !content.contains("/think")) {
+                adjusted[lastUser] = adjusted[lastUser].copy(content = content.trimEnd() + " /no_think")
+            }
+        }
+        return qwen25(adjusted)
+    }
+
+    /**
+     * CP-147: defensive — drop any `<think>...</think>` block Qwen3 may still
+     * emit (e.g. explicit `/think` requests) so chat never shows raw thinking.
+     */
+    fun stripThinking(text: String): String {
+        var out = text.replace(Regex("(?s)<think>.*?</think>"), "")
+        val open = out.indexOf("<think>")
+        if (open >= 0) out = out.substring(0, open)
+        return out.trim()
+    }
+
+    /** Qwen2.5 ChatML (kept for the optional 1.5B model). */
     fun qwen25(messages: List<ChatMessage>): String = buildString {
         var hasSystem = false
         for (msg in messages) {

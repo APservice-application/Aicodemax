@@ -17,9 +17,19 @@ class InMemoryBrowserPort : BrowserPort {
 
     override fun descriptor() = browserDescriptorToday()
 
-    override suspend fun openTab(url: String): Outcome<BrowserTab> {
+    override suspend fun openTab(url: String, name: String, note: String): Outcome<BrowserTab> {
+        // CP-147: UrlResolver is the single source of truth (spec §6) — the old
+        // naive "https://" prefix produced garbage like "https://Qwen3 4B".
+        val resolved = if (url.isBlank()) {
+            "about:blank"
+        } else {
+            when (val r = UrlResolver.normalize(url)) {
+                is Outcome.Success -> r.value
+                is Outcome.Failure -> return Outcome.Failure(r.error)
+            }
+        }
         counter += 1
-        val tab = BrowserTab(id = "tab-$counter", url = normalize(url), loading = true)
+        val tab = BrowserTab(id = "tab-$counter", url = resolved, loading = resolved != "about:blank", name = name, note = note)
         _tabs.value = _tabs.value + tab
         return Outcome.Success(tab)
     }
@@ -34,7 +44,11 @@ class InMemoryBrowserPort : BrowserPort {
     override suspend fun navigate(tabId: String, url: String): Outcome<BrowserTab> {
         val current = _tabs.value.firstOrNull { it.id == tabId }
             ?: return Outcome.Failure(AppError("TAB_UNKNOWN", "tab '$tabId' not found"))
-        val updated = current.copy(url = normalize(url), loading = true)
+        val resolved = when (val r = UrlResolver.normalize(url)) {
+            is Outcome.Success -> r.value
+            is Outcome.Failure -> return Outcome.Failure(r.error)
+        }
+        val updated = current.copy(url = resolved, loading = true)
         _tabs.value = _tabs.value.map { if (it.id == tabId) updated else it }
         return Outcome.Success(updated)
     }

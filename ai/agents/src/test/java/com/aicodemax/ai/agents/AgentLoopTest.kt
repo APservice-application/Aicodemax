@@ -75,4 +75,24 @@ class AgentLoopTest {
         assertTrue(!result.completed)
         assertTrue(result.stopReason.startsWith("STEP_FAILED"))
     }
+
+    @Test
+    fun verifierPassKeepsDone() = runBlocking {
+        val loop = AgentLoop(okExecutor(), verify = { _, _ -> VerifyVerdict(true) })
+        val result = (loop.run("t1", Plan(listOf(step("s1"))))
+            as Outcome.Success<AgentRunResult>).value
+        assertTrue(result.completed)
+        assertEquals("DONE", result.stopReason)
+    }
+
+    @Test
+    fun verifierFailBlocksFalseSuccess() = runBlocking {
+        // CP-147: all steps ok but outcome wrong -> completed=false + diagnosis.
+        val loop = AgentLoop(okExecutor(), verify = { _, _ -> VerifyVerdict(false, "page shows login wall") })
+        val result = (loop.run("t1", Plan(listOf(step("s1"))))
+            as Outcome.Success<AgentRunResult>).value
+        assertTrue(!result.completed)
+        assertTrue(result.stopReason, result.stopReason.startsWith("VERIFY_FAILED"))
+        assertTrue(result.stopReason.contains("login wall"))
+    }
 }

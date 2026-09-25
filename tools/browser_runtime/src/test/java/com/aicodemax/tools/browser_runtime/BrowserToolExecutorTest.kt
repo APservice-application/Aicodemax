@@ -16,8 +16,8 @@ import org.junit.Test
 class FakeBrowserPort : BrowserPort {
     val tabs = mutableListOf<BrowserTab>()
     override fun descriptor(): ToolDescriptor = browserDescriptorToday()
-    override suspend fun openTab(url: String): Outcome<BrowserTab> {
-        val tab = BrowserTab(id = "t${tabs.size}", url = url)
+    override suspend fun openTab(url: String, name: String, note: String): Outcome<BrowserTab> {
+        val tab = BrowserTab(id = "t${tabs.size}", url = url, name = name, note = note)
         tabs.add(tab)
         return Outcome.Success(tab)
     }
@@ -105,5 +105,59 @@ class BrowserToolExecutorTest {
         )
         assertFalse(noSelector.ok)
         assertTrue(noSelector.error.contains("selector"))
+    }
+
+    @Test
+    fun openStoresNameAndNote() {
+        // CP-147 (spec §11): name/note travel with the tab.
+        val port = FakeBrowserPort()
+        val opened = run(
+            ToolCall("c1", "browser", "open", mapOf("url" to "https://fb.com", "name" to "Facebook ร้านค้า", "note" to "โพสต์งาน")),
+            port,
+        )
+        assertTrue(opened.ok)
+        assertTrue(port.tabs.single().name == "Facebook ร้านค้า")
+        assertTrue(port.tabs.single().note == "โพสต์งาน")
+    }
+
+    @Test
+    fun navigateWithoutTabIdUsesCurrentOrOpens() {
+        // CP-147 (browser.open_url): no tabId -> current tab; no tabs -> new tab.
+        val port = FakeBrowserPort()
+        val opened = run(ToolCall("c1", "browser", "navigate", mapOf("url" to "https://a.com")), port)
+        assertTrue(opened.ok)
+        assertTrue(opened.output.startsWith("opened"))
+        val moved = run(ToolCall("c2", "browser", "navigate", mapOf("url" to "https://b.com")), port)
+        assertTrue(moved.ok)
+        assertTrue(moved.output.startsWith("navigated"))
+        assertTrue(port.tabs.size == 1)
+    }
+
+    @Test
+    fun searchOpensEngineUrl() {
+        // CP-147 (browser.search): query -> Google URL.
+        val port = FakeBrowserPort()
+        val r = run(ToolCall("c1", "browser", "search", mapOf("query" to "Qwen3 4B")), port)
+        assertTrue(r.ok)
+        assertTrue(r.output, r.output.contains("google.com/search?q=Qwen3+4B"))
+        val empty = run(ToolCall("c2", "browser", "search", mapOf("query" to "  ")), port)
+        assertFalse(empty.ok)
+    }
+
+    @Test
+    fun infoAndCurrentReportTabFacts() {
+        // CP-147 (browser.get_page_info / get_current_tab).
+        val port = FakeBrowserPort()
+        run(ToolCall("c0", "browser", "open", mapOf("url" to "https://a.com", "name" to "A")), port)
+        val info = run(ToolCall("c1", "browser", "info"), port)
+        assertTrue(info.ok)
+        assertTrue(info.output, info.output.contains("url=https://a.com"))
+        assertTrue(info.output.contains("login="))
+        val current = run(ToolCall("c2", "browser", "current"), port)
+        assertTrue(current.ok)
+        assertTrue(current.output.contains("name=A"))
+        val none = run(ToolCall("c3", "browser", "current"), FakeBrowserPort())
+        assertFalse(none.ok)
+        assertTrue(none.error.contains("NO_TABS"))
     }
 }

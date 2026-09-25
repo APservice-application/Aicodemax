@@ -15,9 +15,17 @@ data class AgentRunResult(
     val stopReason: String,
 )
 
+/** CP-147 (spec §8/§33–§34): the loop never reports success without verification. */
+data class VerifyVerdict(
+    val ok: Boolean,
+    /** Why the outcome is wrong — the self-correction signal for re-planning. */
+    val diagnosis: String = "",
+)
+
 class AgentLoop(
     private val executor: AgentExecutor,
     private val maxSteps: Int = 25,
+    private val verify: ((plan: Plan, results: List<StepResult>) -> VerifyVerdict)? = null,
 ) {
     suspend fun run(taskId: String, plan: Plan): Outcome<AgentRunResult> {
         val results = mutableListOf<StepResult>()
@@ -48,6 +56,14 @@ class AgentLoop(
             }
         }
         val truncated = plan.steps.size > maxSteps.coerceAtLeast(1)
+        if (!truncated && verify != null) {
+            val verdict = verify(plan, results.toList())
+            if (!verdict.ok) {
+                return Outcome.Success(
+                    AgentRunResult(taskId, false, results.size, results.toList(), "VERIFY_FAILED: ${verdict.diagnosis}"),
+                )
+            }
+        }
         return Outcome.Success(
             AgentRunResult(
                 taskId = taskId,

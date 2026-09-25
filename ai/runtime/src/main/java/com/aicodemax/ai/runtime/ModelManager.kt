@@ -54,18 +54,19 @@ object ModelCatalog {
     private const val HF = "https://huggingface.co/Qwen"
 
     val DEFAULT_MODEL = ModelProfile(
-        id = "qwen2.5-0.5b-q4_k_m",
-        displayName = "Qwen2.5 0.5B (Q4_K_M)",
-        url = "$HF/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
-        fileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+        id = "qwen3-4b-q4_k_m",
+        displayName = "Qwen3 4B (Q4_K_M)",
+        url = "$HF/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+        fileName = "Qwen3-4B-Q4_K_M.gguf",
         version = "1.0",
         licenseId = "Apache-2.0",
         quantization = "Q4_K_M",
-        architecture = "qwen2",
-        params = "0.5B",
+        architecture = "qwen3",
+        params = "4B",
+        family = "qwen3",
         pack = ModelPack.DEFAULT,
-        expectedBytes = 397_000_000L,
-        minRamMb = 2048,
+        expectedBytes = 2_497_280_256L,
+        minRamMb = 4096,
     )
 
     val OPTIONAL_1_5B = ModelProfile(

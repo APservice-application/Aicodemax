@@ -11,12 +11,16 @@ data class BrowserTab(
     val url: String,
     val title: String = "",
     val loading: Boolean = false,
+    /** CP-147 (spec §11): user-given tab name. */
+    val name: String = "",
+    /** CP-147 (spec §11): user note attached to the tab. */
+    val note: String = "",
 )
 
 /** Browser runtime port. Page automation (CP-115) runs on the visible WebView (Android). */
 interface BrowserPort {
     fun descriptor(): ToolDescriptor
-    suspend fun openTab(url: String): Outcome<BrowserTab>
+    suspend fun openTab(url: String, name: String = "", note: String = ""): Outcome<BrowserTab>
     suspend fun closeTab(tabId: String): Outcome<Unit>
     suspend fun listTabs(): Outcome<List<BrowserTab>>
     suspend fun navigate(tabId: String, url: String): Outcome<BrowserTab>

@@ -7,10 +7,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * CP-120: on-device bootstrap LLM (Qwen2.5-0.5B Q4_K_M, same as the owner's
- * previous app). The ~400MB .gguf is NEVER in git nor in the APK — the app
- * downloads it once into filesDir/models on user request; inference runs
- * in-process via JNI (CP-123+; the old llama-server binary was removed).
+ * CP-120: on-device bootstrap LLM (CP-147: Qwen3-4B Q4_K_M). The ~2.5GB .gguf
+ * is NEVER in git nor in the APK — the app downloads it once into
+ * filesDir/models on user request; inference runs in-process via JNI
+ * (CP-123+; the old llama-server binary was removed).
  *
  * Pure JVM: [Downloader] is injected (HttpURLConnection impl included).
  */
@@ -23,10 +23,10 @@ object ModelStore {
     )
 
     val DEFAULT_MODEL = ModelSpec(
-        name = "qwen2.5-0.5b-q4_k_m",
-        url = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
-        fileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-        expectedBytes = 397_000_000L,
+        name = "qwen3-4b-q4_k_m",
+        url = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+        fileName = "Qwen3-4B-Q4_K_M.gguf",
+        expectedBytes = 2_497_280_256L,
     )
 
     sealed interface ModelStatus {

@@ -74,6 +74,12 @@ class BuiltinAiProvisioner(
             aiRuntime.provisionFailed("ไฟล์ AI ในตัวไม่สมบูรณ์หลังแตกไฟล์")
             return@launch
         }
+        // CP-147: model swap 0.5B -> Qwen3-4B — remove the orphaned legacy
+        // provision (~491MB) so upgraders don't lose storage to a dead file.
+        runCatching {
+            val legacy = destFile.resolveSibling("builtin-qwen2.5-0.5b-q4_k_m.gguf")
+            if (legacy.isFile && legacy.path != destFile.path) legacy.delete()
+        }
         aiRuntime.loadBuiltin(destFile.path)
     }
 

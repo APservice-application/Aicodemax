@@ -81,7 +81,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: app/src/main/assets/ai/builtin-model.gguf
-          key: builtin-model-qwen25-0.5b-q4km-v1
+          key: builtin-model-qwen3-4b-q4km-v1
       - name: Fetch embedded AI payload (CP-146 Gradle tasks)
         run: ./gradlew :app:fetchBuiltinModel :app:fetchFfmpegLibs --console=plain --stacktrace
       - name: Real-inference smoke test (CP-144 §14)
@@ -101,7 +101,7 @@ jobs:
           test -n "$CLI" && test -x "$CLI"
           # -st (single-turn): without it llama-cli enters interactive mode and prints
           # only "> " prompts; filter any prompt echoes so the byte test proves REAL tokens.
-          OUT=$(timeout 300 "$CLI" -m app/src/main/assets/ai/builtin-model.gguf -p "สวัสดี" -n 32 -c 2048 -st 2>/dev/null | grep -v "^> " | tail -c 2000)
+          OUT=$(timeout 300 "$CLI" -m app/src/main/assets/ai/builtin-model.gguf -p "สวัสดี /no_think" -n 32 -c 2048 -st 2>/dev/null | grep -v "^> " | tail -c 2000)
           echo "--- model output tail ---"
           echo "$OUT"
           test "$(printf '%s' "$OUT" | wc -c)" -gt 40

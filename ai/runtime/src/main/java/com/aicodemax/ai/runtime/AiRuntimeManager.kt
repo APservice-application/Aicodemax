@@ -44,7 +44,7 @@ class AiRuntimeManager(
     private val models: ModelManager,
     private val runtimeDir: String,
     private val loadOpts: LoadOpts = LoadOpts(),
-    private val template: (List<ChatMessage>) -> String = ChatTemplate::qwen25,
+    private val template: (List<ChatMessage>) -> String = ChatTemplate::qwen3,
     private val resources: ResourceManager? = null,
     private val expectBuiltin: Boolean = false,
 ) {
@@ -200,7 +200,8 @@ class AiRuntimeManager(
                 runtime.generate(template(messages), params, onToken).fold(
                     onSuccess = {
                         _state.value = AiRuntimeState.READY
-                        Outcome.Success(ChatReply(it.text, it.stoppedEarly, via = "local"))
+                        // CP-147: Qwen3 must never leak raw <think> into chat.
+                        Outcome.Success(ChatReply(ChatTemplate.stripThinking(it.text), it.stoppedEarly, via = "local"))
                     },
                     onFailure = {
                         _error.value = it.message
