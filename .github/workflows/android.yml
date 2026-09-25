@@ -175,10 +175,12 @@ jobs:
       - name: Build PTY JNI arm64 (CP-32)
         run: |
           set -e
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-          "$SDKMANAGER" "ndk;27.0.12077973"
           NDK="$ANDROID_HOME/ndk/27.0.12077973"
+          if [ ! -d "$NDK" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+            "$SDKMANAGER" "ndk;27.0.12077973"
+          fi
           TOOLCHAIN_BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
           mkdir -p app/src/main/jniLibs/arm64-v8a
           "$TOOLCHAIN_BIN/aarch64-linux-android26-clang" \
