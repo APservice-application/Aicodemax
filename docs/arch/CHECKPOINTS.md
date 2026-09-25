@@ -58,7 +58,7 @@
 | CP | ชื่อ | สถานะ | หลักฐาน/เหลือ |
 |----|------|--------|----------------|
 | CP-31 | Compatibility Engine | DONE | CompatEngine ครอบ CLI adapter + CommandRisk gate + เทส |
-| CP-32 | CLI Adapter | PARTIAL → DONE | managed PTY runtime (§27, ไม่พึ่ง Termux): `aicode_pty.c` (forkpty) + `PtyPort`/`JniPtyPort` + โหมด PTY เชิงโต้ตอบใน TerminalScreen; CI บิลด์ `libaicode_pty.so` arm64 |
+| CP-32 | CLI Adapter | DONE + CI GREEN ทั้ง 2 สาขา (`6a58c18`) | managed PTY runtime (§27, ไม่พึ่ง Termux): `aicode_pty.c` (forkpty) + `PtyPort`/`JniPtyPort` + โหมด PTY เชิงโต้ตอบใน TerminalScreen; CI บิลด์ `libaicode_pty.so` arm64 |
 | CP-33 | Optional Terminal / Dev Workspace | DONE | TerminalScreen (BLOCKED ซื่อสัตย์จนกว่า CP-32 เสร็จ) |
 
 ## USER EXPERIENCE
@@ -106,8 +106,8 @@
 | CP-65 | Editing Planner + Intent + NL mapping | DONE | EditingPlanner (preset data §27) + MEDIA_EDIT จริง + สกิล aicode-tools อัปเดต + เทส (296/296) |
 | CP-66 | Subtitle Engine (STT→SRT→burn-in, TH/EN) | DONE | SRT ops + YUV + burn transcode (Canvas/AVC ≤720p) + subtitle.* gateway + SUB intents + เทส (310/310) |
 | CP-67 | Render Queue + Preview + Export (§19–21) | DONE | คิวเรนเดอร์ + fast/concat transcode + QC + พรีวิว + อนุมัติ + เอ็กซ์พอร์ต + Render UI + เทส (320/320) |
-| CP-68 | Supabase Devtool (optional, user keys) | TODO → DONE | connector (§156): user URL+key (app-private prefs), health/auth/query/insert + gateway tool + SupabaseScreen |
-| CP-69 | WebAI localhost bridge + Multi-agent | TODO → DONE | `WebAiBridgeServer` (§31: 127.0.0.1 + Bearer token + origin/capability/expiry/log) + multi-agent (local + file/shell specialists) + WebAiScreen |
+| CP-68 | Supabase Devtool (optional, user keys) | DONE + CI GREEN ทั้ง 2 สาขา (`6a58c18`) | connector (§156): user URL+key (app-private prefs), health/auth/query/insert + gateway tool + SupabaseScreen |
+| CP-69 | WebAI localhost bridge + Multi-agent | DONE + CI GREEN ทั้ง 2 สาขา (`6a58c18`) | `WebAiBridgeServer` (§31: 127.0.0.1 + Bearer token + origin/capability/expiry/log) + multi-agent (local + file/shell specialists) + WebAiScreen |
 | CP-70 | Media integration + docs + release | TODO | — |
 | CP-71 | Transaction + Undo/Redo + Events + Project mgmt | DONE | transaction+rollback + undo/redo + events + checkpoints + trash/backup + UI + เทส (330/330) |
 | CP-72 | Timeline pro ops + markers + track flags | DONE | TimelineOps + split/trim/move/delete/duplicate + markers + lock/mute/hide + render เคารพ mute/hide + CLIP intents + เทส (341/341) |
