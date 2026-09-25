@@ -315,6 +315,30 @@ tasks.register("fetchBuiltinModel") {
     }
 }
 
+tasks.register("fetchLibcxxShared") {
+    description = "CP-147: copies the NDK libc++_shared.so into jniLibs (AGP does not reliably auto-package it; the JNI engine needs it at loadLibrary)."
+    dependsOn("ensureNativeBuildTools")
+    doLast {
+        val os = System.getProperty("os.name").lowercase()
+        val host = when {
+            os.contains("mac") -> "darwin-x86_64"
+            os.contains("win") -> "windows-x86_64"
+            else -> "linux-x86_64"
+        }
+        val ndkDir = File(resolveAndroidSdkDir(), "ndk/27.0.12077973")
+        val src = File(ndkDir, "toolchains/llvm/prebuilt/$host/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so")
+        require(src.isFile && src.length() > 500_000) { "CP-147: NDK libc++_shared.so not found at ${src.path}." }
+        ffmpegArm64Dir.mkdirs()
+        val dest = File(ffmpegArm64Dir, "libc++_shared.so")
+        if (!dest.exists() || dest.length() != src.length()) {
+            src.copyTo(dest, overwrite = true)
+            logger.lifecycle("fetchLibcxxShared: copied ${src.length()} bytes.")
+        } else {
+            logger.lifecycle("fetchLibcxxShared: libc++_shared.so present, skipping.")
+        }
+    }
+}
+
 tasks.register("fetchFfmpegLibs") {
     description = "CP-146: fetches prebuilt ffmpeg/ffprobe arm64 libs into jniLibs (skipped when present)."
     doLast {
@@ -443,5 +467,7 @@ tasks.matching { it.name.matches(Regex("merge.*Assets")) }
     .configureEach { dependsOn("fetchBuiltinModel") }
 tasks.matching { it.name.matches(Regex("merge.*JniLibFolders")) }
     .configureEach { dependsOn("fetchFfmpegLibs") }
+tasks.matching { it.name.matches(Regex("merge.*JniLibFolders")) }
+    .configureEach { dependsOn("fetchLibcxxShared") }
 tasks.matching { it.name.matches(Regex("assemble.*")) }
     .configureEach { finalizedBy("verifyEmbeddedAi") }
