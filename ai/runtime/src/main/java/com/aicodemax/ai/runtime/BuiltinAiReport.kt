@@ -40,7 +40,7 @@ data class BuiltinAiReport(
         }
         when (assetPresent) {
             true -> lines += "✅ มีโมเดล AI ใน APK"
-            false -> lines += "❌ ไม่มีโมเดลใน APK (assets/ai/builtin-model.gguf)"
+            false -> lines += "❌ ไม่มีโมเดลใน APK (assets/ai/builtin-model-part*.gguf)"
             null -> {}
         }
         val bytes = provisionedBytes

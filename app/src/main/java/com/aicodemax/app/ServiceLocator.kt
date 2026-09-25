@@ -207,7 +207,8 @@ class ServiceLocator(context: Context) {
     /** CP-145: collects the built-in AI checklist inputs (cheap metadata calls only). */
     fun builtinAiReport(): com.aicodemax.ai.runtime.BuiltinAiReport {
         val assetPresent = try {
-            appContext.assets.openFd("ai/builtin-model.gguf").use { it.length > 0 }
+            // CP-147: the model ships as parts + manifest (never one 2.5GB file).
+            appContext.assets.openFd(com.aicodemax.ai.runtime.BuiltinModelParts.MANIFEST_PATH).use { it.length > 0 }
         } catch (_: Exception) {
             false
         }

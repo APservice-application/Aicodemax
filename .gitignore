@@ -23,6 +23,7 @@ app/src/main/jniLibs/
 # Model weights (ไฟล์ใหญ่)
 *.bin
 *.gguf
+app/src/main/assets/ai/builtin-model.manifest
 *.onnx
 *.tflite
 *.pt

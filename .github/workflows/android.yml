@@ -80,10 +80,16 @@ jobs:
         id: builtin-model-cache
         uses: actions/cache@v4
         with:
-          path: app/src/main/assets/ai/builtin-model.gguf
+          path: app/src/main/assets/ai
           key: builtin-model-qwen3-4b-q4km-v1
       - name: Fetch embedded AI payload (CP-146 Gradle tasks)
         run: ./gradlew :app:fetchBuiltinModel :app:fetchFfmpegLibs --console=plain --stacktrace
+      - name: Join model parts for smoke test (CP-147)
+        run: |
+          set -e
+          cat app/src/main/assets/ai/builtin-model-part*.gguf > /tmp/builtin-model.gguf
+          WANT=$(grep ^total= app/src/main/assets/ai/builtin-model.manifest | cut -d= -f2)
+          test "$(stat -c%s /tmp/builtin-model.gguf)" = "$WANT"
       - name: Real-inference smoke test (CP-144 §14)
         run: |
           set -e
@@ -101,7 +107,7 @@ jobs:
           test -n "$CLI" && test -x "$CLI"
           # -st (single-turn): without it llama-cli enters interactive mode and prints
           # only "> " prompts; filter any prompt echoes so the byte test proves REAL tokens.
-          OUT=$(timeout 300 "$CLI" -m app/src/main/assets/ai/builtin-model.gguf -p "สวัสดี /no_think" -n 32 -c 2048 -st 2>/dev/null | grep -v "^> " | tail -c 2000)
+          OUT=$(timeout 300 "$CLI" -m /tmp/builtin-model.gguf -p "สวัสดี /no_think" -n 32 -c 2048 -st 2>/dev/null | grep -v "^> " | tail -c 2000)
           echo "--- model output tail ---"
           echo "$OUT"
           test "$(printf '%s' "$OUT" | wc -c)" -gt 40
@@ -109,7 +115,7 @@ jobs:
         run: ./gradlew assembleDebug --stacktrace
       - name: Prove embedded AI inside APK (CP-146)
         run: |
-          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "libaicode_(jni|whisper|pty).so|libffmpeg.so|libffprobe.so|builtin-model.gguf"
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "libaicode_(jni|whisper|pty).so|libffmpeg.so|libffprobe.so|builtin-model-part.*.gguf|builtin-model.manifest"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
