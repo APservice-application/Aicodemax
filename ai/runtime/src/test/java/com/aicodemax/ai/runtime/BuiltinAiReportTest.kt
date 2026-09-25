@@ -20,7 +20,7 @@ class BuiltinAiReportTest {
     }
 
     @Test
-    fun localBuildWithoutSoPointsToLocalBuildDoc() {
+    fun incompleteBuildWithoutSoSuggestsCleanRebuild() {
         val lines = BuiltinAiReport(
             nativeAvailable = false,
             nativeError = "Dalvik: couldn't find \"libaicode_jni.so\"",
@@ -29,7 +29,7 @@ class BuiltinAiReportTest {
             provisionedBytes = null,
         ).describe().joinToString("\n")
         assertTrue(lines, lines.contains("ไม่พบ native lib"))
-        assertTrue(lines, lines.contains("docs/LOCAL_BUILD.md"))
+        assertTrue(lines, lines.contains("clean แล้วบิลด์ใหม่"))
         assertTrue(lines, lines.contains("ไม่มีโมเดลใน APK"))
         // Never the old misleading "Android only" claim.
         assertTrue(lines, !lines.contains("บน Android เท่านั้น"))

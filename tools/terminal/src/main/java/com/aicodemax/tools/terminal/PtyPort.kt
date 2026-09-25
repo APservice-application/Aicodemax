@@ -6,7 +6,7 @@ import com.aicodemax.core.common.Outcome
 /**
  * CP-32 managed PTY (§27): the app's own interactive shell runtime —
  * no Termux install needed. The native lib (`libaicode_pty.so`, arm64)
- * is packed by CI; JVM/desktop gets an honest unavailable signal.
+ * is compiled by the Gradle build; JVM/desktop gets an honest unavailable signal.
  */
 object PtyJni {
     val available: Boolean

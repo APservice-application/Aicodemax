@@ -13,8 +13,8 @@ import kotlinx.coroutines.launch
 /**
  * CP-144 (BUILT-IN AI §2/§18): first-launch provisioner for the bundled AI.
  *
- * The model ships INSIDE the APK (`assets/ai/builtin-model.gguf`, packed by
- * CI). On first launch this copies it once into filesDir (local copy with
+ * The model ships INSIDE the APK (`assets/ai/builtin-model.gguf`, embedded
+ * by the Gradle build). On first launch this copies it once into filesDir (local copy with
  * progress — NEVER a network download), validates GGUF, and loads it via
  * [AiRuntimeManager.loadBuiltin] (no ModelManager involved).
  *

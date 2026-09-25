@@ -8,12 +8,29 @@ android {
     namespace = "com.aicodemax.app"
     compileSdk = 34
 
+    // CP-146: pinned NDK — the Gradle build itself compiles the AI engine
+    // (llama.cpp/whisper.cpp/pty JNI) on ANY machine. Auto-installed on first
+    // build by the ensureNativeBuildTools task below when sdkmanager exists.
+    ndkVersion = "27.0.12077973"
+
     defaultConfig {
         applicationId = "com.aicodemax"
         minSdk = 26
         targetSdk = 34
         versionCode = 4
         versionName = "0.1.5"
+
+        // CP-146: arm64 only (same ABI the old CI shell build produced).
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+        externalNativeBuild {
+            cmake {
+                // -O2 even for debug builds: llama.cpp at -O0 is unusably slow.
+                cFlags += "-O2"
+                cppFlags += "-O2"
+            }
+        }
     }
 
     buildTypes {
@@ -32,6 +49,16 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+
+    // CP-146: the AI engine is part of the Gradle build. assembleDebug on ANY
+    // machine compiles the JNI libs and bundles them into the APK — no manual
+    // native builds, no CI-only shell scripts.
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     // CP-118: embedded native tools (.so) must extract to nativeLibraryDir with
@@ -115,3 +142,156 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.coroutines.android)
 }
+
+// CP-146: BUILD-TIME AI EMBEDDING. Every assemble* on ANY machine produces an
+// APK with the engine + model inside. Nothing for the developer to run by hand,
+// nothing for the user to download/install. Internet is needed at BUILD time
+// only (one-time fetch, then cached next to the sources); the installed app
+// runs fully OFFLINE.
+val builtinModelUrl =
+    "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+val builtinModelSize = 491400032L // exact bytes (Qwen2.5-0.5B-Instruct Q4_K_M)
+val builtinModelFile = file("src/main/assets/ai/builtin-model.gguf")
+val ffmpegArm64Dir = file("src/main/jniLibs/arm64-v8a")
+
+fun resolveAndroidSdkDir(): File {
+    val props = java.util.Properties()
+    val localProps = rootProject.file("local.properties")
+    if (localProps.exists()) localProps.inputStream().use { props.load(it) }
+    val dir = props.getProperty("sdk.dir")
+        ?: System.getenv("ANDROID_HOME")
+        ?: System.getenv("ANDROID_SDK_ROOT")
+        ?: throw GradleException(
+            "CP-146: Android SDK not found. Set sdk.dir in local.properties or ANDROID_HOME.",
+        )
+    return File(dir)
+}
+
+tasks.register("ensureNativeBuildTools") {
+    description = "CP-146: installs pinned NDK + CMake via sdkmanager when missing."
+    doLast {
+        val sdkDir = resolveAndroidSdkDir()
+        val ndkDir = File(sdkDir, "ndk/27.0.12077973")
+        val cmakeDir = File(sdkDir, "cmake/3.22.1")
+        if (ndkDir.isDirectory && cmakeDir.isDirectory) {
+            logger.lifecycle("ensureNativeBuildTools: NDK 27.0.12077973 + CMake 3.22.1 present.")
+            return@doLast
+        }
+        val win = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+        val sdkman = File(sdkDir, "cmdline-tools/latest/bin/sdkmanager" + if (win) ".bat" else "")
+        if (!sdkman.exists()) {
+            throw GradleException(
+                "CP-146: NDK 27.0.12077973 and/or CMake 3.22.1 missing and no cmdline-tools " +
+                    "sdkmanager found. Install them once via Android Studio SDK Manager or run: " +
+                    "sdkmanager \"ndk;27.0.12077973\" \"cmake;3.22.1\"",
+            )
+        }
+        logger.lifecycle("ensureNativeBuildTools: installing NDK 27.0.12077973 + CMake 3.22.1 (one-time)...")
+        val yes = java.io.ByteArrayInputStream("y\n".repeat(40).toByteArray())
+        exec {
+            commandLine(sdkman.absolutePath, "--licenses")
+            standardInput = yes
+            isIgnoreExitValue = true
+        }
+        exec { commandLine(sdkman.absolutePath, "ndk;27.0.12077973", "cmake;3.22.1") }
+        require(ndkDir.isDirectory && cmakeDir.isDirectory) { "CP-146: native tools install failed." }
+    }
+}
+
+fun verifyGgufHeader(f: File): Boolean =
+    f.inputStream().use { inp ->
+        val magic = ByteArray(4)
+        inp.read(magic) == 4 && magic.contentEquals("GGUF".toByteArray())
+    }
+
+tasks.register("fetchBuiltinModel") {
+    description = "CP-146: fetches the pinned built-in GGUF into assets (skipped when present + verified)."
+    doLast {
+        if (builtinModelFile.exists() && builtinModelFile.length() == builtinModelSize &&
+            verifyGgufHeader(builtinModelFile)
+        ) {
+            logger.lifecycle("fetchBuiltinModel: already present + verified, skipping.")
+            return@doLast
+        }
+        builtinModelFile.parentFile.mkdirs()
+        val tmp = File(builtinModelFile.path + ".part")
+        logger.lifecycle("fetchBuiltinModel: downloading built-in model 491MB (one-time, build-time only)...")
+        java.net.URL(builtinModelUrl).openStream().use { inp ->
+            java.nio.file.Files.copy(inp, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
+        if (tmp.length() != builtinModelSize) {
+            tmp.delete()
+            throw GradleException("CP-146: model size mismatch (got ${tmp.length()}, want $builtinModelSize).")
+        }
+        if (!verifyGgufHeader(tmp)) {
+            tmp.delete()
+            throw GradleException("CP-146: downloaded file is not GGUF.")
+        }
+        if (!tmp.renameTo(builtinModelFile)) throw GradleException("CP-146: cannot move model into assets.")
+        logger.lifecycle("fetchBuiltinModel: done.")
+    }
+}
+
+tasks.register("fetchFfmpegLibs") {
+    description = "CP-146: fetches prebuilt ffmpeg/ffprobe arm64 libs into jniLibs (skipped when present)."
+    doLast {
+        val base = "https://github.com/APservice-application/Aicodemax/releases/download/archive/oldai-workspace"
+        val pairs = listOf("libffmpeg-arm64.so" to "libffmpeg.so", "libffprobe-arm64.so" to "libffprobe.so")
+        ffmpegArm64Dir.mkdirs()
+        for ((remote, local) in pairs) {
+            val dest = File(ffmpegArm64Dir, local)
+            if (dest.exists() && dest.length() > 1_000_000) {
+                logger.lifecycle("fetchFfmpegLibs: $local present, skipping.")
+                continue
+            }
+            logger.lifecycle("fetchFfmpegLibs: downloading $local (one-time)...")
+            val tmp = File(dest.path + ".part")
+            java.net.URL("$base/$remote").openStream().use { inp ->
+                java.nio.file.Files.copy(inp, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            }
+            if (tmp.length() < 1_000_000 || !tmp.renameTo(dest)) {
+                tmp.delete()
+                throw GradleException("CP-146: failed to fetch $local.")
+            }
+        }
+    }
+}
+
+tasks.register("verifyEmbeddedAi") {
+    description = "CP-146: BUILD=FAIL unless every built APK contains the AI engine + model."
+    doLast {
+        val apks = file("build/outputs/apk").walkTopDown().filter { it.extension == "apk" }.toList()
+        if (apks.isEmpty()) {
+            logger.lifecycle("verifyEmbeddedAi: no APK built, nothing to verify.")
+            return@doLast
+        }
+        val required = listOf(
+            "lib/arm64-v8a/libaicode_jni.so",
+            "lib/arm64-v8a/libaicode_whisper.so",
+            "lib/arm64-v8a/libaicode_pty.so",
+            "lib/arm64-v8a/libffmpeg.so",
+            "lib/arm64-v8a/libffprobe.so",
+            "assets/ai/builtin-model.gguf",
+        )
+        for (apk in apks) {
+            java.util.zip.ZipFile(apk).use { zip ->
+                val names = java.util.Collections.list(zip.entries()).map { it.name }.toSet()
+                val missing = required.filter { it !in names }
+                if (missing.isNotEmpty()) {
+                    throw GradleException("CP-146 BUILD=FAIL: ${apk.name} lacks embedded AI: $missing")
+                }
+                logger.lifecycle("verifyEmbeddedAi: ${apk.name} contains engine + model. OK.")
+            }
+        }
+    }
+}
+
+// Wire embedding into the standard build graph (no manual steps, any machine).
+tasks.matching { it.name.startsWith("configureCMake") || it.name.startsWith("buildCMake") }
+    .configureEach { dependsOn("ensureNativeBuildTools") }
+tasks.matching { it.name.matches(Regex("merge.*Assets")) }
+    .configureEach { dependsOn("fetchBuiltinModel") }
+tasks.matching { it.name.matches(Regex("merge.*JniLibFolders")) }
+    .configureEach { dependsOn("fetchFfmpegLibs") }
+tasks.matching { it.name.matches(Regex("assemble.*")) }
+    .configureEach { finalizedBy("verifyEmbeddedAi") }

@@ -3,8 +3,8 @@ package com.aicodemax.ai.runtime
 /**
  * CP-123: Kotlin edge of the JNI bridge (`app/src/main/cpp/aicode_jni.cpp`).
  *
- * The native library exists only on Android (CI builds `libaicode_jni.so` +
- * `libllama.so` for arm64). On plain JVM the load fails and [available] is
+ * The native library exists only on Android (the Gradle build compiles
+ * `libaicode_jni.so` for arm64 via CMake/NDK). On plain JVM the load fails and [available] is
  * false — every call then fails honestly instead of crashing.
  */
 object AicodeJni {

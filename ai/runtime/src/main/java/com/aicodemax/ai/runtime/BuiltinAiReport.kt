@@ -6,7 +6,7 @@ package com.aicodemax.ai.runtime
  * A locally-built APK can miss the CI-packed pieces (native `.so` and/or the
  * model asset). Instead of the misleading "Android only" message, the status
  * card shows this checklist so the user knows exactly what is missing and
- * how to fix it (`docs/LOCAL_BUILD.md` or a CI-built APK).
+ * how to fix it (clean + rebuild — embedding is automatic since CP-146).
  *
  * Pure Kotlin (inputs collected by the app layer) — JVM-tested.
  */
@@ -29,7 +29,9 @@ data class BuiltinAiReport(
             if (err.contains("couldn't find", ignoreCase = true) ||
                 err.contains("find library", ignoreCase = true)
             ) {
-                lines += "→ APK นี้บิลด์โดยไม่มี .so — บิลด์ตาม docs/LOCAL_BUILD.md หรือใช้ APK จาก CI"
+                // CP-146: any normal Gradle build embeds the .so automatically, so a
+                // missing .so means an incomplete/broken build — clean + rebuild.
+                lines += "→ บิลด์ไม่สมบูรณ์ (ปกติ Gradle ฝัง .so ให้อัตโนมัติ) — ลอง clean แล้วบิลด์ใหม่"
             }
             val abi = deviceAbis.firstOrNull().orEmpty()
             if (deviceAbis.isNotEmpty() && "arm64-v8a" !in deviceAbis) {

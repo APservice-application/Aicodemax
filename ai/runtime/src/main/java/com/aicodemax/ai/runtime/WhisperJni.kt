@@ -4,8 +4,8 @@ package com.aicodemax.ai.runtime
  * CP-140: Kotlin edge of the whisper JNI bridge
  * (`app/src/main/cpp/whisper_jni.cpp`).
  *
- * The native library exists only on Android (CI builds
- * `libaicode_whisper.so` for arm64). On plain JVM the load fails and
+ * The native library exists only on Android (the Gradle build compiles
+ * `libaicode_whisper.so` for arm64 via CMake/NDK). On plain JVM the load fails and
  * [available] is false — every call then fails honestly instead of
  * crashing.
  */

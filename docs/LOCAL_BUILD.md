@@ -1,65 +1,51 @@
-# บิลด์ APK ที่มี AI ใช้งานได้ (LOCAL_BUILD)
+# บิลด์ในเครื่อง (Local Build)
 
-> ปัญหาที่พบบ่อย: บิลด์ APK จาก Android Studio/Gradle เองแล้วแชทขึ้น
-> "ไม่พบ native lib" — เพราะ APK นั้นขาดของ 2 อย่างที่ปกติ **CI สร้างให้**
-> (ไม่ได้อยู่ใน repo):
->
-> 1. `libaicode_jni.so` (+ whisper/pty) — native lib สำหรับ arm64
-> 2. `assets/ai/builtin-model.gguf` — โมเดล AI (~470MB)
->
-> เลือกทางใดทางหนึ่ง:
+> ตั้งแต่ CP-146: **การบิ้วปกติฝัง AI เข้า APK ให้อัตโนมัติ** ไม่ต้องรันสคริปต์
+> ไม่ต้องตั้งค่าอะไรเพิ่ม — ขอแค่บิ้วแบบธรรมดา
 
-## ทาง A — ใช้ APK จาก CI (ง่ายสุด)
+## สิ่งที่ต้องมีในเครื่อง (ครั้งเดียว)
 
-1. เปิด GitHub repo → แท็บ **Actions**
-2. เลือกรันล่าสุด (ติ๊กเขียว ✅) ของสาขา `main`
-3. ด้านล่างสุดโหลด **Artifacts → app-debug**
-4. แตก zip ติดตั้ง APK ลงเครื่อง arm64
-5. เปิดแอปครั้งแรก: แอปแตกไฟล์ AI ในเครื่อง (~1 นาที) แล้วแชทได้ทันที
+- JDK 17
+- Android SDK (platform-34 + build-tools 34.0.0) + `cmdline-tools`
+- อินเทอร์เน็ต **ตอนบิ้วครั้งแรกเท่านั้น** (ดึง engine/model มาแคชไว้)
 
-## ทาง B — บิลด์เองให้ครบ (นักพัฒนา)
+> NDK 27 + CMake 3.22.1: Gradle จะติดตั้งให้เองอัตโนมัติตอนบิ้วครั้งแรก
+> (ถ้าไม่มี `cmdline-tools` ให้ติดตั้งเอง 1 คำสั่ง:
+> `sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"`)
 
-### ของที่ต้องมี
+## วิธีบิ้ว
 
-- JDK 17 + Android Studio (SDK + Platform-Tools)
-- **NDK 27.0.12077973** + **CMake**: ติดตั้งจาก
-  Android Studio > Settings > Appearance > System Settings >
-  Android SDK > SDK Tools > ติ๊ก NDK (เลือก 27.0.12077973) + CMake > Apply
-- `git cmake curl python3` ใน PATH + เน็ต + เวลา ~15 นาที (ครั้งแรก)
-
-### ขั้นตอน
-
-```bash
-git clone <repo> && cd Aicodemax
-
-# 1) โหลดโมเดล AI ใส่ assets (~470MB, ครั้งเดียว)
-bash scripts/fetch-builtin-model.sh
-
-# 2) บิลด์ native libs ด้วย NDK (~15 นาทีครั้งแรก)
-bash scripts/build-native-local.sh
-
-# 3) บิลด์ APK
+```sh
 ./gradlew assembleDebug
-
-# 4) ติดตั้ง (เสียบมือถือ arm64 + เปิด USB debugging)
-adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-ไฟล์ที่สคริปต์สร้าง (`jniLibs/`, `assets/ai/*.gguf`) ถูก gitignore ไว้แล้ว —
-`git status` จะสะอาด ไม่เผลอคอมมิตไบนารี
+คำสั่งเดียวจบ — Gradle จะทำทั้งหมดให้เอง:
 
-### หมายเหตุ
-
-- รองรับเครื่อง **arm64-v8a** เท่านั้น (มือถือแอนดรอยด์ปัจจุบันเกือบทั้งหมด)
-- `libffmpeg/libffprobe` สคริปต์ข้ามให้ (ใช้กับงานตัดต่อวิดีโอเท่านั้น) —
-  ถ้าไม่มี งานนั้นจะแจ้งว่าใช้ไม่ได้อย่างซื่อสัตย์ ไม่กระทบแชท AI
-- เปิดแอปครั้งแรกต้องรอแตกไฟล์ AI (~1 นาที ห้ามปิดแอป)
-
-## ตารางแก้ปัญหา (ดู checklist ในการ์ด "AI ในตัว" ประกอบ)
-
-| ข้อความ | สาเหตุ | วิธีแก้ |
+| ขั้นตอน | ทำโดย | เกิดเมื่อไหร่ |
 |---|---|---|
-| ❌ ไม่พบ native lib … บิลด์โดยไม่มี .so | APK บิลด์เองโดยไม่รันสคริปต์ | ทาง A หรือทาง B ข้อ 2 |
-| ⚠️ เครื่องนี้ (…) ไม่ใช่ arm64 | มือถือ/อีมูเลเตอร์ 32-bit | ใช้เครื่อง arm64 |
-| ❌ ไม่มีโมเดลใน APK | ขาดข้อ 1 | `bash scripts/fetch-builtin-model.sh` แล้วบิลด์ใหม่ |
-| ❌ ไฟล์โมเดลที่แตกไว้ไม่สมบูรณ์ | ปิดแอประหว่างแตกไฟล์ครั้งแรก | ล้าง data แอปแล้วเปิดใหม่ |
+| ติดตั้ง NDK + CMake | `ensureNativeBuildTools` | ขาดเมื่อไหร่ ติดตั้งให้ |
+| ดึงโมเดล Qwen2.5-0.5B (491MB) → assets | `fetchBuiltinModel` | ครั้งเดียว แล้วแคชไว้ (ตรวจขนาด+GGUF ทุกครั้ง) |
+| ดึง ffmpeg/ffprobe arm64 → jniLibs | `fetchFfmpegLibs` | ครั้งเดียว แล้วแคชไว้ |
+| compile llama.cpp + whisper.cpp + pty → `.so` | CMake/NDK (`externalNativeBuild`) | ทุกครั้งที่ซอร์สเปลี่ยน (incremental) |
+| แพ็กทุกอย่างเข้า APK | AGP (merge) | ทุกบิ้ว |
+| ตรวจ APK ว่ามี AI ครบ | `verifyEmbeddedAi` | ทุกบิ้ว — **ขาด = บิ้วล้มเหลวทันที** |
+
+ไฟล์ที่ดึงมาเก็บใน `app/src/main/assets/ai/` และ `app/src/main/jniLibs/`
+(ไม่อยู่ใน git) — บิ้วครั้งต่อไปใช้ของเดิม ไม่ดาวน์โหลดซ้ำ
+
+## ผลลัพธ์
+
+APK ที่ได้ = **ONE APPLICATION + ONE BUILT-IN AI**:
+
+- ติดตั้งบนเครื่องสะอาด → เปิดแอป → เปิดแชท → พิมพ์ "สวัสดี"
+- **ปิดเน็ตก็ใช้ได้** (โมเดล+engine อยู่ใน APK แล้ว)
+- ไม่ต้องดาวน์โหลดโมเดล ไม่ต้อง API key ไม่ต้องตั้งค่าอะไร
+
+## ถ้าบิ้วมีปัญหา
+
+| อาการ | แก้ |
+|---|---|
+| `Android SDK not found` | ตั้ง `sdk.dir` ใน `local.properties` หรือ `ANDROID_HOME` |
+| ไม่มี NDK/CMake และไม่มี cmdline-tools | `sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"` (ครั้งเดียว) |
+| `BUILD=FAIL ... lacks embedded AI` | บิ้วไม่สมบูรณ์ — `./gradlew clean assembleDebug` ใหม่อีกรอบ |
+| เน็ตหลุดตอนดึงโมเดล | รันบิ้วใหม่ มันจะดึงต่อ/ดึงใหม่เอง (ไฟล์ `.part` ไม่ถูกใช้) |

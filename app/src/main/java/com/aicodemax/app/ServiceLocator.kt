@@ -348,7 +348,7 @@ class ServiceLocator(context: Context) {
     // CP-68: user-owned Supabase keys (app-private prefs; devtool only).
     val supabaseStore: SupabaseConfigStore = PrefSupabaseConfigStore(appContext)
     val supabase: SupabaseClient = SupabaseClient(JavaNetSupaTransport(), supabaseStore::load)
-    // CP-32: managed native PTY (arm64 .so packed by CI).
+    // CP-32: managed native PTY (arm64 .so compiled by the Gradle build).
     val pty: PtyPort = JniPtyPort()
 
     private lateinit var routedBrain: RoutedChatBrain

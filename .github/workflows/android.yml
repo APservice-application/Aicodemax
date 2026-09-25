@@ -52,7 +52,7 @@ jobs:
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           which sdkmanager
           yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
       - name: Run Android unit tests
         run: >
           ./gradlew
@@ -76,140 +76,14 @@ jobs:
           :data:checkpoint:test :data:audit:test :data:memory:test :data:conversations:test
           :tools:registry:test :tools:terminal:test :tools:git:test
           --stacktrace
-      - name: Fetch embedded native tools (CP-118)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p app/src/main/jniLibs/arm64-v8a
-          cd app/src/main/jniLibs/arm64-v8a
-          gh release download archive/oldai-workspace -R "$GITHUB_REPOSITORY" -p 'libffmpeg-arm64.so' -p 'libffprobe-arm64.so' --clobber
-          mv libffmpeg-arm64.so libffmpeg.so
-          mv libffprobe-arm64.so libffprobe.so
-          ls -la
-      - name: Restore llama.cpp + JNI build cache (CP-123)
-        id: llama-cache
-        uses: actions/cache@v4
-        with:
-          path: app/src/main/jniLibs/arm64-v8a/libaicode_jni.so
-          key: llama-jni-v0.4.1-ndk-27.0.12077973-${{ hashFiles('app/src/main/cpp/**') }}-${{ hashFiles('.github/workflows/android.yml') }}
-      - name: Build llama.cpp + JNI arm64 (CP-122/123)
-        if: steps.llama-cache.outputs.cache-hit != 'true'
-        run: |
-          set -e
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-          "$SDKMANAGER" "ndk;27.0.12077973"
-          NDK="$ANDROID_HOME/ndk/27.0.12077973"
-          git clone --depth 1 --branch v0.4.1 https://github.com/ggml-org/llama.cpp.git /tmp/llamacpp
-          cmake -S /tmp/llamacpp -B /tmp/llamacpp/build-android \
-            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
-            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-            -DGGML_OPENMP=OFF \
-            -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
-            -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF
-          cmake --build /tmp/llamacpp/build-android --config Release -j"$(nproc)" --target llama
-          cmake --build /tmp/llamacpp/build-android --config Release -j"$(nproc)" --target llama-common || \
-          cmake --build /tmp/llamacpp/build-android --config Release -j"$(nproc)" --target common || \
-          echo "no common target (libllama only)"
-          TOOLCHAIN_BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          STATIC_LIBS=$(find /tmp/llamacpp/build-android \( -name "libllama*.a" -o -name "libggml*.a" \) | tr '\n' ' ')
-          echo "static libs: $STATIC_LIBS"
-          test -n "$STATIC_LIBS"
-          mkdir -p app/src/main/jniLibs/arm64-v8a
-          "$TOOLCHAIN_BIN/aarch64-linux-android26-clang++" \
-            -shared -fPIC -O2 -std=c++17 \
-            -I/tmp/llamacpp/include -I/tmp/llamacpp/ggml/include -I/tmp/llamacpp/common \
-            app/src/main/cpp/aicode_jni.cpp \
-            -Wl,--start-group $STATIC_LIBS -Wl,--end-group \
-            -llog -landroid \
-            -o app/src/main/jniLibs/arm64-v8a/libaicode_jni.so
-          "$TOOLCHAIN_BIN/llvm-strip" app/src/main/jniLibs/arm64-v8a/libaicode_jni.so
-          JNI_SO=app/src/main/jniLibs/arm64-v8a/libaicode_jni.so
-          ls -la app/src/main/jniLibs/arm64-v8a/
-          test "$(stat -c%s "$JNI_SO")" -gt 2000000
-          test "$("$TOOLCHAIN_BIN/llvm-nm" --undefined-only "$JNI_SO" | grep -c "llama_")" = "0"
-      - name: Restore whisper.cpp + JNI build cache (CP-140)
-        id: whisper-cache
-        uses: actions/cache@v4
-        with:
-          path: app/src/main/jniLibs/arm64-v8a/libaicode_whisper.so
-          key: whisper-jni-v1.9.4-ndk-27.0.12077973-${{ hashFiles('app/src/main/cpp/whisper_jni.cpp') }}-${{ hashFiles('.github/workflows/android.yml') }}
-      - name: Build whisper.cpp + JNI arm64 (CP-140)
-        if: steps.whisper-cache.outputs.cache-hit != 'true'
-        run: |
-          set -e
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-          "$SDKMANAGER" "ndk;27.0.12077973"
-          NDK="$ANDROID_HOME/ndk/27.0.12077973"
-          git clone --depth 1 --branch v1.9.4 https://github.com/ggml-org/whisper.cpp.git /tmp/whispercpp
-          cmake -S /tmp/whispercpp -B /tmp/whispercpp/build-android \
-            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
-            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-            -DGGML_OPENMP=OFF \
-            -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF
-          cmake --build /tmp/whispercpp/build-android --config Release -j"$(nproc)" --target whisper
-          TOOLCHAIN_BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          STATIC_LIBS=$(find /tmp/whispercpp/build-android \( -name "libwhisper*.a" -o -name "libggml*.a" \) | tr '\n' ' ')
-          echo "static libs: $STATIC_LIBS"
-          test -n "$STATIC_LIBS"
-          mkdir -p app/src/main/jniLibs/arm64-v8a
-          "$TOOLCHAIN_BIN/aarch64-linux-android26-clang++" \
-            -shared -fPIC -O2 -std=c++17 \
-            -I/tmp/whispercpp/include -I/tmp/whispercpp/ggml/include \
-            app/src/main/cpp/whisper_jni.cpp \
-            -Wl,--start-group $STATIC_LIBS -Wl,--end-group \
-            -llog -landroid \
-            -o app/src/main/jniLibs/arm64-v8a/libaicode_whisper.so
-          "$TOOLCHAIN_BIN/llvm-strip" app/src/main/jniLibs/arm64-v8a/libaicode_whisper.so
-          WSO=app/src/main/jniLibs/arm64-v8a/libaicode_whisper.so
-          ls -la app/src/main/jniLibs/arm64-v8a/
-          test "$(stat -c%s "$WSO")" -gt 1000000
-          test "$("$TOOLCHAIN_BIN/llvm-nm" --undefined-only "$WSO" | grep -c "whisper_")" = "0"
-      - name: Build PTY JNI arm64 (CP-32)
-        run: |
-          set -e
-          NDK="$ANDROID_HOME/ndk/27.0.12077973"
-          if [ ! -d "$NDK" ]; then
-            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-            "$SDKMANAGER" "ndk;27.0.12077973"
-          fi
-          TOOLCHAIN_BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
-          mkdir -p app/src/main/jniLibs/arm64-v8a
-          "$TOOLCHAIN_BIN/aarch64-linux-android26-clang" \
-            -shared -fPIC -O2 \
-            app/src/main/cpp/aicode_pty.c \
-            -llog \
-            -o app/src/main/jniLibs/arm64-v8a/libaicode_pty.so
-          # NOTE: assert symbols BEFORE strip (stripped libs report "no symbols" to nm).
-          "$TOOLCHAIN_BIN/llvm-nm" --defined-only app/src/main/jniLibs/arm64-v8a/libaicode_pty.so | grep -q "ptyOpen"
-          "$TOOLCHAIN_BIN/llvm-nm" --defined-only app/src/main/jniLibs/arm64-v8a/libaicode_pty.so | grep -q "ptyClose"
-          "$TOOLCHAIN_BIN/llvm-strip" app/src/main/jniLibs/arm64-v8a/libaicode_pty.so
-          ls -la app/src/main/jniLibs/arm64-v8a/
       - name: Restore bundled AI model (CP-144)
         id: builtin-model-cache
         uses: actions/cache@v4
         with:
           path: app/src/main/assets/ai/builtin-model.gguf
           key: builtin-model-qwen25-0.5b-q4km-v1
-      - name: Download bundled AI model (CP-144)
-        if: steps.builtin-model-cache.outputs.cache-hit != 'true'
-        run: |
-          set -e
-          # Qwen2.5-0.5B-Instruct Q4_K_M — Apache-2.0 (redistribution allowed, §19).
-          mkdir -p app/src/main/assets/ai
-          curl -L --fail --retry 3 -o app/src/main/assets/ai/builtin-model.gguf \
-            https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf
-          ls -la app/src/main/assets/ai/
-          test "$(stat -c%s app/src/main/assets/ai/builtin-model.gguf)" -gt 380000000
-          test "$(head -c 4 app/src/main/assets/ai/builtin-model.gguf)" = "GGUF"
+      - name: Fetch embedded AI payload (CP-146 Gradle tasks)
+        run: ./gradlew :app:fetchBuiltinModel :app:fetchFfmpegLibs --console=plain --stacktrace
       - name: Real-inference smoke test (CP-144 §14)
         run: |
           set -e
@@ -233,6 +107,9 @@ jobs:
           test "$(printf '%s' "$OUT" | wc -c)" -gt 40
       - name: Assemble
         run: ./gradlew assembleDebug --stacktrace
+      - name: Prove embedded AI inside APK (CP-146)
+        run: |
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "libaicode_(jni|whisper|pty).so|libffmpeg.so|libffprobe.so|builtin-model.gguf"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
