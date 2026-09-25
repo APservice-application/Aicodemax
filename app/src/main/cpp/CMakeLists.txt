@@ -14,15 +14,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 
 # ---------------------------------------------------------------- llama.cpp
-set(BUILD_SHARED_LIBS OFF)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(GGML_OPENMP OFF)
-set(LLAMA_CURL OFF)
-set(LLAMA_BUILD_TESTS OFF)
-set(LLAMA_BUILD_EXAMPLES OFF)
-set(LLAMA_BUILD_SERVER OFF)
-set(LLAMA_BUILD_TOOLS OFF)
-set(LLAMA_BUILD_APP OFF)
+# NOTE: CACHE FORCE (not plain set) — whisper.cpp pins cmake_minimum 3.5, so
+# CMP0077 is OLD there and option() would ignore normal variables (this once
+# silently produced a 44KB wrapper + separate shared libs instead of a
+# self-contained .so). Cache variables win under every policy.
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON CACHE BOOL "" FORCE)
+set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
+set(LLAMA_CURL OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_APP OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     llamacpp
     URL https://github.com/ggml-org/llama.cpp/archive/refs/tags/v0.4.1.zip

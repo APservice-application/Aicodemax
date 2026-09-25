@@ -281,6 +281,9 @@ tasks.register("verifyEmbeddedAi") {
             "lib/arm64-v8a/libffprobe.so",
             "assets/ai/builtin-model.gguf",
         )
+        // The engines must be statically linked INTO libaicode_*.so — never loose
+        // shared libs (a 44KB wrapper + libwhisper.so once slipped through).
+        val forbidden = listOf("libwhisper.so", "libllama.so", "libggml.so", "libggml-base.so")
         for (apk in apks) {
             ZipFile(apk).use { zip ->
                 val names = Collections.list(zip.entries()).map { it.name }.toSet()
@@ -288,8 +291,61 @@ tasks.register("verifyEmbeddedAi") {
                 if (missing.isNotEmpty()) {
                     throw GradleException("CP-146 BUILD=FAIL: ${apk.name} lacks embedded AI: $missing")
                 }
+                val loose = names.filter { n -> forbidden.any { f -> n.endsWith("/$f") } }
+                if (loose.isNotEmpty()) {
+                    throw GradleException("CP-146 BUILD=FAIL: ${apk.name} has loose engine libs (must be static): $loose")
+                }
                 logger.lifecycle("verifyEmbeddedAi: ${apk.name} contains engine + model. OK.")
             }
+        }
+    }
+}
+
+tasks.register("verifyNativeSymbols") {
+    description = "CP-146: BUILD=FAIL unless the JNI libs are self-contained (ex-old-CI nm/size guards)."
+    doLast {
+        val ndkDir = File(resolveAndroidSdkDir(), "ndk/27.0.12077973")
+        // Host prebuilt dir differs per OS (linux/darwin/windows) — glob it.
+        val nm = File(ndkDir, "toolchains/llvm/prebuilt").walkTopDown()
+            .filter { it.isFile && it.name.startsWith("llvm-nm") && !it.extension.equals("dll", true) }
+            .firstOrNull()
+            ?: throw GradleException("CP-146: llvm-nm not found under ${ndkDir.path}.")
+        // Unstripped outputs (symbols intact) for every variant/ABI built.
+        val libs = file("build/intermediates/cmake").walkTopDown()
+            .filter { it.isFile && it.name.startsWith("libaicode_") && it.extension == "so" }
+            .toList()
+        if (libs.isEmpty()) {
+            logger.lifecycle("verifyNativeSymbols: no JNI libs built yet, nothing to verify.")
+            return@doLast
+        }
+        fun nmOut(args: List<String>, lib: File): String {
+            val out = ByteArrayOutputStream()
+            exec {
+                commandLine(listOf(nm.absolutePath) + args + lib.absolutePath)
+                standardOutput = out
+            }
+            return out.toString(Charsets.UTF_8.name())
+        }
+        for (lib in libs) {
+            when (lib.name) {
+                "libaicode_jni.so" -> {
+                    if (lib.length() < 2_000_000) throw GradleException("CP-146 BUILD=FAIL: ${lib.path} too small (${lib.length()}) — llama not linked?")
+                    val undef = nmOut(listOf("--undefined-only"), lib)
+                    if (undef.contains("llama_")) throw GradleException("CP-146 BUILD=FAIL: undefined llama_* symbols in ${lib.path}.")
+                }
+                "libaicode_whisper.so" -> {
+                    if (lib.length() < 1_000_000) throw GradleException("CP-146 BUILD=FAIL: ${lib.path} too small (${lib.length()}) — whisper not linked?")
+                    val undef = nmOut(listOf("--undefined-only"), lib)
+                    if (undef.contains("whisper_")) throw GradleException("CP-146 BUILD=FAIL: undefined whisper_* symbols in ${lib.path}.")
+                }
+                "libaicode_pty.so" -> {
+                    val defined = nmOut(listOf("--defined-only"), lib)
+                    if (!defined.contains("ptyOpen") || !defined.contains("ptyClose")) {
+                        throw GradleException("CP-146 BUILD=FAIL: pty symbols missing in ${lib.path}.")
+                    }
+                }
+            }
+            logger.lifecycle("verifyNativeSymbols: ${lib.name} (${lib.length()} bytes) OK.")
         }
     }
 }
@@ -297,6 +353,8 @@ tasks.register("verifyEmbeddedAi") {
 // Wire embedding into the standard build graph (no manual steps, any machine).
 tasks.matching { it.name.startsWith("configureCMake") || it.name.startsWith("buildCMake") }
     .configureEach { dependsOn("ensureNativeBuildTools") }
+tasks.matching { it.name.startsWith("buildCMake") }
+    .configureEach { finalizedBy("verifyNativeSymbols") }
 tasks.matching { it.name.matches(Regex("merge.*Assets")) }
     .configureEach { dependsOn("fetchBuiltinModel") }
 tasks.matching { it.name.matches(Regex("merge.*JniLibFolders")) }
