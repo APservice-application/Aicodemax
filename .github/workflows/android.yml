@@ -188,10 +188,11 @@ jobs:
             app/src/main/cpp/aicode_pty.c \
             -llog \
             -o app/src/main/jniLibs/arm64-v8a/libaicode_pty.so
-          "$TOOLCHAIN_BIN/llvm-strip" app/src/main/jniLibs/arm64-v8a/libaicode_pty.so
-          ls -la app/src/main/jniLibs/arm64-v8a/
+          # NOTE: assert symbols BEFORE strip (stripped libs report "no symbols" to nm).
           "$TOOLCHAIN_BIN/llvm-nm" --defined-only app/src/main/jniLibs/arm64-v8a/libaicode_pty.so | grep -q "ptyOpen"
           "$TOOLCHAIN_BIN/llvm-nm" --defined-only app/src/main/jniLibs/arm64-v8a/libaicode_pty.so | grep -q "ptyClose"
+          "$TOOLCHAIN_BIN/llvm-strip" app/src/main/jniLibs/arm64-v8a/libaicode_pty.so
+          ls -la app/src/main/jniLibs/arm64-v8a/
       - name: Restore bundled AI model (CP-144)
         id: builtin-model-cache
         uses: actions/cache@v4
