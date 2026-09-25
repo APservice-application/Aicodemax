@@ -1,11 +1,27 @@
 package com.aicodemax.tools.audio
 
 import com.aicodemax.core.common.Outcome
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WavCodecTest {
+    @get:Rule val temp = TemporaryFolder()
+
+    @Test
+    fun rangeReadMatchesFullDecodeAndDoesNotRequireFullFile() {
+        val src = PcmAudio(8000, 2, FloatArray(32_000) { i -> if (i % 2 == 0) (i / 2) / 16_000f else -0.3f })
+        val file = temp.newFile("source.wav").also { it.writeBytes(WavCodec.encode(src)) }
+        val expected = AudioOps.trim((WavCodec.read(file) as Outcome.Success<PcmAudio>).value, 500, 1200)
+        val actual = (WavCodec.readRange(file, 500, 1200) as Outcome.Success<PcmAudio>).value
+        assertEquals(expected, actual)
+        val empty = (WavCodec.readRange(file, 3000, 4000) as Outcome.Success<PcmAudio>).value
+        assertEquals(0, empty.frames)
+        assertTrue(WavCodec.readRange(file, 0, 80_000) is Outcome.Failure)
+    }
+
     @Test
     fun roundTrip16Bit() {
         val src = PcmAudio(8000, 1, FloatArray(800) { i -> (i % 100) / 100f - 0.5f })

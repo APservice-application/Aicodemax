@@ -216,6 +216,127 @@ class AndroidAudioPort : AudioPort {
     /** Decodes WAV/MP3/M4A/OGG/FLAC to PCM — also used by the render mixer. */
     fun decodeToPcm(src: String): Outcome<PcmAudio> = decode(src)
 
+    /**
+     * Bounded, timestamp-aligned decoder for the render mixer. Source files may
+     * be large videos: seek to the needed audio interval instead of decoding
+     * the whole container into RAM. Missing samples within the interval are
+     * represented as silence, preserving A/V alignment when audio starts late.
+     */
+    fun decodeRenderRange(src: String, startMs: Long, endMs: Long): Outcome<PcmAudio> {
+        if (src.substringAfterLast('.', "").lowercase() == "wav") {
+            return WavCodec.readRange(File(src), startMs, endMs)
+        }
+        if (startMs < 0 || endMs <= startMs || endMs - startMs > 75_000) {
+            return Outcome.Failure(AppError("AUDIO_RANGE", "ช่วงเสียงต้องยาวกว่า 0 และไม่เกิน 75 วินาที"))
+        }
+        if (!File(src).isFile) return Outcome.Failure(AppError("AUDIO_NO_FILE", "ไม่พบไฟล์ $src"))
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(src)
+            val track = (0 until extractor.trackCount).firstOrNull { i ->
+                (extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME) ?: "").startsWith("audio/")
+            } ?: return Outcome.Failure(AppError("AUDIO_DECODE", "ไฟล์นี้ไม่มีแทร็กเสียง"))
+            val format = extractor.getTrackFormat(track)
+            val mime = format.getString(MediaFormat.KEY_MIME)
+                ?: return Outcome.Failure(AppError("AUDIO_DECODE", "ไม่ทราบประเภทเสียง"))
+            extractor.selectTrack(track)
+            val startUs = startMs * 1_000L
+            val endUs = endMs * 1_000L
+            if (startMs > 0) extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            val decoder = MediaCodec.createDecoderByType(mime)
+            try {
+                decoder.configure(format, null, null, 0)
+                decoder.start()
+                var rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                var floatOut = false
+                var samples: FloatArray? = null
+                var fedEos = false
+                var sawEos = false
+                val info = MediaCodec.BufferInfo()
+                val deadline = System.currentTimeMillis() + 120_000L
+                while (!sawEos) {
+                    if (System.currentTimeMillis() > deadline) {
+                        return Outcome.Failure(AppError("AUDIO_DECODE", "ถอดช่วงเสียงนานเกิน 2 นาที"))
+                    }
+                    if (!fedEos) {
+                        val index = decoder.dequeueInputBuffer(10_000)
+                        if (index >= 0) {
+                            val buffer = decoder.getInputBuffer(index)
+                                ?: return Outcome.Failure(AppError("AUDIO_DECODE", "ไม่มี input buffer"))
+                            buffer.clear()
+                            val size = extractor.readSampleData(buffer, 0)
+                            if (size < 0 || extractor.sampleTime >= endUs) {
+                                decoder.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                fedEos = true
+                            } else {
+                                decoder.queueInputBuffer(index, 0, size, extractor.sampleTime, 0)
+                                extractor.advance()
+                            }
+                        }
+                    }
+                    when (val index = decoder.dequeueOutputBuffer(info, 10_000)) {
+                        MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                            val output = decoder.outputFormat
+                            val newRate = output.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                            val newChannels = output.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                            if (samples != null && (rate != newRate || channels != newChannels)) {
+                                return Outcome.Failure(AppError("AUDIO_DECODE", "รูปแบบ PCM เปลี่ยนกลางคลิป"))
+                            }
+                            rate = newRate
+                            channels = newChannels
+                            floatOut = try {
+                                output.getInteger(MediaFormat.KEY_PCM_ENCODING) == AudioFormat.ENCODING_PCM_FLOAT
+                            } catch (_: Exception) { false }
+                        }
+                        MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
+                        else -> if (index >= 0) {
+                            if (channels !in 1..2 || rate <= 0) {
+                                return Outcome.Failure(AppError("AUDIO_DECODE", "รองรับเสียง mono/stereo เท่านั้น"))
+                            }
+                            val wantedFrames = (((endMs - startMs) * rate + 999) / 1000).toInt()
+                            val pcm = samples ?: FloatArray(wantedFrames * channels).also { samples = it }
+                            val buffer = decoder.getOutputBuffer(index)
+                            if (info.size > 0 && buffer != null) {
+                                buffer.order(ByteOrder.LITTLE_ENDIAN)
+                                buffer.position(info.offset)
+                                buffer.limit(info.offset + info.size)
+                                val bytesPerSample = if (floatOut) 4 else 2
+                                val frameCount = info.size / (channels * bytesPerSample)
+                                val firstFrame = kotlin.math.round(
+                                    (info.presentationTimeUs - startUs).toDouble() * rate / 1_000_000.0,
+                                ).toLong()
+                                for (i in 0 until frameCount) {
+                                    val destination = firstFrame + i
+                                    for (channel in 0 until channels) {
+                                        val value = if (floatOut) buffer.float else buffer.short / 32768f
+                                        if (destination in 0 until wantedFrames.toLong()) {
+                                            pcm[destination.toInt() * channels + channel] = value
+                                        }
+                                    }
+                                }
+                            }
+                            sawEos = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
+                            decoder.releaseOutputBuffer(index, false)
+                        }
+                    }
+                }
+                if (channels !in 1..2 || rate <= 0) {
+                    return Outcome.Failure(AppError("AUDIO_DECODE", "รองรับเสียง mono/stereo เท่านั้น"))
+                }
+                val pcm = samples ?: FloatArray(((((endMs - startMs) * rate + 999) / 1000).toInt()) * channels)
+                return Outcome.Success(PcmAudio(rate, channels, pcm))
+            } finally {
+                try { decoder.stop() } catch (_: Exception) { }
+                decoder.release()
+            }
+        } catch (e: Exception) {
+            return Outcome.Failure(AppError("AUDIO_DECODE", "ถอดช่วงเสียงไม่ได้: ${e.message}"))
+        } finally {
+            extractor.release()
+        }
+    }
+
     private fun decode(src: String): Outcome<PcmAudio> {
         if (src.substringAfterLast('.', "").lowercase() == "wav") {
             return WavCodec.read(File(src))

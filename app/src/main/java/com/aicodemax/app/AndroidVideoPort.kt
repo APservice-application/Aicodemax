@@ -38,12 +38,24 @@ class AndroidVideoPort : VideoPort {
                 return@withContext Outcome.Failure(AppError("VIDEO_NO_FILE", "ไม่พบไฟล์ $path"))
             }
             when (val probed = Mp4Probe.probe(file)) {
-                is Outcome.Success -> Outcome.Success(
-                    VideoInfo(
-                        path, probed.value.format, probed.value.durationMs,
-                        probed.value.width, probed.value.height, probed.value.hasAudio, probed.value.sizeBytes,
-                    ),
-                )
+                is Outcome.Success -> {
+                    val facts = probed.value
+                    // Large MP4s often keep `moov` after `mdat`, beyond the
+                    // 8MB fast-probe window. A parseable ftyp is NOT proof of
+                    // absent audio/video: ask Android's native retriever.
+                    if (!facts.hasVideo || facts.width <= 0 || facts.height <= 0 || facts.durationMs <= 0) {
+                        retrieverInfo(path, file.length())
+                    } else {
+                        // Some valid moov layouts expose the video metadata
+                        // while a shallow parser misses a second audio track.
+                        val hasAudio = if (facts.hasAudio) true else nativeHasAudioTrack(path)
+                            ?: return@withContext retrieverInfo(path, file.length())
+                        Outcome.Success(VideoInfo(
+                            path, facts.format, facts.durationMs, facts.width, facts.height,
+                            hasAudio, facts.sizeBytes,
+                        ))
+                    }
+                }
                 is Outcome.Failure -> retrieverInfo(path, file.length())
             }
         }
@@ -449,6 +461,20 @@ class AndroidVideoPort : VideoPort {
         withContext(Dispatchers.IO) {
             remux(src, dst, 0, Long.MAX_VALUE, audioOnly = true, code = "VIDEO_AUDIO")
         }
+
+    private fun nativeHasAudioTrack(path: String): Boolean? {
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(path)
+            (0 until extractor.trackCount).any { index ->
+                (extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME) ?: "").startsWith("audio/")
+            }
+        } catch (_: Exception) {
+            null
+        } finally {
+            extractor.release()
+        }
+    }
 
     private fun retrieverInfo(path: String, sizeBytes: Long): Outcome<VideoInfo> {
         val retriever = MediaMetadataRetriever()

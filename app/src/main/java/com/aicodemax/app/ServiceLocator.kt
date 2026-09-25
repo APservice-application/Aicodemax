@@ -163,7 +163,7 @@ class ServiceLocator(context: Context) {
     val media: MediaProjectPort =
         FileMediaProject(File(appContext.filesDir, "media"), images, audio, video)
     val render: RenderPort = AndroidRenderPort(
-        media, File(appContext.filesDir, "media"), androidAudio::decodeToPcm, video, appContext,
+        media, File(appContext.filesDir, "media"), androidAudio::decodeRenderRange, video, appContext,
     )
     val settings: SettingsRepository = DataStoreSettingsRepository(appContext)
 
