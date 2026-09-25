@@ -314,10 +314,15 @@ tasks.register("verifyNativeSymbols") {
         // Unstripped outputs (symbols intact) for every variant/ABI built.
         // Roots: intermediates copy + .cxx ninja outputs (module-level or under build/).
         val roots = listOf("build/intermediates/cmake", ".cxx", "build/.cxx").map { file(it) }
+        val allSo = projectDir.walkTopDown()
+            .filter { it.isFile && it.extension == "so" }
+            .map { it.relativeTo(projectDir).path }
+            .toList()
+        logger.lifecycle("verifyNativeSymbols: projectDir=$projectDir all .so (${allSo.size}): ${allSo.take(50)}.")
         val libs = roots.filter { it.isDirectory }.flatMap { root ->
             root.walkTopDown().filter { it.isFile && it.name.startsWith("libaicode_") && it.extension == "so" }.toList()
         }.distinctBy { it.name }
-        logger.lifecycle("verifyNativeSymbols: scanned ${roots.map { it.path }}, found ${libs.map { it.name }}.")
+        logger.lifecycle("verifyNativeSymbols: scanned ${roots.map { it.path }} (exist=${roots.map { it.isDirectory }}), found ${libs.map { it.name }}.")
         if (libs.isEmpty()) {
             logger.lifecycle("verifyNativeSymbols: no JNI libs built yet, nothing to verify.")
             return@doLast
