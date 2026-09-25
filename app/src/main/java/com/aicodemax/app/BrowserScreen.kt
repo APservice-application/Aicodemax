@@ -52,6 +52,9 @@ import com.aicodemax.tools.browser.BrowserHandoff
 import com.aicodemax.tools.browser.FileDownloader
 import com.aicodemax.tools.browser.HandoffPayload
 import com.aicodemax.tools.browser.HistoryEntry
+import com.aicodemax.tools.browser.IntentResolver
+import com.aicodemax.tools.browser.NavIntent
+import com.aicodemax.tools.browser.SearchEngines
 import com.aicodemax.ui.designsystem.AicodeRadii
 import com.aicodemax.ui.designsystem.AicodeSearchField
 import com.aicodemax.ui.designsystem.EmptyState
@@ -91,6 +94,11 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
     var downloads by remember { mutableStateOf<List<File>>(emptyList()) }
     var downloadMessage by remember { mutableStateOf<String?>(null) }
     var downloading by remember { mutableStateOf(false) }
+    // CP-147 (spec §11–§12): new-tab setup — name + URL + note. No auto-DDG.
+    var newTabOpen by remember { mutableStateOf(false) }
+    var newTabName by remember { mutableStateOf("") }
+    var newTabUrl by remember { mutableStateOf("") }
+    var newTabNote by remember { mutableStateOf("") }
 
     val active = tabs.firstOrNull { it.id == activeId } ?: tabs.firstOrNull()
     LaunchedEffect(active?.id) {
@@ -117,6 +125,14 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
     LaunchedEffect(Unit) {
         reloadLibrary()
         reloadDownloads()
+    }
+
+    fun addBookmark() {
+        val url = active?.url ?: address.trim()
+        if (url.isNotBlank()) {
+            services.library.addBookmark(url, active?.title ?: url)
+            reloadLibrary()
+        }
     }
 
     fun openOrNavigate(url: String) {
@@ -152,9 +168,6 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
     fun go(to: String) {
         val input = to.trim()
         if (input.isEmpty()) return
-        when (IntentResolver.resolve(input).let { it.intent to it.target }) {
-            else -> {}
-        }
         val resolved = IntentResolver.resolve(input)
         when (resolved.intent) {
             NavIntent.URL -> openOrNavigate(resolved.target)
@@ -194,13 +207,6 @@ fun BrowserScreen(services: ServiceLocator, onHandToChat: (String) -> Unit = {})
         onHandToChat(BrowserHandoff.toPrompt(HandoffPayload(url, active?.title ?: url), question))
     }
 
-    fun addBookmark() {
-        val url = active?.url ?: address.trim()
-        if (url.isNotBlank()) {
-            services.library.addBookmark(url, active?.title ?: url)
-            reloadLibrary()
-        }
-    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         OfflineNotice(services)
