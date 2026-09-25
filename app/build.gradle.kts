@@ -1,3 +1,11 @@
+import java.io.ByteArrayInputStream
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.Collections
+import java.util.Properties
+import java.util.zip.ZipFile
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -155,7 +163,7 @@ val builtinModelFile = file("src/main/assets/ai/builtin-model.gguf")
 val ffmpegArm64Dir = file("src/main/jniLibs/arm64-v8a")
 
 fun resolveAndroidSdkDir(): File {
-    val props = java.util.Properties()
+    val props = Properties()
     val localProps = rootProject.file("local.properties")
     if (localProps.exists()) localProps.inputStream().use { props.load(it) }
     val dir = props.getProperty("sdk.dir")
@@ -187,7 +195,7 @@ tasks.register("ensureNativeBuildTools") {
             )
         }
         logger.lifecycle("ensureNativeBuildTools: installing NDK 27.0.12077973 + CMake 3.22.1 (one-time)...")
-        val yes = java.io.ByteArrayInputStream("y\n".repeat(40).toByteArray())
+        val yes = ByteArrayInputStream("y\n".repeat(40).toByteArray())
         exec {
             commandLine(sdkman.absolutePath, "--licenses")
             standardInput = yes
@@ -216,8 +224,8 @@ tasks.register("fetchBuiltinModel") {
         builtinModelFile.parentFile.mkdirs()
         val tmp = File(builtinModelFile.path + ".part")
         logger.lifecycle("fetchBuiltinModel: downloading built-in model 491MB (one-time, build-time only)...")
-        java.net.URL(builtinModelUrl).openStream().use { inp ->
-            java.nio.file.Files.copy(inp, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        URL(builtinModelUrl).openStream().use { inp ->
+            Files.copy(inp, tmp.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
         if (tmp.length() != builtinModelSize) {
             tmp.delete()
@@ -246,8 +254,8 @@ tasks.register("fetchFfmpegLibs") {
             }
             logger.lifecycle("fetchFfmpegLibs: downloading $local (one-time)...")
             val tmp = File(dest.path + ".part")
-            java.net.URL("$base/$remote").openStream().use { inp ->
-                java.nio.file.Files.copy(inp, tmp.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            URL("$base/$remote").openStream().use { inp ->
+                Files.copy(inp, tmp.toPath(), StandardCopyOption.REPLACE_EXISTING)
             }
             if (tmp.length() < 1_000_000 || !tmp.renameTo(dest)) {
                 tmp.delete()
@@ -274,8 +282,8 @@ tasks.register("verifyEmbeddedAi") {
             "assets/ai/builtin-model.gguf",
         )
         for (apk in apks) {
-            java.util.zip.ZipFile(apk).use { zip ->
-                val names = java.util.Collections.list(zip.entries()).map { it.name }.toSet()
+            ZipFile(apk).use { zip ->
+                val names = Collections.list(zip.entries()).map { it.name }.toSet()
                 val missing = required.filter { it !in names }
                 if (missing.isNotEmpty()) {
                     throw GradleException("CP-146 BUILD=FAIL: ${apk.name} lacks embedded AI: $missing")
