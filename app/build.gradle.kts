@@ -312,9 +312,12 @@ tasks.register("verifyNativeSymbols") {
             .firstOrNull()
             ?: throw GradleException("CP-146: llvm-nm not found under ${ndkDir.path}.")
         // Unstripped outputs (symbols intact) for every variant/ABI built.
-        val libs = file("build/intermediates/cmake").walkTopDown()
-            .filter { it.isFile && it.name.startsWith("libaicode_") && it.extension == "so" }
-            .toList()
+        // Roots: intermediates copy + .cxx ninja outputs (module-level or under build/).
+        val roots = listOf("build/intermediates/cmake", ".cxx", "build/.cxx").map { file(it) }
+        val libs = roots.filter { it.isDirectory }.flatMap { root ->
+            root.walkTopDown().filter { it.isFile && it.name.startsWith("libaicode_") && it.extension == "so" }.toList()
+        }.distinctBy { it.name }
+        logger.lifecycle("verifyNativeSymbols: scanned ${roots.map { it.path }}, found ${libs.map { it.name }}.")
         if (libs.isEmpty()) {
             logger.lifecycle("verifyNativeSymbols: no JNI libs built yet, nothing to verify.")
             return@doLast
