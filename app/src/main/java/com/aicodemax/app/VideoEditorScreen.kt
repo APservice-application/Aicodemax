@@ -212,7 +212,7 @@ internal fun VideoEditorScreen(
     val ordered = current?.orderedClips().orEmpty()
     val clipIndex = ordered.indexOfFirst { it.second.id == selectedId }
     val duration = current?.durationMs ?: 0L
-    val active = current?.tracks?.filter { it.kind == MediaKind.VIDEO || it.kind == MediaKind.IMAGE }
+    val active = current?.tracks?.filter { (it.kind == MediaKind.VIDEO || it.kind == MediaKind.IMAGE) && !it.hidden }
         ?.flatMap { track -> track.clips.map { track to it } }
         ?.filter { (_, clip) -> playheadMs >= clip.atMs && playheadMs < clip.atMs + clip.outputDurationMs() }
         ?.maxByOrNull { it.second.atMs }
@@ -285,6 +285,7 @@ internal fun VideoEditorScreen(
                 timeMs = playheadMs,
                 durationMs = duration,
                 playing = playing && !fullscreen,
+                muted = active?.first?.muted == true,
                 texts = current?.texts.orEmpty(),
                 onToggle = { playing = !playing },
                 onPosition = { playheadMs = it.coerceIn(0, duration) },
@@ -372,6 +373,7 @@ internal fun VideoEditorScreen(
                     source = activePath, kind = activeKind, clip = activeClip,
                     aspect = current?.canvas.orEmpty().ifBlank { "16:9" },
                     timeMs = playheadMs, durationMs = duration, playing = fullscreenPlaying,
+                    muted = active?.first?.muted == true,
                     texts = current?.texts.orEmpty(),
                     onToggle = { fullscreenPlaying = !fullscreenPlaying },
                     onPosition = { playheadMs = it.coerceIn(0, duration) },
