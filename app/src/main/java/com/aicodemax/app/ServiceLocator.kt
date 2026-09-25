@@ -204,6 +204,22 @@ class ServiceLocator(context: Context) {
     /** CP-144: built-in AI model file (bundled asset, provisioned on first launch). */
     val builtinModelFile: File = File(storage.modelsDefault.path, "builtin-qwen2.5-0.5b-q4_k_m.gguf")
 
+    /** CP-145: collects the built-in AI checklist inputs (cheap metadata calls only). */
+    fun builtinAiReport(): com.aicodemax.ai.runtime.BuiltinAiReport {
+        val assetPresent = try {
+            appContext.assets.openFd("ai/builtin-model.gguf").use { it.length > 0 }
+        } catch (_: Exception) {
+            false
+        }
+        return com.aicodemax.ai.runtime.BuiltinAiReport(
+            nativeAvailable = com.aicodemax.ai.runtime.AicodeJni.available,
+            nativeError = com.aicodemax.ai.runtime.AicodeJni.loadError,
+            deviceAbis = android.os.Build.SUPPORTED_ABIS.toList(),
+            assetPresent = assetPresent,
+            provisionedBytes = builtinModelFile.takeIf { it.isFile }?.length(),
+        )
+    }
+
     val workspaceDir: File = storage.workspaces
     val files: FilePort = SandboxFileStore(workspaceDir)
     val editor: EditorPort = FileBackedEditor(files)

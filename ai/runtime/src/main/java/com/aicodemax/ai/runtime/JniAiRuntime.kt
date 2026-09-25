@@ -60,7 +60,7 @@ class JniAiRuntime(
     private var params: GenParams = GenParams()
 
     override fun loadModel(path: String, opts: LoadOpts): Outcome<ModelInfo> = runOutcome("AI_LOAD") {
-        if (!jni.available) throw IllegalStateException("JNI runtime ใช้ได้บน Android เท่านั้น (JVM นี้ไม่มี native lib)")
+        if (!jni.available) throw IllegalStateException("ไม่พบ native lib (libaicode_jni.so) ใน APK นี้")
         val file = File(path)
         if (!file.isFile) throw IllegalArgumentException("ไม่พบไฟล์โมเดล: $path")
         unloadModel()

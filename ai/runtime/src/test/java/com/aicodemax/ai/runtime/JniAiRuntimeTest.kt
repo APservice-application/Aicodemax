@@ -50,7 +50,8 @@ class JniAiRuntimeTest {
         val rt = JniAiRuntime(FakeEdge(available = false))
         val outcome = rt.loadModel(model.path)
         assertTrue(outcome is Outcome.Failure)
-        assertTrue((outcome as Outcome.Failure).error.message.contains("Android"))
+        // CP-145: precise "missing .so in this APK" — never the old "Android only" claim.
+        assertTrue((outcome as Outcome.Failure).error.message.contains("native lib"))
     }
 
     @Test

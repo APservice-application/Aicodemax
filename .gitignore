@@ -17,6 +17,9 @@ captures
 *.jks
 *.keystore
 
+# CI/locally built native libs (rebuilt every CI run; never commit binaries)
+app/src/main/jniLibs/
+
 # Model weights (ไฟล์ใหญ่)
 *.bin
 *.gguf

@@ -13,6 +13,14 @@ object AicodeJni {
         fun onToken(piece: String)
     }
 
+    /**
+     * CP-145: why the native lib failed to load (null when [available]).
+     * Surfaced in diagnostics so local builds explain themselves instead of
+     * claiming "Android only" on a real Android device.
+     */
+    var loadError: String? = null
+        private set
+
     val available: Boolean by lazy {
         try {
             // Single self-contained lib (llama + ggml statically linked).
@@ -20,9 +28,11 @@ object AicodeJni {
             // Sanity: the version symbol must resolve.
             nativeVersion()
             true
-        } catch (_: UnsatisfiedLinkError) {
+        } catch (e: UnsatisfiedLinkError) {
+            loadError = e.message
             false
-        } catch (_: SecurityException) {
+        } catch (e: SecurityException) {
+            loadError = e.message
             false
         }
     }

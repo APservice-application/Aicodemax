@@ -26,6 +26,8 @@ data class BuiltinAiUi(
     val detail: String,
     val progress: Float? = null,
     val showModelsLink: Boolean = false,
+    /** CP-145: precise checklist lines (empty = nothing extra to report). */
+    val diagnostics: List<String> = emptyList(),
 )
 
 @Composable
@@ -50,6 +52,21 @@ fun BuiltinAiCard(
             if (current != null) {
                 LinearProgressIndicator(progress = { current }, modifier = Modifier.fillMaxWidth())
                 Text("${(current * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+            }
+            if (ui.diagnostics.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalAlignment = Alignment.Start,
+                ) {
+                    ui.diagnostics.forEach { line ->
+                        Text(
+                            line,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+                }
             }
             if (ui.showModelsLink) {
                 TextButton(onClick = onOpenModels) { Text("ดูโมเดล") }

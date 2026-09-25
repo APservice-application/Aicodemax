@@ -187,6 +187,8 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                     val runtimeError by services.aiRuntime.error.collectAsState()
                     val provisionProgress by services.aiRuntime.provisionProgress.collectAsState()
                     val modelOptions = remember(runtimeState) { chatModelOptions(services) }
+                    // CP-145: precise checklist for local builds missing CI-packed pieces.
+                    val builtinDiag = remember(runtimeState, runtimeError) { services.builtinAiReport().describe() }
                     val builtinCard = when (runtimeState) {
                         com.aicodemax.ai.runtime.AiRuntimeState.READY,
                         com.aicodemax.ai.runtime.AiRuntimeState.GENERATING,
@@ -209,6 +211,7 @@ fun AicodeNav(services: ServiceLocator, chatViewModel: ChatViewModel) {
                             progress = provisionProgress,
                             showModelsLink = runtimeState == com.aicodemax.ai.runtime.AiRuntimeState.ERROR ||
                                 runtimeState == com.aicodemax.ai.runtime.AiRuntimeState.OFFLINE,
+                            diagnostics = builtinDiag,
                         )
                     }
                     ChatRoute(
