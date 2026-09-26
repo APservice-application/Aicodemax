@@ -21,14 +21,18 @@ class RoutedChatBrain(
 ) : ChatBrain {
     override suspend fun reply(text: String, history: List<LlmTurn>): Outcome<String> {
         val errors = mutableListOf<String>()
+        var manualAlreadyTried = false
         for (candidate in router.candidates(requirement)) {
             val brain = resolve(candidate) ?: continue
+            if (candidate.id == "manual") manualAlreadyTried = true
             when (val result = brain.reply(text, history)) {
                 is Outcome.Success -> return result
                 is Outcome.Failure -> errors.add("${candidate.name}: ${result.error.message}")
             }
         }
-        manual()?.let { return it.reply(text, history) }
+        // The manual endpoint is also a router candidate. Retrying it here can
+        // send the same paid prompt twice after an error: never do so.
+        if (!manualAlreadyTried) manual()?.let { return it.reply(text, history) }
         return if (errors.isEmpty()) {
             Outcome.Failure(AppError("BRAIN_OFF", "ยังไม่ต่อ LLM (ตั้งค่าที่หน้า Models)"))
         } else {
@@ -38,11 +42,13 @@ class RoutedChatBrain(
 
     /** Human-readable route line for the Models screen. */
     fun routeLine(): String {
-        val names = router.candidates(requirement).map { it.name }
+        val candidates = router.candidates(requirement)
+        val names = candidates.map { it.name }
         return when {
             names.isEmpty() && manual() == null -> "สมอง: ยังไม่ต่อ LLM"
             names.isEmpty() -> "สมอง: ต่อตรง (manual)"
-            else -> "สมอง: " + names.joinToString(" → ") + if (manual() == null) "" else " → manual"
+            else -> "สมอง: " + names.joinToString(" → ") +
+                if (manual() == null || candidates.any { it.id == "manual" }) "" else " → manual"
         }
     }
 }

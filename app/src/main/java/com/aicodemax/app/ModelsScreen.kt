@@ -49,8 +49,8 @@ fun ModelsScreen(services: ServiceLocator) {
     var url by remember { mutableStateOf("") }
     var working by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
-    // CP-59 LLM provider (memory-only — key never persisted).
-    var llmUrl by remember { mutableStateOf("https://api.openai.com/v1") }
+    // CP-59 advanced/self-hosted endpoint (memory-only; cloud providers use BYOK panel above).
+    var llmUrl by remember { mutableStateOf("http://127.0.0.1:8080/v1") }
     var llmKey by remember { mutableStateOf("") }
     var llmModel by remember { mutableStateOf("gpt-4o-mini") }
     var llmStatus by remember { mutableStateOf("ยังไม่เชื่อมต่อ") }
@@ -220,6 +220,9 @@ fun ModelsScreen(services: ServiceLocator) {
                 Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
             }
         }
+        item(key = "__hosted_byok__") {
+            HostedProvidersPanel(services, onRoutesChanged = { refreshModels() })
+        }
         item(key = "__head__") {
             Text("โมเดล (${models.size})", style = MaterialTheme.typography.titleMedium)
         }
@@ -266,7 +269,7 @@ fun ModelsScreen(services: ServiceLocator) {
             )
         }
         item(key = "__llm__") {
-            Text("LLM Provider (OpenAI-compatible)", style = MaterialTheme.typography.titleMedium)
+            Text("ขั้นสูง: endpoint ส่วนตัว (แยกจาก BYOK ด้านบน)", style = MaterialTheme.typography.titleMedium)
             TextField(
                 value = llmUrl,
                 onValueChange = { llmUrl = it },
@@ -338,7 +341,7 @@ fun ModelsScreen(services: ServiceLocator) {
                 color = MaterialTheme.colorScheme.secondary,
             )
             Text(
-                "key ไม่ถูกบันทึก — ปิดแอปแล้วต้องตั้งใหม่ (รองรับ OpenAI / llama-server / Ollama / server ใดก็ได้ที่พูด OpenAI protocol)",
+                "สำหรับเซิร์ฟเวอร์ส่วนตัวแบบ OpenAI-compatible เท่านั้น; คีย์ส่วนนี้อยู่ในหน่วยความจำและหายเมื่อปิดแอป. บริการที่รองรับไม่ต้องกรอก URL/โมเดลเอง — ใช้ BYOK ด้านบน",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.secondary,
             )

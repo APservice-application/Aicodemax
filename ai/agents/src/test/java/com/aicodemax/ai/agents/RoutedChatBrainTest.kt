@@ -71,6 +71,21 @@ class RoutedChatBrainTest {
     }
 
     @Test
+    fun connectedManualEndpointIsNotRetriedAfterPaidFailure() = runBlocking {
+        val router = FallbackModelRouter(registryOf(descriptor("manual", ModelKind.EXTERNAL)))
+        var attempts = 0
+        val paid: ChatBrain = object : ChatBrain {
+            override suspend fun reply(text: String, history: List<LlmTurn>): Outcome<String> {
+                attempts++
+                return Outcome.Failure(AppError("BILLED", "unreadable response"))
+            }
+        }
+        val routed = RoutedChatBrain(router, { paid }, { paid })
+        assertTrue(routed.reply("hi", emptyList()) is Outcome.Failure)
+        assertEquals(1, attempts)
+    }
+
+    @Test
     fun routeLineExplains() {
         val router = FallbackModelRouter(
             registryOf(descriptor("ext", ModelKind.EXTERNAL), descriptor("loc", ModelKind.LOCAL_FULL)),

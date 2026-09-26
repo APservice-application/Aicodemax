@@ -19,6 +19,8 @@ import com.aicodemax.ai.core.RuleBasedPlanner
 import com.aicodemax.ai.core.RuleVerifier
 import com.aicodemax.ai.models.FallbackModelRouter
 import com.aicodemax.ai.models.InMemoryModelRegistry
+import com.aicodemax.ai.models.HostedLlmProvider
+import com.aicodemax.ai.models.HostedProviderDirectory
 import com.aicodemax.ai.models.JavaNetModelDownloader
 import com.aicodemax.ai.models.LlmMessage
 import com.aicodemax.ai.models.LlmProvider
@@ -254,7 +256,10 @@ class ServiceLocator(context: Context) {
     val tasks: TaskEngine = DefaultTaskEngine(bus)
     val models: ModelRegistry = InMemoryModelRegistry()
 
-    /** CP-59 LLM brain config — memory-only (keys never persisted). */
+    /** Opt-in hosted BYOK brain; encrypted local credentials, no developer keys. */
+    val hostedBrain = HostedLlmProvider(KeystoreHostedKeyStore(appContext))
+
+    /** CP-59 legacy/manual LLM brain config — hosted keys use the separate encrypted vault. */
     @Volatile var llmProvider: LlmProvider? = null
     @Volatile var llmModel: String = "gpt-4o-mini"
 
@@ -289,6 +294,16 @@ class ServiceLocator(context: Context) {
             capabilities = listOf("chat"),
         )
         if (models.get(id) == null) models.register(descriptor) else models.update(descriptor)
+    }
+
+    /** Attach persisted BYOK route to existing Chat/agent/subtitle wiring. No API request on startup. */
+    fun syncHostedBrain() {
+        val route = hostedBrain.selectedRoute()
+        if (route != null) {
+            setLlm(hostedBrain, route.modelId, HostedProviderDirectory.find(route.providerId)?.base.orEmpty())
+        } else if (llmProvider === hostedBrain) {
+            setLlm(null, "")
+        }
     }
 
     /** CP-107: current brain route for the Models screen. */
@@ -497,6 +512,7 @@ class ServiceLocator(context: Context) {
             },
             manual = { if (llmProvider == null) null else manualBrain },
         )
+        syncHostedBrain()
         orchestrator = BootstrapOrchestrator(
             tasks, CascadePlanner(RuleBasedPlanner(capabilities, EditingPlanner(media, capabilities)), llmPlanner), agent, RuleVerifier(), checkpoints, conversations,
             recovery = RecoveryLadderPolicy(),
