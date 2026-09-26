@@ -118,6 +118,21 @@ class HostedLlmProviderTest {
         assertEquals(1, fake.calls.size)
     }
 
+    @Test fun gatewayErrorNeverReplaysPotentiallyBilledRequest() = runBlocking {
+        val store = InMemoryHostedKeyStore().apply {
+            add("openai", "first-secret-123")
+            add("openai", "second-secret-456")
+            selectModel("openai", "gpt-4o-mini")
+            add("groq", "groq-secret-123")
+            selectModel("groq", "some-model")
+            setNetworkConsent(true)
+        }
+        val fake = FakeTransport().apply { respond = { HostedHttpResponse(503, "unavailable") } }
+        val result = HostedLlmProvider(store, fake).chat("ignored", listOf(LlmMessage("user", "go"))) as Outcome.Failure
+        assertEquals("HOSTED_HTTP_503", result.error.code)
+        assertEquals(1, fake.calls.size)
+    }
+
     @Test fun forbiddenPolicyCannotBeBypassedByCyclingKeys() = runBlocking {
         val store = InMemoryHostedKeyStore().apply {
             add("openai", "first-secret-123")

@@ -16,13 +16,13 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * BYOK brain: use the selected model/key, then remaining keys for auth failures,
- * then other configured providers on 402/429/502/503/504; HTTP 404 may use
- * the next key with model access. Never retry after a timeout, HTTP 500 or
- * unparseable 2xx: the request may be billed.
+ * then other configured providers on 402/429; HTTP 404 may use the next key
+ * with model access. Never retry after a timeout, HTTP 5xx or unparseable
+ * 2xx: the upstream request may have generated/billed before failing.
  */
 class HostedLlmProvider(
     private val keys: HostedKeyStore,
-    private val transport: HostedHttpTransport = PinnedHttpsTransport(),
+    private val transport: HostedHttpTransport = AllowlistedHttpsTransport(),
 ) : LlmProvider {
     override val id: String = "hosted-byok"
     private val json = Json { ignoreUnknownKeys = true }
@@ -194,8 +194,9 @@ class HostedLlmProvider(
             // 403 can be a policy/safety refusal. Never switch keys to evade it.
             403 -> Attempt.Fatal(res.code)
             404 -> Attempt.NextKey(res.code) // another key may own this model
-            402, 429, 502, 503, 504 -> Attempt.ProviderUnavailable(res.code)
-            // 500 may occur after upstream work began: avoid a potentially billed replay.
+            402, 429 -> Attempt.ProviderUnavailable(res.code)
+            // All 5xx (including gateway errors) may arrive after upstream work
+            // began. Do not replay a potentially billed request on another API.
             else -> Attempt.Fatal(res.code)
         }
         val text = try { parseText(res.body, spec.wire, responseMode) } catch (_: Exception) { null }

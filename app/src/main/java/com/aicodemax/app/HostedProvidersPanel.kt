@@ -39,7 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Key-only setup: pinned endpoints, live searchable model list, explicit online/billing consent. */
+/** Key-only setup: allowlisted endpoints, live searchable model list, explicit online/billing consent. */
 @Composable
 fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit = {}) {
     val manager = services.hostedBrain
@@ -69,15 +69,19 @@ fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit =
     }
 
     fun refresh() {
+        val targetProvider = providerId
         scope.launch {
             busy = true
-            val result = withContext(Dispatchers.IO) { manager.discover(providerId) }
-            status = when (result) {
-                is Outcome.Success -> "พบ ${result.value.models.size} รุ่น — ${result.value.note}"
-                is Outcome.Failure -> "ดึงรายชื่อไม่สำเร็จ: ${result.error.message}"
-            }
-            updateUi()
-            busy = false
+            try {
+                val result = withContext(Dispatchers.IO) { manager.discover(targetProvider) }
+                if (providerId == targetProvider) {
+                    status = when (result) {
+                        is Outcome.Success -> "พบ ${result.value.models.size} รุ่น — ${result.value.note}"
+                        is Outcome.Failure -> "ดึงรายชื่อไม่สำเร็จ: ${result.error.message}"
+                    }
+                    updateUi()
+                }
+            } finally { busy = false }
         }
     }
 
@@ -85,13 +89,14 @@ fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit =
         updateUi()
         if (currentKeys.isNotEmpty() && manager.cached(providerId) == null) {
             busy = true
-            val result = withContext(Dispatchers.IO) { manager.discover(providerId) }
-            status = when (result) {
-                is Outcome.Success -> "พบ ${result.value.models.size} รุ่น — ${result.value.note}"
-                is Outcome.Failure -> result.error.message
-            }
-            updateUi()
-            busy = false
+            try {
+                val result = withContext(Dispatchers.IO) { manager.discover(providerId) }
+                status = when (result) {
+                    is Outcome.Success -> "พบ ${result.value.models.size} รุ่น — ${result.value.note}"
+                    is Outcome.Failure -> result.error.message
+                }
+                updateUi()
+            } finally { busy = false }
         }
     }
 
@@ -124,6 +129,7 @@ fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit =
                     }, onClick = {
                         providerId = spec.id
                         providerMenu = false
+                        keyInput = ""
                         query = ""
                         filter = null
                     })
@@ -142,16 +148,19 @@ fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit =
             Button(onClick = {
                 val value = keyInput.trim()
                 if (value.isBlank()) return@Button
+                val targetProvider = providerId
                 scope.launch {
                     busy = true
                     try {
-                        withContext(Dispatchers.IO) { manager.addKey(providerId, value) }
+                        withContext(Dispatchers.IO) { manager.addKey(targetProvider, value) }
                         keyInput = ""
                         updateUi()
-                        val result = withContext(Dispatchers.IO) { manager.discover(providerId) }
-                        status = when (result) {
-                            is Outcome.Success -> "บันทึกคีย์แล้ว • พบ ${result.value.models.size} รุ่น; ยืนยันการส่งข้อมูลด้านล่าง"
-                            is Outcome.Failure -> "บันทึกคีย์แล้ว แต่ยังดึงโมเดลไม่ได้: ${result.error.message}"
+                        val result = withContext(Dispatchers.IO) { manager.discover(targetProvider) }
+                        if (providerId == targetProvider) {
+                            status = when (result) {
+                                is Outcome.Success -> "บันทึกคีย์แล้ว • พบ ${result.value.models.size} รุ่น; ยืนยันการส่งข้อมูลด้านล่าง"
+                                is Outcome.Failure -> "บันทึกคีย์แล้ว แต่ยังดึงโมเดลไม่ได้: ${result.error.message}"
+                            }
                         }
                         updateUi()
                     } catch (_: Exception) {

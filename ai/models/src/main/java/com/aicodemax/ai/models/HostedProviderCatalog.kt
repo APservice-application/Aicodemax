@@ -20,7 +20,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** Only pinned HTTPS hosts: entering an API key must never require entering a URL. */
+/** Only approved HTTPS hostnames: entering an API key must never require entering a URL. */
 enum class HostedWire { OPENAI, GEMINI, ANTHROPIC, COHERE }
 
 data class HostedProviderSpec(val id: String, val name: String, val base: String, val wire: HostedWire)
@@ -55,8 +55,8 @@ fun interface HostedHttpTransport {
     suspend fun request(method: String, url: String, headers: Map<String, String>, body: String?): HostedHttpResponse
 }
 
-/** Never follow redirects with Authorization/x-api-key. Never place secrets in URLs or error messages. */
-class PinnedHttpsTransport : HostedHttpTransport {
+/** Host allowlist, not TLS certificate pinning. Never redirect or expose credentials in URLs/errors. */
+class AllowlistedHttpsTransport : HostedHttpTransport {
     override suspend fun request(
         method: String,
         url: String,
