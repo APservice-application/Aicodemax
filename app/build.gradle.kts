@@ -417,7 +417,8 @@ tasks.register("verifyEmbeddedAi") {
             "lib/arm64-v8a/libffmpeg.so",
             "lib/arm64-v8a/libffprobe.so",
             "lib/arm64-v8a/libc++_shared.so",
-        ) + builtinModelParts().map { "assets/ai/" + it.name } + "assets/ai/builtin-model.manifest"
+        ) + builtinModelParts().map { "assets/ai/" + it.name } +
+            listOf("assets/ai/builtin-model.manifest", "assets/licenses/Qwen3-1.7B-APACHE-2.0.txt")
         // The engines must be statically linked INTO libaicode_*.so — never loose
         // shared libs (a 44KB wrapper + libwhisper.so once slipped through).
         val forbidden = listOf("libwhisper.so", "libllama.so", "libggml.so", "libggml-base.so")

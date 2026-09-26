@@ -199,6 +199,7 @@ fun AboutScreen() {
         Text(
             "• Qwen3-1.7B (Q4_K_M) — โมเดล Qwen, quantization โดย Unsloth; Apache 2.0, " +
                 "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF\n" +
+                "  ข้อความสัญญาอนุญาต: assets/licenses/Qwen3-1.7B-APACHE-2.0.txt\n" +
                 "• llama.cpp — MIT, https://github.com/ggml-org/llama.cpp\n" +
                 "• whisper.cpp (ฟีเจอร์ถอดเสียง) — MIT, https://github.com/ggml-org/whisper.cpp",
             style = MaterialTheme.typography.bodyMedium,

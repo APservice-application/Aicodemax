@@ -9,7 +9,7 @@
 ## ที่มา/การพิสูจน์ไฟล์
 
 - โมเดลต้นทาง Qwen3-1.7B; quantization **Unsloth/Qwen3-1.7B-GGUF**, license `Apache-2.0` ตาม model card/revision. [Model card](https://huggingface.co/unsloth/Qwen3-1.7B-GGUF); [ไฟล์รุ่นที่ตรึง](https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/blob/cc27747d7419139e44ba97777c2f2fd5dca92ee1/Qwen3-1.7B-Q4_K_M.gguf). Official `Qwen/Qwen3-1.7B-GGUF` revision ที่ตรวจเผยแพร่ไฟล์ Q8_0 ไม่ใช่ Q4_K_M; จึงไม่อ้างว่าไฟล์ Q4 นี้เป็น quantization ที่ Qwen เผยแพร่โดยตรง.
-- Commit ของ repository quantization: `cc27747d7419139e44ba97777c2f2fd5dca92ee1` (ไม่ใช้ `main` ที่เปลี่ยนได้). ขนาด GGUF **1,107,409,376 bytes**; SHA-256 จาก Hugging Face LFS metadata **`ba491cf470c3cadc624e4c8d6c9a27c998809e8ba8eb938d1689ae87e024b6b7`**. Build ตรวจทั้งขนาด/hash/magic ก่อนแพ็ก และแคชต้องผ่าน hash อีกครั้ง.
+- Commit ของ repository quantization: `cc27747d7419139e44ba97777c2f2fd5dca92ee1` (ไม่ใช้ `main` ที่เปลี่ยนได้). ขนาด GGUF **1,107,409,376 bytes**; SHA-256 จาก Hugging Face LFS metadata **`ba491cf470c3cadc624e4c8d6c9a27c998809e8ba8eb938d1689ae87e024b6b7`**. Build ตรวจทั้งขนาด/hash/magic ก่อนแพ็ก และแคชต้องผ่าน hash อีกครั้ง. Full text ของ Apache License 2.0 จาก [Qwen base pinned LICENSE](https://huggingface.co/Qwen/Qwen3-1.7B/blob/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e/LICENSE) ถูกแพ็กไว้ใน APK `assets/licenses/Qwen3-1.7B-APACHE-2.0.txt`, รายละเอียด attribution ใน `docs/THIRD_PARTY.md`.
 - แบ่ง **3 parts**: 536,870,912 + 536,870,912 + 33,667,552 bytes; manifest มีจำนวนส่วน/ขนาด/model ID/SHA-256. CI ต่อตรวจ SHA, รัน host inference จริง และ stream ตรวจทุก part ใน debug APK ว่าไม่มีส่วนของ 4B หลุดมา. APK ยังมี JNI llama.cpp, Whisper, FFmpeg และฟีเจอร์เดิม.
 
 ## การย้ายรุ่น/พื้นที่เก็บข้อมูล
@@ -20,7 +20,7 @@
 
 ## ผล RAM / สิ่งที่ยังไม่พิสูจน์
 
-- `ResourceManager` ประมาณหน่วยความจำที่ต้องพร้อมโหลดขั้นต่ำ context 1024: `floor((1,107,409,376 / 1,048,576) × 1.3) + 40 ≈ 1,413 MiB` **RAM ที่ว่าง** (ไม่ใช่ RAM เครื่องทั้งหมด). เป็นเกณฑ์หยาบ; JNI/runtime/OS อาจใช้เพิ่ม. มือถือของเจ้าของอาจยังโหลดไม่ไหว; **ห้ามรับประกันว่า 1.7B ใช้ได้ทุกเครื่อง**. หากถูก RAM gate ปฏิเสธ BYOK ยังคงเป็น fallback เมื่อมีคีย์/consent/เน็ต.
+- `ResourceManager` ประมาณหน่วยความจำที่ต้องพร้อมโหลดขั้นต่ำ context 1024: `floor(floor(1,107,409,376 / 1,048,576) × 1.3) + 40 = 1,412 MiB` **RAM ที่ว่าง** (ไม่ใช่ RAM เครื่องทั้งหมด). เป็นเกณฑ์หยาบ; JNI/runtime/OS อาจใช้เพิ่ม. มือถือของเจ้าของอาจยังโหลดไม่ไหว; **ห้ามรับประกันว่า 1.7B ใช้ได้ทุกเครื่อง**. หากถูก RAM gate ปฏิเสธ BYOK ยังคงเป็น fallback เมื่อมีคีย์/consent/เน็ต.
 - CI host smoke test ไม่ได้พิสูจน์ RAM/ความเร็ว/คุณภาพภาษาไทย/การทำงานบนเครื่อง arm64 ของเจ้าของ. การเป็นรุ่นเล็กกว่าอาจให้คุณภาพ tool-calling และวางแผนต่ำกว่า 4B; ต้องทดสอบจริง.
 - ข้อจำกัด multimodal BYOK ที่ยังไม่ครบ `all_models_now` ไม่ได้ถูกแก้ด้วยการเปลี่ยนโมเดลใน APK นี้: [BYOK QA](android-byok-ai-providers-2026-09-26.md).
 

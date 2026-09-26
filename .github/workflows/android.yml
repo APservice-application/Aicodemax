@@ -142,6 +142,8 @@ jobs:
               for marker in ('parts=3\n', f'total={total}\n', 'model=qwen3-1.7b-q4_k_m\n', f'sha256={pinned_sha256}\n'):
                   assert marker in manifest, f'model manifest missing {marker!r}'
               assert 'lib/arm64-v8a/libaicode_jni.so' in names, 'native inference engine missing'
+              license_text = apk.read('assets/licenses/Qwen3-1.7B-APACHE-2.0.txt').decode('utf-8')
+              assert 'Apache License' in license_text and 'Version 2.0' in license_text, 'Qwen license missing'
           print(f'MODEL_QC_OK Qwen3-1.7B: 3 verified parts, {total} bytes, APK {path.stat().st_size} bytes')
           PY
       - name: Prove embedded AI inside APK (CP-146)
