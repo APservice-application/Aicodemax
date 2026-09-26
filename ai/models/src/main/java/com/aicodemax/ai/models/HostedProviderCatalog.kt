@@ -2,6 +2,7 @@ package com.aicodemax.ai.models
 
 import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
+import kotlinx.coroutines.CancellationException
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -30,6 +31,8 @@ object HostedProviderDirectory {
         HostedProviderSpec("gemini", "Google Gemini API", "https://generativelanguage.googleapis.com/v1beta", HostedWire.GEMINI),
         HostedProviderSpec("anthropic", "Anthropic Claude", "https://api.anthropic.com/v1", HostedWire.ANTHROPIC),
         HostedProviderSpec("openrouter", "OpenRouter", "https://openrouter.ai/api/v1", HostedWire.OPENAI),
+        HostedProviderSpec("huggingface", "Hugging Face Inference Providers", "https://router.huggingface.co/v1", HostedWire.OPENAI),
+        HostedProviderSpec("perplexity", "Perplexity Agent API", "https://api.perplexity.ai/v1", HostedWire.OPENAI),
         HostedProviderSpec("groq", "Groq", "https://api.groq.com/openai/v1", HostedWire.OPENAI),
         HostedProviderSpec("together", "Together AI", "https://api.together.ai/v1", HostedWire.OPENAI),
         HostedProviderSpec("mistral", "Mistral AI", "https://api.mistral.ai/v1", HostedWire.OPENAI),
@@ -38,6 +41,8 @@ object HostedProviderDirectory {
         HostedProviderSpec("cerebras", "Cerebras", "https://api.cerebras.ai/v1", HostedWire.OPENAI),
         HostedProviderSpec("cohere", "Cohere", "https://api.cohere.com/v1", HostedWire.COHERE),
         HostedProviderSpec("novita", "Novita AI", "https://api.novita.ai/openai/v1", HostedWire.OPENAI),
+        HostedProviderSpec("siliconflow", "SiliconFlow", "https://api.siliconflow.cn/v1", HostedWire.OPENAI),
+        HostedProviderSpec("sambanova", "SambaNova Cloud", "https://api.sambanova.ai/v1", HostedWire.OPENAI),
     )
 
     fun find(id: String): HostedProviderSpec? = all.firstOrNull { it.id == id }
@@ -126,23 +131,59 @@ class HostedModelDiscovery(
             ?: return Outcome.Failure(AppError("HOSTED_UNKNOWN", "ไม่รู้จักผู้ให้บริการ"))
         val credentials = keys.keys(providerId)
         if (credentials.isEmpty()) return Outcome.Failure(AppError("HOSTED_NO_KEY", "เพิ่ม API key ก่อน"))
-        // 401/403 alone indicates this credential cannot list models. 429 means wait;
-        // never rotate same-provider keys to evade a rate limit.
+        // Union catalog entitlements across *all configured keys*, not just the
+        // first successful key. Stop immediately on 429; never use more keys to
+        // evade provider-level rate limits. A partial union is labelled as such.
+        val models = linkedMapOf<String, HostedModel>()
+        var validKeys = 0
+        var incomplete = false
+        var lastProblem = ""
         for (credential in credentials) {
-            val secret = keys.secret(credential.id) ?: continue
+            val secret = keys.secret(credential.id)
+            if (secret == null) {
+                incomplete = true
+                lastProblem = "อ่านคีย์บางใบไม่ได้"
+                continue
+            }
             val fetched = try { fetchAll(spec, secret) }
+                catch (cancelled: CancellationException) { throw cancelled }
                 catch (_: Exception) {
-                    return Outcome.Failure(AppError("HOSTED_NETWORK", "เชื่อมต่อหรืออ่านรายชื่อโมเดลไม่ได้; ตรวจอินเทอร์เน็ตแล้วลองใหม่"))
+                    if (validKeys == 0) return Outcome.Failure(AppError("HOSTED_NETWORK",
+                        "เชื่อมต่อหรืออ่านรายชื่อโมเดลไม่ได้; ตรวจอินเทอร์เน็ตแล้วลองใหม่"))
+                    incomplete = true
+                    lastProblem = "เครือข่ายล้มเหลว"
+                    break
                 }
-            if (fetched is CatalogFetch.HttpError && fetched.code in setOf(401, 403)) continue
-            return when (fetched) {
-                is CatalogFetch.Success -> Outcome.Success(fetched.catalog)
-                is CatalogFetch.HttpError -> Outcome.Failure(AppError("HOSTED_HTTP_${fetched.code}",
-                    "${spec.name}: HTTP ${fetched.code} ขณะดึงรายชื่อโมเดล${if (fetched.code == 429) " — รอตามข้อกำหนดผู้ให้บริการ" else ""}"))
-                is CatalogFetch.BadJson -> Outcome.Failure(AppError("HOSTED_CATALOG", "${spec.name}: รูปแบบรายชื่อโมเดลไม่รองรับ"))
+            when (fetched) {
+                is CatalogFetch.Success -> {
+                    validKeys++
+                    fetched.catalog.models.forEach { models[it.id] = it }
+                    if (!fetched.catalog.complete) incomplete = true
+                    if (!fetched.catalog.complete) lastProblem = fetched.catalog.note
+                }
+                is CatalogFetch.HttpError -> {
+                    if (fetched.code in setOf(401, 403)) {
+                        incomplete = true
+                        lastProblem = "คีย์บางใบถูกปฏิเสธ"
+                        continue
+                    }
+                    if (validKeys == 0) return Outcome.Failure(AppError("HOSTED_HTTP_${fetched.code}",
+                        "${spec.name}: HTTP ${fetched.code} ขณะดึงรายชื่อโมเดล${if (fetched.code == 429) " — รอตามข้อกำหนดผู้ให้บริการ" else ""}"))
+                    incomplete = true
+                    lastProblem = "HTTP ${fetched.code}${if (fetched.code == 429) " — หยุดตาม rate limit" else ""}"
+                    break
+                }
+                CatalogFetch.BadJson -> {
+                    if (validKeys == 0) return Outcome.Failure(AppError("HOSTED_CATALOG", "${spec.name}: รูปแบบรายชื่อโมเดลไม่รองรับ"))
+                    incomplete = true
+                    lastProblem = "บางคีย์ได้รายชื่อที่อ่านไม่ได้"
+                    break
+                }
             }
         }
-        return Outcome.Failure(AppError("HOSTED_AUTH", "${spec.name}: คีย์ทั้งหมดถูกปฏิเสธ (401/403)"))
+        if (validKeys == 0) return Outcome.Failure(AppError("HOSTED_AUTH", "${spec.name}: คีย์ทั้งหมดใช้ดึงรายชื่อไม่ได้"))
+        return Outcome.Success(HostedModelCatalog(models.values.toList(), !incomplete,
+            "รวมจาก $validKeys/${credentials.size} คีย์; ${if (incomplete) "รายชื่ออาจไม่ครบ ($lastProblem)" else "ตามรายการที่ API เปิดเผย ณ เวลาที่รีเฟรช"}"))
     }
 
     private sealed interface CatalogFetch {
@@ -153,6 +194,7 @@ class HostedModelDiscovery(
 
     private suspend fun fetchAll(spec: HostedProviderSpec, secret: String): CatalogFetch {
         val entries = linkedMapOf<String, HostedModel>()
+        var ignored = 0
         val seenCursors = mutableSetOf<String>()
         var cursor: String? = null
         var page = 0
@@ -179,8 +221,8 @@ class HostedModelDiscovery(
                 else -> null
             } ?: return CatalogFetch.BadJson
             for (entry in array) {
-                val model = parseModel(spec.id, entry as? JsonObject ?: continue) ?: continue
-                entries[model.id] = model
+                val model = (entry as? JsonObject)?.let { parseModel(spec.id, it) }
+                if (model == null) ignored++ else entries[model.id] = model
             }
             next = when (spec.wire) {
                 HostedWire.GEMINI -> obj?.str("nextPageToken")
@@ -194,8 +236,12 @@ class HostedModelDiscovery(
                 HostedModelCatalog(entries.values.toList(), false, "ผู้ให้บริการส่ง page token ซ้ำ: รายชื่ออาจไม่ครบ"))
             cursor = next
         } while (next != null)
-        return CatalogFetch.Success(HostedModelCatalog(entries.values.toList(), true,
-            if (entries.isEmpty()) "API ไม่ส่งรายชื่อโมเดลสำหรับคีย์นี้" else "รายชื่อจาก API ณ เวลาที่รีเฟรช; สิทธิ์ใช้งาน/ราคาอาจต่างกัน"))
+        return CatalogFetch.Success(HostedModelCatalog(entries.values.toList(), ignored == 0,
+            when {
+                ignored > 0 -> "รายการไม่ครบ: $ignored รายการไม่มี model ID ที่เรียกได้"
+                entries.isEmpty() -> "API ไม่ส่งรายชื่อโมเดลสำหรับคีย์นี้"
+                else -> "รายชื่อจาก API ณ เวลาที่รีเฟรช; สิทธิ์ใช้งาน/ราคาอาจต่างกัน"
+            }))
     }
 
     companion object {
@@ -235,9 +281,31 @@ private fun parseModel(providerId: String, obj: JsonObject): HostedModel? {
     if ("audio" in output || type.contains("audio") || type.contains("speech")) caps.add(HostedCapability.AUDIO)
     if ("video" in output || type.contains("video")) caps.add(HostedCapability.VIDEO)
     if ("text" in output && type !in setOf("embedding", "rerank")) caps.add(HostedCapability.CHAT)
+    // generateContent can also *generate media*. Do not advertise Imagen/Nano
+    // Banana/Veo/embedding models as chat just because they expose that verb.
+    val key = id.lowercase()
+    val confirmedText = "text" in output || "chat" in endpoints || type == "chat" ||
+        flags?.get("completion_chat")?.jsonPrimitive?.booleanOrNull == true
+    if (!confirmedText) {
+        when {
+            key.contains("embed") -> { caps.remove(HostedCapability.CHAT); caps.add(HostedCapability.EMBEDDING) }
+            key.contains("rerank") || key.contains("moderation") -> {
+                caps.remove(HostedCapability.CHAT); caps.add(HostedCapability.RERANK)
+            }
+            key.contains("sora") || key.contains("video") || key.contains("veo") -> {
+                caps.remove(HostedCapability.CHAT); caps.add(HostedCapability.VIDEO)
+            }
+            key.contains("dall-e") || key.contains("image") || key.contains("imagen") -> {
+                caps.remove(HostedCapability.CHAT); caps.add(HostedCapability.IMAGE)
+            }
+            key.contains("whisper") || key.contains("transcri") || key.contains("tts") ||
+                key.contains("speech") || key.contains("audio") -> {
+                caps.remove(HostedCapability.CHAT); caps.add(HostedCapability.AUDIO)
+            }
+        }
+    }
     // If the provider gives no capability metadata, classify *candidates* conservatively.
     // Unknown is displayed, selectable with a warning, but never advertised as verified chat.
-    val key = id.lowercase()
     if (caps.isEmpty()) {
         when {
             key.contains("embed") -> caps.add(HostedCapability.EMBEDDING)
@@ -251,7 +319,7 @@ private fun parseModel(providerId: String, obj: JsonObject): HostedModel? {
     }
     val pricing = obj.obj("pricing")
     val priceNote = if (providerId == "openrouter" && pricing != null) {
-        "ราคา API: prompt=${pricing.str("prompt") ?: "?"}, completion=${pricing.str("completion") ?: "?"} USD/token (ตรวจสอบก่อนใช้)"
+        "ราคา API ตาม metadata: prompt=${pricing.str("prompt") ?: "?"}, completion=${pricing.str("completion") ?: "?"} (หน่วยอาจต่างกัน; ตรวจสอบกับผู้ให้บริการ)"
     } else null
     return HostedModel(providerId, id, name.take(300), caps, priceNote)
 }

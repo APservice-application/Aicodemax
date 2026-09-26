@@ -7,11 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -24,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +43,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit = {}) {
     val manager = services.hostedBrain
+    val lastAnsweredBy by manager.lastSuccess.collectAsState()
     val scope = rememberCoroutineScope()
     var providerId by remember { mutableStateOf(manager.primaryProvider() ?: "gemini") }
     var keyInput by remember { mutableStateOf("") }
@@ -59,6 +57,7 @@ fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit =
     var modelMenu by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf<HostedCapability?>(null) }
     var query by remember { mutableStateOf("") }
+    var modelPage by remember { mutableStateOf(0) }
 
     fun updateUi() {
         currentKeys = manager.storedKeys(providerId)
@@ -106,6 +105,9 @@ fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit =
         }
     }
     val confirmed = allModels.find { it.id == selectedModel }
+    val modelPageSize = 40
+    val modelPages = ((filtered.size + modelPageSize - 1) / modelPageSize).coerceAtLeast(1)
+    LaunchedEffect(catalog, filter, query, providerId) { modelPage = 0 }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Text("สมอง AI ผ่าน API (BYOK)", style = MaterialTheme.typography.titleMedium)
         Text("รองรับ Google Gemini, OpenAI, Anthropic และอีก ${HostedProviderDirectory.all.size - 3} เจ้า " +
@@ -196,10 +198,9 @@ fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit =
             // The catalog includes every returned type; filtering is only for browsing.
             Row(modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(null, HostedCapability.CHAT, HostedCapability.IMAGE,
-                    HostedCapability.AUDIO, HostedCapability.VIDEO).forEach { kind ->
+                (listOf<HostedCapability?>(null) + HostedCapability.values().toList()).forEach { kind ->
                     FilterChip(selected = filter == kind, onClick = { filter = kind },
-                        label = { Text(kind?.name ?: "ทั้งหมด", style = MaterialTheme.typography.labelSmall) })
+                        label = { Text(kind?.thaiLabel() ?: "ทั้งหมด", style = MaterialTheme.typography.labelSmall) })
                 }
             }
             Box {
@@ -208,30 +209,39 @@ fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit =
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 DropdownMenu(expanded = modelMenu, onDismissRequest = { modelMenu = false }) {
-                    LazyColumn(modifier = Modifier.width(310.dp).height(350.dp)) {
-                        items(filtered, key = { it.id }) { model ->
-                            DropdownMenuItem(text = {
-                                Column {
-                                    Text(model.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text("${model.id} • ${model.capabilities.joinToString()}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                }
-                            }, onClick = {
-                                try {
-                                    manager.selectModel(providerId, model.id)
-                                    updateUi()
-                                    status = if (model.canTryChat) "เลือก ${model.name}; กรุณายืนยันนโยบายอีกครั้ง" else
-                                        "เลือก ${model.name}; โมเดลนี้ยังใช้เป็นแชตของสมอง AI ไม่ได้"
-                                } catch (_: Exception) { status = "เลือกโมเดลไม่สำเร็จ" }
-                                modelMenu = false
-                            })
-                        }
+                    // Bounded page inside the actual dropdown: the catalog can contain
+                    // thousands of entries; every page remains reachable without typing.
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(enabled = modelPage > 0, onClick = { modelPage-- }) { Text("ก่อนหน้า") }
+                        Text("${modelPage + 1}/$modelPages", modifier = Modifier.padding(top = 12.dp))
+                        TextButton(enabled = modelPage + 1 < modelPages, onClick = { modelPage++ }) { Text("ถัดไป") }
+                    }
+                    filtered.drop(modelPage * modelPageSize).take(modelPageSize).forEach { model ->
+                        DropdownMenuItem(text = {
+                            Column {
+                                Text(model.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${model.id} • ${model.capabilities.joinToString { it.thaiLabel() }}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }, onClick = {
+                            try {
+                                manager.selectModel(providerId, model.id)
+                                updateUi()
+                                status = if (model.canTryChat) "เลือก ${model.name}; กรุณายืนยันนโยบายอีกครั้ง" else
+                                    "เลือก ${model.name}; โมเดลนี้ยังใช้เป็นแชตของสมอง AI ไม่ได้"
+                            } catch (_: Exception) { status = "เลือกโมเดลไม่สำเร็จ" }
+                            modelMenu = false
+                        })
                     }
                 }
             }
+            if (selectedModel != null && confirmed == null) {
+                Text("โมเดลที่เคยเลือกไม่อยู่ในรายการที่ API ส่งกลับแล้ว — เลือกรุ่นใหม่ก่อนใช้",
+                    style = MaterialTheme.typography.bodySmall)
+            }
             if (confirmed != null) {
-                Text("ความสามารถ: ${confirmed.capabilities.joinToString()}" +
+                Text("ความสามารถ: ${confirmed.capabilities.joinToString { it.thaiLabel() }}" +
                     if (confirmed.canTryChat) {
                         if (HostedCapability.UNKNOWN in confirmed.capabilities) " • แชตยังไม่ยืนยันจาก API" else " • ใช้กับสมอง AI ได้"
                     } else " • ยังไม่มีตัวเรียกชนิดนี้ในสมอง AI",
@@ -242,21 +252,33 @@ fun HostedProvidersPanel(services: ServiceLocator, onRoutesChanged: () -> Unit =
         Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Checkbox(checked = consent, onCheckedChange = { checked ->
                 if (checked && manager.selectedRoute() == null) {
-                    status = "เพิ่มคีย์และเลือกโมเดลหลักก่อน"
+                    status = "เพิ่มคีย์และเลือกโมเดลที่ใช้เป็นแชตของสมอง AI ได้ก่อน"
                 } else {
                     manager.setConsent(checked)
                     updateUi()
                 }
             })
-            Text("ยินยอมให้ส่งข้อความ/บริบทไปผู้ให้บริการที่ตั้งค่าทั้งหมด และให้สลับเจ้าเมื่อจำเป็น " +
-                "(API อาจคิดเงิน; ตรวจราคา/โควตากับแต่ละเจ้าก่อน)", style = MaterialTheme.typography.bodySmall)
+            Text("ยินยอมให้ส่งข้อความ ประวัติ บริบทงาน/ผลเครื่องมือที่จำเป็นไปผู้ให้บริการที่ตั้งค่าทั้งหมด " +
+                "และสลับเจ้าเมื่อจำเป็น (API อาจคิดเงิน; ตรวจราคา/โควตาก่อน)", style = MaterialTheme.typography.bodySmall)
         }
         Text("ลำดับ fallback: ${manager.routeLabels().joinToString(" → ").ifBlank { "ยังไม่มีโมเดลที่เลือก" }}",
             style = MaterialTheme.typography.bodySmall)
+        Text("API ที่ตอบล่าสุด: $lastAnsweredBy", style = MaterialTheme.typography.bodySmall)
         Text("หากคีย์ถูกปฏิเสธจะลองคีย์ถัดไป; เมื่อเจ้าเดิม 429 จะไม่หมุนคีย์เพื่อหลบโควตา " +
             "แต่ข้ามไปเจ้าอื่นที่คุณยินยอมไว้; timeout ไม่ยิงซ้ำเพื่อกันค่าใช้จ่ายซ้ำ",
             style = MaterialTheme.typography.bodySmall)
         Text("สถานะ: $status", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary)
     }
+}
+
+private fun HostedCapability.thaiLabel(): String = when (this) {
+    HostedCapability.CHAT -> "สนทนา"
+    HostedCapability.VISION -> "เข้าใจภาพ"
+    HostedCapability.IMAGE -> "สร้างภาพ"
+    HostedCapability.AUDIO -> "เสียง"
+    HostedCapability.VIDEO -> "วิดีโอ"
+    HostedCapability.EMBEDDING -> "เวกเตอร์"
+    HostedCapability.RERANK -> "จัดอันดับ"
+    HostedCapability.UNKNOWN -> "ยังไม่ระบุ"
 }

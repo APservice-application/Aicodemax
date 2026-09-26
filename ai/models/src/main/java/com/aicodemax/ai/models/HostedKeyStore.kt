@@ -14,7 +14,8 @@ interface HostedKeyStore {
     fun add(providerId: String, apiKey: String): HostedKeyRef
     fun remove(id: String)
     fun model(providerId: String): String?
-    fun selectModel(providerId: String, modelId: String)
+    fun modelCanChat(providerId: String): Boolean?
+    fun selectModel(providerId: String, modelId: String, canTryChat: Boolean? = null)
     fun primaryProvider(): String?
     fun selectPrimary(providerId: String)
     fun networkConsent(): Boolean
@@ -26,6 +27,7 @@ class InMemoryHostedKeyStore : HostedKeyStore {
     private data class Item(val ref: HostedKeyRef, val secret: String)
     private val items = mutableListOf<Item>()
     private val models = mutableMapOf<String, String>()
+    private val modelChat = mutableMapOf<String, Boolean>()
     private var primary: String? = null
     private var consent = false
 
@@ -44,16 +46,23 @@ class InMemoryHostedKeyStore : HostedKeyStore {
     }
 
     @Synchronized override fun remove(id: String) {
+        val provider = items.firstOrNull { it.ref.id == id }?.ref?.providerId ?: return
         items.removeAll { it.ref.id == id }
+        if (keys(provider).isEmpty()) {
+            models.remove(provider)
+            modelChat.remove(provider)
+        }
         if (primary != null && keys(primary!!).isEmpty()) primary = items.firstOrNull()?.ref?.providerId
         consent = false
     }
 
     @Synchronized override fun model(providerId: String): String? = models[providerId]
+    @Synchronized override fun modelCanChat(providerId: String): Boolean? = modelChat[providerId]
 
-    @Synchronized override fun selectModel(providerId: String, modelId: String) {
+    @Synchronized override fun selectModel(providerId: String, modelId: String, canTryChat: Boolean?) {
         require(HostedProviderDirectory.find(providerId) != null && modelId.isNotBlank())
         models[providerId] = modelId
+        if (canTryChat == null) modelChat.remove(providerId) else modelChat[providerId] = canTryChat
         consent = false
     }
 

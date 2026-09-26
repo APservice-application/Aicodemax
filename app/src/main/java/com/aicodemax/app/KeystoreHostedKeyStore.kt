@@ -37,7 +37,7 @@ class KeystoreHostedKeyStore(context: Context) : HostedKeyStore {
         .map { field ->
             val id = field.removePrefix("key.").removeSuffix(".provider")
             HostedKeyRef(id, providerId, values.getProperty("key.$id.label", "••••"))
-        }.sortedBy { it.id }.toList()
+        }.sortedWith(compareBy({ values.getProperty("key.${it.id}.order", "") }, { it.id })).toList()
 
     @Synchronized override fun secret(id: String): String? {
         val data = values.getProperty("key.$id.data") ?: return null
@@ -64,6 +64,7 @@ class KeystoreHostedKeyStore(context: Context) : HostedKeyStore {
         values.setProperty("key.$id.provider", providerId)
         values.setProperty("key.$id.data", Base64.getEncoder().encodeToString(encrypted))
         values.setProperty("key.$id.label", ref.label)
+        values.setProperty("key.$id.order", "${System.currentTimeMillis()}-$id")
         if (primaryProvider() == null) values.setProperty("primary", providerId)
         values.setProperty("consent", "false") // config changed: re-approve new recipients/cost
         save()
@@ -72,9 +73,10 @@ class KeystoreHostedKeyStore(context: Context) : HostedKeyStore {
 
     @Synchronized override fun remove(id: String) {
         val provider = values.getProperty("key.$id.provider") ?: return
-        for (field in listOf("provider", "data", "label")) values.remove("key.$id.$field")
+        for (field in listOf("provider", "data", "label", "order")) values.remove("key.$id.$field")
         if (keys(provider).isEmpty()) {
             values.remove("model.$provider")
+            values.remove("model.$provider.chat")
             if (primaryProvider() == provider) values.setProperty("primary",
                 HostedProviderDirectory.all.firstOrNull { keys(it.id).isNotEmpty() }?.id.orEmpty())
         }
@@ -85,9 +87,17 @@ class KeystoreHostedKeyStore(context: Context) : HostedKeyStore {
     @Synchronized override fun model(providerId: String): String? =
         values.getProperty("model.$providerId")?.takeIf { it.isNotBlank() }
 
-    @Synchronized override fun selectModel(providerId: String, modelId: String) {
+    @Synchronized override fun modelCanChat(providerId: String): Boolean? = when (values.getProperty("model.$providerId.chat")) {
+        "true" -> true
+        "false" -> false
+        else -> null
+    }
+
+    @Synchronized override fun selectModel(providerId: String, modelId: String, canTryChat: Boolean?) {
         require(HostedProviderDirectory.find(providerId) != null && modelId.isNotBlank() && modelId.length <= 300)
         values.setProperty("model.$providerId", modelId)
+        if (canTryChat == null) values.remove("model.$providerId.chat")
+        else values.setProperty("model.$providerId.chat", canTryChat.toString())
         values.setProperty("consent", "false")
         save()
     }

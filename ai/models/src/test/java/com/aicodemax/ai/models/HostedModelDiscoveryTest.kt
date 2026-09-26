@@ -34,6 +34,16 @@ class HostedModelDiscoveryTest {
         assertEquals("secretgoogle123", fake.calls[0].third["x-goog-api-key"])
     }
 
+    @Test fun geminiImageModelIsNotFalselyPresentedAsChat() = runBlocking {
+        val keys = InMemoryHostedKeyStore().apply { add("gemini", "secretgoogle123") }
+        val fake = FakeTransport().apply { respond = { _, _ -> HostedHttpResponse(200,
+            """{"models":[{"name":"models/gemini-3.1-flash-image","supportedGenerationMethods":["generateContent"]}]}""") } }
+        val result = HostedModelDiscovery(fake, keys).list("gemini") as Outcome.Success
+        assertEquals(1, result.value.models.size)
+        assertTrue(HostedCapability.IMAGE in result.value.models[0].capabilities)
+        assertFalse(result.value.models[0].canTryChat)
+    }
+
     @Test fun anthropicPaginationAndBadFirstKeyFallThrough() = runBlocking {
         val keys = InMemoryHostedKeyStore().apply {
             add("anthropic", "invalid-first-key")
@@ -52,6 +62,22 @@ class HostedModelDiscoveryTest {
         assertEquals(3, fake.calls.size)
         assertEquals("2023-06-01", fake.calls[2].third["anthropic-version"])
         assertTrue(fake.calls[2].second.contains("after_id=claude-1"))
+    }
+
+    @Test fun catalogsFromSeparateValidKeysAreUnioned() = runBlocking {
+        val keys = InMemoryHostedKeyStore().apply {
+            add("openai", "first-key-here")
+            add("openai", "second-key-here")
+        }
+        val fake = FakeTransport()
+        fake.respond = { _, headers ->
+            val id = if (headers["Authorization"] == "Bearer first-key-here") "gpt-first" else "gpt-second"
+            HostedHttpResponse(200, """{"data":[{"id":"$id"}]}""")
+        }
+        val result = HostedModelDiscovery(fake, keys).list("openai") as Outcome.Success
+        assertTrue(result.value.complete)
+        assertEquals(setOf("gpt-first", "gpt-second"), result.value.models.map { it.id }.toSet())
+        assertEquals(2, fake.calls.size)
     }
 
     @Test fun rateLimitNeverCyclesSameProviderKeys() = runBlocking {
@@ -94,6 +120,38 @@ class HostedModelDiscoveryTest {
         assertTrue(HostedCapability.VIDEO in result.value.models[2].capabilities)
         assertTrue(HostedCapability.IMAGE in result.value.models[3].capabilities)
         assertEquals(null, result.value.models.first().priceNote)
+    }
+
+    @Test fun togetherCatalogIncludesAllReturnedTypesInsteadOfOnlyChat() = runBlocking {
+        val keys = InMemoryHostedKeyStore().apply { add("together", "together-secret123") }
+        val fake = FakeTransport().apply { respond = { _, _ -> HostedHttpResponse(200,
+            """[{"id":"team/chat","type":"chat","display_name":"Chat"},{"id":"team/image","type":"image"},{"id":"team/embed","type":"embedding"}]""") } }
+        val result = HostedModelDiscovery(fake, keys).list("together") as Outcome.Success
+        assertEquals(3, result.value.models.size)
+        assertEquals("Chat", result.value.models[0].name)
+        assertTrue(HostedCapability.CHAT in result.value.models[0].capabilities)
+        assertTrue(HostedCapability.IMAGE in result.value.models[1].capabilities)
+        assertTrue(HostedCapability.EMBEDDING in result.value.models[2].capabilities)
+        assertFalse(result.value.models[2].canTryChat)
+    }
+
+    @Test fun huggingFaceRouterListsOnlyItsPublishedInferenceModels() = runBlocking {
+        val keys = InMemoryHostedKeyStore().apply { add("huggingface", "hf_key_for_tests_123") }
+        val fake = FakeTransport().apply { respond = { _, _ -> HostedHttpResponse(200,
+            """{"data":[{"id":"deepseek-ai/DeepSeek-V4-Pro","architecture":{"input_modalities":["text"],"output_modalities":["text"]}}]}""") } }
+        val result = HostedModelDiscovery(fake, keys).list("huggingface") as Outcome.Success
+        assertEquals(1, result.value.models.size)
+        assertTrue(result.value.models[0].canTryChat)
+        assertEquals("https://router.huggingface.co/v1/models", fake.calls[0].second)
+    }
+
+    @Test fun unusableCatalogRowsMakeCompletenessFalse() = runBlocking {
+        val keys = InMemoryHostedKeyStore().apply { add("openai", "example-token-1234") }
+        val fake = FakeTransport().apply { respond = { _, _ -> HostedHttpResponse(200,
+            """{"data":[{"id":"gpt-ok"},{"owner":"no model id"}]}""") } }
+        val result = HostedModelDiscovery(fake, keys).list("openai") as Outcome.Success
+        assertEquals(1, result.value.models.size)
+        assertFalse(result.value.complete)
     }
 
     @Test fun malformedCatalogIsNotReportedAsComplete() = runBlocking {

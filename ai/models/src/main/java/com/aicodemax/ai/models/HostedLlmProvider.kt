@@ -2,6 +2,9 @@ package com.aicodemax.ai.models
 
 import com.aicodemax.core.common.AppError
 import com.aicodemax.core.common.Outcome
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -13,8 +16,9 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * BYOK brain: use the selected model/key, then remaining keys for auth failures,
- * then other configured providers on 402/404/429/502/503/504. Never retry
- * after a timeout, HTTP 500 or unparseable 2xx: the request may be billed.
+ * then other configured providers on 402/429/502/503/504; HTTP 404 may use
+ * the next key with model access. Never retry after a timeout, HTTP 500 or
+ * unparseable 2xx: the request may be billed.
  */
 class HostedLlmProvider(
     private val keys: HostedKeyStore,
@@ -24,9 +28,16 @@ class HostedLlmProvider(
     private val json = Json { ignoreUnknownKeys = true }
     private val discovery = HostedModelDiscovery(transport, keys)
     private val catalogCache = mutableMapOf<String, HostedModelCatalog>()
+    private val _lastSuccess = MutableStateFlow("ยังไม่มี API ที่ตอบสำเร็จ")
+    val lastSuccess: StateFlow<String> = _lastSuccess
 
     fun selectedRoute(): HostedRoute? = keys.primaryProvider()?.let { provider ->
-        keys.model(provider)?.let { model -> HostedRoute(provider, model) }
+        if (keys.modelCanChat(provider) == false) return@let null
+        keys.model(provider)?.let { model ->
+            val cached = synchronized(catalogCache) { catalogCache[provider] }
+            if (cached != null && cached.models.none { it.id == model && it.canTryChat }) null
+            else HostedRoute(provider, model)
+        }
     }
 
     fun routeLabels(): List<String> = routes().map { route ->
@@ -44,8 +55,9 @@ class HostedLlmProvider(
 
     fun selectModel(providerId: String, modelId: String) {
         val cached = synchronized(catalogCache) { catalogCache[providerId] }
-        require(cached?.models?.any { it.id == modelId } == true) { "เลือกรุ่นจากรายการ API ที่รีเฟรชแล้วเท่านั้น" }
-        keys.selectModel(providerId, modelId)
+        val selected = cached?.models?.find { it.id == modelId }
+        require(selected != null) { "เลือกรุ่นจากรายการ API ที่รีเฟรชแล้วเท่านั้น" }
+        keys.selectModel(providerId, modelId, selected.canTryChat)
     }
 
     suspend fun discover(providerId: String): Outcome<HostedModelCatalog> {
@@ -57,7 +69,7 @@ class HostedLlmProvider(
             if (keys.model(providerId) == null) {
                 val chosen = result.value.models.firstOrNull { HostedCapability.CHAT in it.capabilities }
                     ?: result.value.models.firstOrNull { HostedCapability.UNKNOWN in it.capabilities }
-                chosen?.let { keys.selectModel(providerId, it.id) }
+                chosen?.let { keys.selectModel(providerId, it.id, it.canTryChat) }
             }
         }
         return result
@@ -90,13 +102,18 @@ class HostedLlmProvider(
             for (key in keys.keys(spec.id)) {
                 val secret = keys.secret(key.id) ?: continue
                 val attempt = try { send(spec, route.modelId, secret, messages, maxTokens) }
+                    catch (cancelled: CancellationException) { throw cancelled }
                     catch (_: Exception) {
                         return Outcome.Failure(AppError("HOSTED_NETWORK",
                             "${spec.name}: เครือข่ายล้มเหลวหรือหมดเวลา; ไม่ยิงซ้ำเพื่อป้องกันการคิดเงินซ้ำ"))
                     }
                 when (attempt) {
-                    is Attempt.Done -> return Outcome.Success(LlmReply(attempt.text))
+                    is Attempt.Done -> {
+                        _lastSuccess.value = "${spec.name} / ${route.modelId} (${key.label})"
+                        return Outcome.Success(LlmReply(attempt.text))
+                    }
                     is Attempt.Auth -> failures.add("${spec.name}: คีย์ถูกปฏิเสธ (HTTP ${attempt.code})")
+                    is Attempt.NextKey -> failures.add("${spec.name}: รุ่นนี้ไม่พร้อมสำหรับคีย์นี้ (HTTP ${attempt.code})")
                     is Attempt.ProviderUnavailable -> {
                         failures.add("${spec.name}: HTTP ${attempt.code}${if (attempt.code == 429) " (จำกัดอัตรา; ไม่หมุนคีย์ของเจ้าเดิม)" else ""}")
                         goToNextProvider = true
@@ -123,7 +140,12 @@ class HostedLlmProvider(
         val selected = selectedRoute()
         val others = HostedProviderDirectory.all.mapNotNull { spec ->
             val chosen = keys.model(spec.id)
-            if (chosen == null || keys.keys(spec.id).isEmpty()) null else HostedRoute(spec.id, chosen)
+            val cached = synchronized(catalogCache) { catalogCache[spec.id] }
+            when {
+                chosen == null || keys.keys(spec.id).isEmpty() || keys.modelCanChat(spec.id) == false -> null
+                cached != null && cached.models.none { it.id == chosen && it.canTryChat } -> null
+                else -> HostedRoute(spec.id, chosen)
+            }
         }
         return listOfNotNull(selected).plus(others).distinctBy { it.providerId }
     }
@@ -131,6 +153,7 @@ class HostedLlmProvider(
     private sealed interface Attempt {
         data class Done(val text: String) : Attempt
         data class Auth(val code: Int) : Attempt
+        data class NextKey(val code: Int) : Attempt
         data class ProviderUnavailable(val code: Int) : Attempt
         data class Fatal(val code: Int) : Attempt
         data class Unsupported(val reason: String) : Attempt
@@ -144,8 +167,8 @@ class HostedLlmProvider(
         if (spec.wire == HostedWire.COHERE && messages.any { it.imageBase64 != null }) {
             return Attempt.Unsupported("รูปภาพต้องใช้ตัวเชื่อมแยก ไม่ทิ้งไฟล์ภาพจากคำขอ")
         }
-        val responseMode = spec.id == "openai" &&
-            listOf("gpt-5", "gpt-6", "o1", "o3", "o4").any { model.startsWith(it) }
+        val responseMode = spec.id == "perplexity" || (spec.id == "openai" &&
+            listOf("gpt-5", "gpt-6", "o1", "o3", "o4").any { model.startsWith(it) })
         val (path, request) = when (spec.wire) {
             HostedWire.GEMINI -> {
                 val safe = if (model.startsWith("models/")) model else "models/$model"
@@ -166,12 +189,13 @@ class HostedLlmProvider(
             401 -> Attempt.Auth(res.code)
             // 403 can be a policy/safety refusal. Never switch keys to evade it.
             403 -> Attempt.Fatal(res.code)
-            402, 404, 429, 502, 503, 504 -> Attempt.ProviderUnavailable(res.code)
+            404 -> Attempt.NextKey(res.code) // another key may own this model
+            402, 429, 502, 503, 504 -> Attempt.ProviderUnavailable(res.code)
             // 500 may occur after upstream work began: avoid a potentially billed replay.
             else -> Attempt.Fatal(res.code)
         }
         val text = try { parseText(res.body, spec.wire, responseMode) } catch (_: Exception) { null }
-        return if (text.isNullOrBlank()) Attempt.Unreadable else Attempt.Done(text)
+        return text?.takeIf { it.isNotBlank() }?.let { Attempt.Done(it) } ?: Attempt.Unreadable
     }
 
     private fun messagesJson(messages: List<LlmMessage>): JsonArray = JsonArray(messages.map { msg ->

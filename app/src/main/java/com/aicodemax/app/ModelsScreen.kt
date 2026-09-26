@@ -55,6 +55,7 @@ fun ModelsScreen(services: ServiceLocator) {
     var llmModel by remember { mutableStateOf("gpt-4o-mini") }
     var llmStatus by remember { mutableStateOf("ยังไม่เชื่อมต่อ") }
     var llmBusy by remember { mutableStateOf(false) }
+    var advancedEndpointOpen by remember { mutableStateOf(false) }
     // CP-132: local runtime section (§35).
     val runtimeState by services.aiRuntime.state.collectAsState()
     val runtimeError by services.aiRuntime.error.collectAsState()
@@ -269,82 +270,86 @@ fun ModelsScreen(services: ServiceLocator) {
             )
         }
         item(key = "__llm__") {
-            Text("ขั้นสูง: endpoint ส่วนตัว (แยกจาก BYOK ด้านบน)", style = MaterialTheme.typography.titleMedium)
-            TextField(
-                value = llmUrl,
-                onValueChange = { llmUrl = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("base URL เช่น https://api.openai.com/v1") },
-            )
-            TextField(
-                value = llmKey,
-                onValueChange = { llmKey = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                placeholder = { Text("API key (ถ้ามี) — อยู่ในหน่วยความจำเท่านั้น") },
-            )
-            TextField(
-                value = llmModel,
-                onValueChange = { llmModel = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text("model id") },
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                TextButton(
-                    onClick = {
-                        scope.launch {
-                            llmBusy = true
-                            val found = withContext(Dispatchers.IO) {
-                                LocalEndpointDetector.detect(JavaNetLlmTransport())
-                            }
-                            found.fold(
-                                onSuccess = {
-                                    llmUrl = it.substringBefore(" — ")
-                                    llmStatus = "พบ local: $it"
-                                },
-                                onFailure = { llmStatus = it.message },
-                            )
-                            llmBusy = false
-                        }
-                    },
-                    enabled = !llmBusy,
-                ) { Text("ตรวจ localhost") }
-                TextButton(
-                    onClick = {
-                        scope.launch {
-                            llmBusy = true
-                            val provider = OpenAiCompatProvider(llmUrl.trim(), { llmKey.takeIf { it.isNotBlank() } })
-                            val health = withContext(Dispatchers.IO) { provider.health() }
-                            health.fold(
-                                onSuccess = {
-                                    services.setLlm(provider, llmModel.trim(), llmUrl.trim())
-                                    llmStatus = "เชื่อมต่อแล้ว: $it"
-                                },
-                                onFailure = { llmStatus = "ต่อไม่ได้: ${it.message}" },
-                            )
-                            llmBusy = false
-                        }
-                    },
-                    enabled = !llmBusy,
-                ) { Text("เชื่อมต่อ") }
-                TextButton(onClick = {
-                    services.setLlm(null, llmModel)
-                    llmStatus = "ตัดการเชื่อมต่อแล้ว"
-                }) { Text("ตัด") }
+            TextButton(onClick = { advancedEndpointOpen = !advancedEndpointOpen }) {
+                Text(if (advancedEndpointOpen) "ซ่อน: endpoint ส่วนตัว (ขั้นสูง)" else "ขั้นสูง: endpoint ส่วนตัว ▾")
             }
-            Text(
-                "สถานะ: $llmStatus",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary,
-            )
-            Text(
-                "สำหรับเซิร์ฟเวอร์ส่วนตัวแบบ OpenAI-compatible เท่านั้น; คีย์ส่วนนี้อยู่ในหน่วยความจำและหายเมื่อปิดแอป. บริการที่รองรับไม่ต้องกรอก URL/โมเดลเอง — ใช้ BYOK ด้านบน",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.secondary,
-            )
+            if (advancedEndpointOpen) {
+                TextField(
+                    value = llmUrl,
+                    onValueChange = { llmUrl = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("base URL เช่น https://api.openai.com/v1") },
+                )
+                TextField(
+                    value = llmKey,
+                    onValueChange = { llmKey = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    placeholder = { Text("API key (ถ้ามี) — อยู่ในหน่วยความจำเท่านั้น") },
+                )
+                TextField(
+                    value = llmModel,
+                    onValueChange = { llmModel = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("model id") },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                llmBusy = true
+                                val found = withContext(Dispatchers.IO) {
+                                    LocalEndpointDetector.detect(JavaNetLlmTransport())
+                                }
+                                found.fold(
+                                    onSuccess = {
+                                        llmUrl = it.substringBefore(" — ")
+                                        llmStatus = "พบ local: $it"
+                                    },
+                                    onFailure = { llmStatus = it.message },
+                                )
+                                llmBusy = false
+                            }
+                        },
+                        enabled = !llmBusy,
+                    ) { Text("ตรวจ localhost") }
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                llmBusy = true
+                                val provider = OpenAiCompatProvider(llmUrl.trim(), { llmKey.takeIf { it.isNotBlank() } })
+                                val health = withContext(Dispatchers.IO) { provider.health() }
+                                health.fold(
+                                    onSuccess = {
+                                        services.setLlm(provider, llmModel.trim(), llmUrl.trim())
+                                        llmStatus = "เชื่อมต่อแล้ว: $it"
+                                    },
+                                    onFailure = { llmStatus = "ต่อไม่ได้: ${it.message}" },
+                                )
+                                llmBusy = false
+                            }
+                        },
+                        enabled = !llmBusy,
+                    ) { Text("เชื่อมต่อ") }
+                    TextButton(onClick = {
+                        services.setLlm(null, llmModel)
+                        llmStatus = "ตัดการเชื่อมต่อแล้ว"
+                    }) { Text("ตัด") }
+                }
+                Text(
+                    "สถานะ: $llmStatus",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                Text(
+                    "สำหรับเซิร์ฟเวอร์ส่วนตัวแบบ OpenAI-compatible เท่านั้น; คีย์ส่วนนี้อยู่ในหน่วยความจำและหายเมื่อปิดแอป. บริการที่รองรับไม่ต้องกรอก URL/โมเดลเอง — ใช้ BYOK ด้านบน",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
         }
         item(key = "__cloud__") {
             Text("Cloud (§29)", style = MaterialTheme.typography.titleMedium)

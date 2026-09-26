@@ -216,6 +216,13 @@ class ServiceLocator(context: Context) {
     private fun builtinIfReady(): LlmProvider? =
         builtinProvider.takeIf { aiRuntime.state.value == com.aicodemax.ai.runtime.AiRuntimeState.READY }
 
+    /** Planner/re-planner use BYOK when the large on-device brain cannot load. */
+    private fun actingProvider(): LlmProvider? = builtinIfReady() ?: llmProvider?.takeIf {
+        it !== hostedBrain || hostedBrain.consent()
+    }
+
+    private fun actingModel(): String = if (builtinIfReady() != null) "qwen3-4b-builtin" else llmModel
+
     /** CP-144: built-in AI model file (bundled asset, provisioned on first launch). */
     val builtinModelFile: File = File(storage.modelsDefault.path, "builtin-qwen3-4b-q4_k_m.gguf")
 
@@ -299,7 +306,7 @@ class ServiceLocator(context: Context) {
     /** Attach persisted BYOK route to existing Chat/agent/subtitle wiring. No API request on startup. */
     fun syncHostedBrain() {
         val route = hostedBrain.selectedRoute()
-        if (route != null) {
+        if (route != null && hostedBrain.consent()) {
             setLlm(hostedBrain, route.modelId, HostedProviderDirectory.find(route.providerId)?.base.orEmpty())
         } else if (llmProvider === hostedBrain) {
             setLlm(null, "")
@@ -500,7 +507,7 @@ class ServiceLocator(context: Context) {
         val builtinToolBrain = makeLlmBrain({ builtinIfReady() }, { "qwen3-4b-builtin" }, maxSteps = 4)
         // CP-148: LLM planner (rules first via CascadePlanner below; LLM catches the rest).
         val llmPlanner = LlmPlanner(
-            { builtinIfReady() }, { "qwen3-4b-builtin" }, capabilities,
+            { actingProvider() }, { actingModel() }, capabilities,
             com.aicodemax.tools.capability.StandardCapabilities.bindings(), agentMemory,
         )
         routedBrain = RoutedChatBrain(
@@ -526,7 +533,7 @@ class ServiceLocator(context: Context) {
             ),
             learner = learn,
             rePlanner = LlmRePlanner(
-                { builtinIfReady() }, { "qwen3-4b-builtin" }, capabilities,
+                { actingProvider() }, { actingModel() }, capabilities,
                 com.aicodemax.tools.capability.StandardCapabilities.bindings(), agentMemory,
             ),
             maxReplans = 2,
