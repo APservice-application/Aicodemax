@@ -30,6 +30,18 @@ class HostedLlmProviderTest {
         assertEquals(0, fake.calls.size)
     }
 
+    @Test fun oversizedInputFailsLocallyWithoutPosting() = runBlocking {
+        val store = InMemoryHostedKeyStore().apply {
+            add("openai", "openai-secret123")
+            selectModel("openai", "gpt-4o-mini")
+            setNetworkConsent(true)
+        }
+        val fake = FakeTransport()
+        val result = HostedLlmProvider(store, fake).chat("ignored", listOf(LlmMessage("user", "x".repeat(200_001))))
+        assertEquals("HOSTED_INPUT_TOO_LARGE", (result as Outcome.Failure).error.code)
+        assertTrue(fake.calls.isEmpty())
+    }
+
     @Test fun invalidKeyMovesToNextKeyAndGeminiUsesOwnSchema() = runBlocking {
         val store = InMemoryHostedKeyStore().apply {
             add("gemini", "invalid-secret123")

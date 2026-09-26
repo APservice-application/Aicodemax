@@ -84,6 +84,10 @@ class HostedLlmProvider(
     }
 
     override suspend fun chat(model: String, messages: List<LlmMessage>, maxTokens: Int): Outcome<LlmReply> {
+        if (messages.size > 80 || messages.any {
+                it.content.length > 200_000 || (it.imageBase64?.length ?: 0) > 12 * 1024 * 1024
+            }) return Outcome.Failure(AppError("HOSTED_INPUT_TOO_LARGE",
+                "ข้อความ/ภาพใหญ่เกินไปสำหรับคำขอ API บนมือถือ; ลดขนาดก่อนส่ง"))
         if (!keys.networkConsent()) return Outcome.Failure(AppError("HOSTED_CONSENT",
             "ยังไม่ได้อนุญาตให้ส่งข้อความ/ไฟล์ไป API ภายนอก (อาจมีค่าใช้จ่าย)"))
         val targets = routes()
