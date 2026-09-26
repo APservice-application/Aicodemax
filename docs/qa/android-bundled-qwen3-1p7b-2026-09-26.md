@@ -1,6 +1,6 @@
 # Android: เปลี่ยน AI ใน APK เป็น Qwen3-1.7B (2026-09-26)
 
-**สถานะ:** แก้โค้ดบน `feature/android-qwen3-1p7b-bundled-2026` ซึ่งแตกจาก BYOK branch `99ce52e`; **รอ CI ของ commit นี้และทดสอบเครื่องจริง**. ไม่ใช่ release APK และไม่แก้ `main` ของเอเจนต์อื่น. ประวัติ CP-147 ที่ใช้ Qwen3-4B ในอดีตไม่ถูกลบหรือเขียนทับ.
+**สถานะ (2026-09-26):** โค้ด `a441111` บน `feature/android-qwen3-1p7b-bundled-2026` ซึ่งแตกจาก BYOK branch `99ce52e`; [Android CI run `36230912933`](https://github.com/APservice-application/Aicodemax/actions/runs/36230912933) **ผ่านครบ** และอัปโหลด [debug artifact `app-debug`](https://github.com/APservice-application/Aicodemax/actions/runs/36230912933/artifacts/10902895437). **ยังรอทดสอบ RAM/ออฟไลน์บนมือถือเจ้าของ**. ไม่ใช่ release APK และไม่แก้ `main` ของเอเจนต์อื่น. ประวัติ CP-147 ที่ใช้ Qwen3-4B ในอดีตไม่ถูกลบหรือเขียนทับ.
 
 ## คำสั่งเจ้าของ/ขอบเขต
 
@@ -16,7 +16,7 @@
 
 - ชื่อไฟล์ที่ติดตั้งใหม่คือ `builtin-qwen3-1.7b-q4_k_m.gguf`; manifest ของ 4B เก่าหรือคนละ hash จะไม่ถูกเข้าใจว่าเป็น 1.7B. ไฟล์ 4B ที่ provision ใน app-private ของรุ่นก่อน (`builtin-qwen3-4b-q4_k_m.gguf`) จะถูกลบ **หลังยืนยันว่ามี manifest ของ 1.7B และ parts ครบ** และก่อนคัดลอกไฟล์ใหม่ เพื่อไม่ให้ต้องเก็บ 2.5GB+1.1GB เพิ่มพร้อมกัน. ไฟล์ดาวน์โหลดเอง/โปรเจกต์ผู้ใช้ไม่ถูกลบ.
 - ตอนคัดลอกจาก assets แบบ streaming จะคำนวณ SHA-256 อีกครั้งและไม่โหลดไฟล์ไม่ครบ/ผิด hash. ถ้าอัปเดต debug APK ติดตั้งทับไม่ได้เพราะลายเซ็น CI คนละใบ ให้ **สำรองข้อมูลก่อนถอนติดตั้ง**; การถอนติดตั้งลบข้อมูลแอปและคีย์ BYOK ใน Keystore ต้องกรอกใหม่.
-- ลดขนาดโมเดลจาก 2,497,280,256 เป็น 1,107,409,376 bytes (ลดประมาณ 55.7% เฉพาะ weights). ไม่ได้สรุปว่า APK/พื้นที่หลังติดตั้งจะมีขนาดเท่าตัวเลขนี้; ต้องดูขนาด artifact จริงจาก CI.
+- ลดขนาดโมเดลจาก 2,497,280,256 เป็น 1,107,409,376 bytes (ลดประมาณ 55.7% เฉพาะ weights). Artifact `app-debug` ที่ GitHub Actions รายงานเป็น **ZIP 1,123,731,686 bytes** (หมดอายุ 2026-12-25 08:49 UTC); ไม่ใช่ขนาด APK ที่แกะออกหรือพื้นที่หลังติดตั้ง ซึ่งยังต้องตรวจบนเครื่องจริง.
 
 ## ผล RAM / สิ่งที่ยังไม่พิสูจน์
 
@@ -24,9 +24,9 @@
 - CI host smoke test ไม่ได้พิสูจน์ RAM/ความเร็ว/คุณภาพภาษาไทย/การทำงานบนเครื่อง arm64 ของเจ้าของ. การเป็นรุ่นเล็กกว่าอาจให้คุณภาพ tool-calling และวางแผนต่ำกว่า 4B; ต้องทดสอบจริง.
 - ข้อจำกัด multimodal BYOK ที่ยังไม่ครบ `all_models_now` ไม่ได้ถูกแก้ด้วยการเปลี่ยนโมเดลใน APK นี้: [BYOK QA](android-byok-ai-providers-2026-09-26.md).
 
-## เช็กลิสต์ QA หลัง CI ผ่าน
+## ผล CI และเช็กลิสต์ทดสอบต่อ
 
-1. CI JVM + Android tests, checksum ของ GGUF ก่อน/หลังแพ็ก, `llama-cli` สร้างโทเคนตอบ `สวัสดี /no_think` จริง, assembleDebug + verifyNativeSymbols + APK 3 parts + artifact `app-debug` **ทั้งหมดต้องเขียว**. ไม่ build/publish release.
-2. เจ้าของสำรองข้อมูลก่อนติดตั้ง debug ใหม่; ตรวจ Settings ว่า Qwen3-1.7B, Models รายงานไฟล์ 1.1GB และสถานะ RAM gate; ตรวจว่าไม่ต้องดาวน์โหลดโมเดลอีกบนเครื่อง.
-3. ปิดอินเทอร์เน็ตชั่วคราว, ทดสอบคำตอบไทย, งานไฟล์/เครื่องมือที่ต้องขออนุญาต, planner/re-planner และประเมินคุณภาพจริง; เก็บสถานะ RAM ที่หน้า Models. อย่าสรุปว่าผ่านจาก CI เท่านั้น.
-4. เปิดเน็ตอีกครั้ง; ตรวจว่า BYOK ที่เคยตั้งไว้ยังอยู่ถ้าอัปเดตแบบติดตั้งทับได้; ถ้าถอนติดตั้งเพราะลายเซ็นต่าง ต้องกรอกคีย์ BYOK ใหม่ในแอป **อย่าส่ง API key มาในแชต**.
+1. **ผ่าน CI** สำหรับ commit `a441111`: JVM + Android unit tests, checksum ของ GGUF ก่อน/หลังแพ็ก, host `llama-cli` inference จริง, `assembleDebug` + native symbols, ตรวจ 3 parts/SHA-256/manifest/**Apache License** ใน APK และอัปโหลด artifact `app-debug`; [run `36230912933`](https://github.com/APservice-application/Aicodemax/actions/runs/36230912933) สำเร็จทุก job. ไม่ build/publish release และ CI นี้ไม่ใช่การทดสอบบน Android จริง.
+2. **รอเจ้าของทดสอบ:** ดาวน์โหลด [ZIP ของ debug APK](https://github.com/APservice-application/Aicodemax/actions/runs/36230912933/artifacts/10902895437) จากหน้า Actions (หาก repo เป็น private ให้ล็อกอิน), แตก ZIP เพื่อนำ APK ไปติดตั้ง. สำรองข้อมูลก่อน; ตรวจ Settings ว่า Qwen3-1.7B, Models รายงานไฟล์ประมาณ 1.1GB และสถานะ RAM gate; ตรวจว่าไม่ต้องดาวน์โหลดโมเดลอีกบนเครื่อง.
+3. **รอเจ้าของทดสอบ:** ปิดอินเทอร์เน็ตชั่วคราว, ทดสอบคำตอบไทย, งานไฟล์/เครื่องมือที่ต้องขออนุญาต, planner/re-planner และประเมินคุณภาพจริง; เก็บสถานะ RAM ที่หน้า Models. อย่าสรุปว่าผ่านจาก CI เท่านั้น.
+4. **รอเจ้าของทดสอบ:** เปิดเน็ตอีกครั้ง; ตรวจว่า BYOK ที่เคยตั้งไว้ยังอยู่ถ้าอัปเดตแบบติดตั้งทับได้; ถ้าถอนติดตั้งเพราะลายเซ็นต่าง ต้องกรอกคีย์ BYOK ใหม่ในแอป **อย่าส่ง API key มาในแชต**.
