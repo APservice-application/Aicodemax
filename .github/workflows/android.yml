@@ -113,6 +113,26 @@ jobs:
           test "$(printf '%s' "$OUT" | wc -c)" -gt 40
       - name: Assemble
         run: ./gradlew assembleDebug --stacktrace
+      - name: Verify Qwen3-4B payload in debug APK (all 5 parts, exact bytes)
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          path = 'app/build/outputs/apk/debug/app-debug.apk'
+          total = 2_497_280_256
+          part_size = 536_870_912
+          expected = {f'assets/ai/builtin-model-part{i:02d}.gguf': min(part_size, total - i * part_size) for i in range(5)}
+          with zipfile.ZipFile(path) as apk:
+              names = set(apk.namelist())
+              parts = {name for name in names if name.startswith('assets/ai/builtin-model-part') and name.endswith('.gguf')}
+              assert parts == set(expected), f'model parts differ: {parts ^ set(expected)}'
+              for name, size in expected.items():
+                  actual = apk.getinfo(name).file_size
+                  assert actual == size, f'{name}: {actual} bytes; expected {size}'
+              manifest = apk.read('assets/ai/builtin-model.manifest').decode('utf-8')
+              assert 'parts=5' in manifest and f'total={total}' in manifest, 'model manifest mismatch'
+              assert 'lib/arm64-v8a/libaicode_jni.so' in names, 'native inference engine missing'
+          print(f'MODEL_QC_OK Qwen3-4B: 5 model parts, {total} uncompressed bytes in APK')
+          PY
       - name: Prove embedded AI inside APK (CP-146)
         run: |
           unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E "libaicode_(jni|whisper|pty).so|libffmpeg.so|libffprobe.so|builtin-model-part.*.gguf|builtin-model.manifest"
