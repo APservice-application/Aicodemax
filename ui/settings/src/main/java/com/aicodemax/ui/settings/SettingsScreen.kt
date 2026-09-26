@@ -197,7 +197,8 @@ fun AboutScreen() {
         )
         SectionHeader("AI ในตัว (มากับแอป ไม่ต้องดาวน์โหลด)")
         Text(
-            "• Qwen3-4B (Q4_K_M) — Apache 2.0, https://huggingface.co/Qwen\n" +
+            "• Qwen3-1.7B (Q4_K_M) — โมเดล Qwen, quantization โดย Unsloth; Apache 2.0, " +
+                "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF\n" +
                 "• llama.cpp — MIT, https://github.com/ggml-org/llama.cpp\n" +
                 "• whisper.cpp (ฟีเจอร์ถอดเสียง) — MIT, https://github.com/ggml-org/whisper.cpp",
             style = MaterialTheme.typography.bodyMedium,

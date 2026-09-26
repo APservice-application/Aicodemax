@@ -5,13 +5,12 @@ import com.aicodemax.core.common.runOutcome
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 /**
- * CP-120: on-device bootstrap LLM (CP-147: Qwen3-4B Q4_K_M). The ~2.5GB .gguf
- * is NEVER in git nor in the APK — the app downloads it once into
- * filesDir/models on user request; inference runs in-process via JNI
- * (CP-123+; the old llama-server binary was removed).
- *
+ * CP-120: model-download compatibility path. The current Qwen3-1.7B Q4_K_M
+ * ships in the APK via BuiltinAiProvisioner; this optional download path
+ * remains for repair/installation. Inference runs in-process via JNI.
  * Pure JVM: [Downloader] is injected (HttpURLConnection impl included).
  */
 object ModelStore {
@@ -20,14 +19,32 @@ object ModelStore {
         val url: String,
         val fileName: String,
         val expectedBytes: Long? = null,
+        val expectedSha256: String? = null,
     )
 
     val DEFAULT_MODEL = ModelSpec(
-        name = "qwen3-4b-q4_k_m",
-        url = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
-        fileName = "Qwen3-4B-Q4_K_M.gguf",
-        expectedBytes = 2_497_280_256L,
+        name = "qwen3-1.7b-q4_k_m",
+        url = "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/" +
+            "cc27747d7419139e44ba97777c2f2fd5dca92ee1/Qwen3-1.7B-Q4_K_M.gguf",
+        fileName = "Qwen3-1.7B-Q4_K_M.gguf",
+        expectedBytes = 1_107_409_376L,
+        expectedSha256 = "ba491cf470c3cadc624e4c8d6c9a27c998809e8ba8eb938d1689ae87e024b6b7",
     )
+
+    private fun matchesHash(file: File, expected: String?): Boolean {
+        if (expected == null) return true
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(256 * 1024)
+        file.inputStream().use { input ->
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        val actual = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        return actual == expected
+    }
 
     sealed interface ModelStatus {
         data class Ready(val path: String, val bytes: Long) : ModelStatus
@@ -91,7 +108,9 @@ object ModelStore {
         val dest = modelFile(modelsDir, spec)
         if (dest.isFile && dest.length() > 0) {
             val min = spec.expectedBytes?.let { (it * 0.95).toLong() }
-            if (min == null || dest.length() >= min) return@runOutcome dest
+            if ((min == null || dest.length() >= min) && matchesHash(dest, spec.expectedSha256)) {
+                return@runOutcome dest
+            }
             dest.delete()
         }
         dest.parentFile?.mkdirs()
@@ -101,6 +120,10 @@ object ModelStore {
         val min = spec.expectedBytes?.let { (it * 0.95).toLong() }
         if (min != null && part.length() < min) {
             throw IllegalStateException("ไฟล์ไม่ครบ (${part.length()} bytes) — ลองใหม่ (resume ต่อจากเดิม)")
+        }
+        if (!matchesHash(part, spec.expectedSha256)) {
+            part.delete() // never resume a complete but corrupt model next time
+            throw IllegalStateException("SHA-256 ของโมเดลไม่ตรงกับไฟล์ที่ตรึงไว้")
         }
         if (!part.renameTo(dest)) {
             part.copyTo(dest, overwrite = true)

@@ -81,7 +81,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: app/src/main/assets/ai
-          key: builtin-model-qwen3-4b-q4km-v1
+          key: builtin-model-qwen3-1p7b-q4km-ba491cf-v1
       - name: Fetch embedded AI payload (CP-146 Gradle tasks)
         run: ./gradlew :app:fetchBuiltinModel :app:fetchFfmpegLibs --console=plain --stacktrace
       - name: Join model parts for smoke test (CP-147)
@@ -89,7 +89,9 @@ jobs:
           set -e
           cat app/src/main/assets/ai/builtin-model-part*.gguf > /tmp/builtin-model.gguf
           WANT=$(grep ^total= app/src/main/assets/ai/builtin-model.manifest | cut -d= -f2)
+          test "$WANT" = "1107409376"
           test "$(stat -c%s /tmp/builtin-model.gguf)" = "$WANT"
+          echo "ba491cf470c3cadc624e4c8d6c9a27c998809e8ba8eb938d1689ae87e024b6b7  /tmp/builtin-model.gguf" | sha256sum -c -
       - name: Real-inference smoke test (CP-144 §14)
         run: |
           set -e
@@ -113,25 +115,34 @@ jobs:
           test "$(printf '%s' "$OUT" | wc -c)" -gt 40
       - name: Assemble
         run: ./gradlew assembleDebug --stacktrace
-      - name: Verify Qwen3-4B payload in debug APK (all 5 parts, exact bytes)
+      - name: Verify Qwen3-1.7B payload in debug APK (3 parts + SHA-256)
         run: |
           python3 - <<'PY'
+          import hashlib
+          import pathlib
           import zipfile
-          path = 'app/build/outputs/apk/debug/app-debug.apk'
-          total = 2_497_280_256
+          path = pathlib.Path('app/build/outputs/apk/debug/app-debug.apk')
+          total = 1_107_409_376
           part_size = 536_870_912
-          expected = {f'assets/ai/builtin-model-part{i:02d}.gguf': min(part_size, total - i * part_size) for i in range(5)}
+          pinned_sha256 = 'ba491cf470c3cadc624e4c8d6c9a27c998809e8ba8eb938d1689ae87e024b6b7'
+          expected = {f'assets/ai/builtin-model-part{i:02d}.gguf': min(part_size, total - i * part_size) for i in range(3)}
+          assert path.stat().st_size < 1_700_000_000, 'APK still carries the old 2.5GB model'
           with zipfile.ZipFile(path) as apk:
               names = set(apk.namelist())
               parts = {name for name in names if name.startswith('assets/ai/builtin-model-part') and name.endswith('.gguf')}
               assert parts == set(expected), f'model parts differ: {parts ^ set(expected)}'
+              digest = hashlib.sha256()
               for name, size in expected.items():
-                  actual = apk.getinfo(name).file_size
-                  assert actual == size, f'{name}: {actual} bytes; expected {size}'
+                  assert apk.getinfo(name).file_size == size, f'{name} has incorrect byte count'
+                  with apk.open(name) as payload:
+                      while chunk := payload.read(1024 * 1024):
+                          digest.update(chunk)
+              assert digest.hexdigest() == pinned_sha256, 'bundled model hash mismatch'
               manifest = apk.read('assets/ai/builtin-model.manifest').decode('utf-8')
-              assert 'parts=5' in manifest and f'total={total}' in manifest, 'model manifest mismatch'
+              for marker in ('parts=3\n', f'total={total}\n', 'model=qwen3-1.7b-q4_k_m\n', f'sha256={pinned_sha256}\n'):
+                  assert marker in manifest, f'model manifest missing {marker!r}'
               assert 'lib/arm64-v8a/libaicode_jni.so' in names, 'native inference engine missing'
-          print(f'MODEL_QC_OK Qwen3-4B: 5 model parts, {total} uncompressed bytes in APK')
+          print(f'MODEL_QC_OK Qwen3-1.7B: 3 verified parts, {total} bytes, APK {path.stat().st_size} bytes')
           PY
       - name: Prove embedded AI inside APK (CP-146)
         run: |

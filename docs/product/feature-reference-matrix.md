@@ -4,7 +4,7 @@
 
 | Feature | Reference | Our scope (this spec) | Status | Notes |
 |---|---|---|---|---|
-| Built-in AI model | — (our requirement) | Qwen3-4B embedded, offline, no download | ✅ CP-147 | 2.5GB GGUF via build pipeline; `/no_think` chat |
+| Built-in AI model | — (our requirement) | Qwen3-1.7B Q4_K_M embedded, offline, no runtime download | ⏳ รุ่นย่อ 2026-09-26 รอ CI/เครื่องจริง | 1,107,409,376-byte Unsloth GGUF pinned SHA-256, 3 parts; `/no_think` chat (แทน Qwen3-4B เดิม CP-147) |
 | Chat template | Qwen3 ChatML | qwen3() + stripThinking | ✅ CP-147 | unit-tested |
 | AI chat | ChatGPT/Claude/Gemini | 30-item §6 set | 🟡 | streaming/stop/retry/persist ✅; attach/voice/context-indicator ⬜ |
 | Tool Registry + schemas | Cursor/Copilot Agent | 38 tools w/ name/desc/params/returns/errors | ✅ CP-147 | `StandardToolSchemas`; runnable-gated |

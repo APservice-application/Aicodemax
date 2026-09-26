@@ -15,6 +15,17 @@ class BuiltinModelPartsTest {
     }
 
     @Test
+    fun recognizesPinnedSmallerModelAndRejectsBadHashes() {
+        val hash = "ba491cf470c3cadc624e4c8d6c9a27c998809e8ba8eb938d1689ae87e024b6b7"
+        val manifest = BuiltinModelParts.parseManifest(
+            "parts=3\ntotal=1107409376\nmodel=qwen3-1.7b-q4_k_m\nsha256=$hash\n",
+        )
+        assertEquals(BuiltinModelParts.Manifest(3, 1_107_409_376L, "qwen3-1.7b-q4_k_m", hash), manifest)
+        assertNull(BuiltinModelParts.parseManifest("parts=3\ntotal=1107409376\nsha256=bad\n"))
+        assertNull(BuiltinModelParts.parseManifest("parts=3\ntotal=1107409376\nmodel=../bad\n"))
+    }
+
+    @Test
     fun rejectsBadManifest() {
         assertNull(BuiltinModelParts.parseManifest(""))
         assertNull(BuiltinModelParts.parseManifest("parts=0\ntotal=10\n"))

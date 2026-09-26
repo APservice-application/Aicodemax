@@ -66,6 +66,27 @@ class ModelStoreTest {
     }
 
     @Test
+    fun pinnedModelRejectsCorruptDownloadsAndDoesNotReuseBadCache() {
+        val valid = ByteArray(100) { 7 }
+        val sha = java.security.MessageDigest.getInstance("SHA-256").digest(valid)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        val pinned = tiny.copy(expectedSha256 = sha)
+        val dest = java.io.File(tmp.root, "y.gguf")
+        val bad = ModelStore.download(tmp.root.path,
+            ModelStore.Downloader { _, part, _ -> part.writeBytes(ByteArray(100)) }, pinned)
+        assertTrue(bad is Outcome.Failure)
+        assertTrue((bad as Outcome.Failure).error.message.contains("SHA-256"))
+        assertTrue(!java.io.File(tmp.root, "y.gguf.part").exists())
+        dest.writeBytes(ByteArray(100)) // same size, wrong hash must not be accepted
+        var fetched = false
+        val repaired = ModelStore.download(tmp.root.path,
+            ModelStore.Downloader { _, part, _ -> fetched = true; part.writeBytes(valid) }, pinned)
+        assertTrue(repaired is Outcome.Success)
+        assertTrue(fetched)
+        assertTrue(dest.readBytes().contentEquals(valid))
+    }
+
+    @Test
     fun downloaderErrorIsHonest() {
         val outcome = ModelStore.download(
             tmp.root.path,

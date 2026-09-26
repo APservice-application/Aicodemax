@@ -43,30 +43,36 @@ data class ModelProfile(
     val family: String = "qwen25",
     val pack: ModelPack = ModelPack.OPTIONAL,
     val expectedBytes: Long? = null,
+    /** Expected hash for the immutable bundled quantization (null for legacy optional models). */
+    val expectedSha256: String? = null,
     val minRamMb: Int = 2048,
     val ctxTrain: Int = 32768,
 ) {
     fun toSpec(): ModelStore.ModelSpec =
-        ModelStore.ModelSpec(displayName, url, fileName, expectedBytes)
+        ModelStore.ModelSpec(displayName, url, fileName, expectedBytes, expectedSha256)
 }
 
 object ModelCatalog {
     private const val HF = "https://huggingface.co/Qwen"
 
     val DEFAULT_MODEL = ModelProfile(
-        id = "qwen3-4b-q4_k_m",
-        displayName = "Qwen3 4B (Q4_K_M)",
-        url = "$HF/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
-        fileName = "Qwen3-4B-Q4_K_M.gguf",
+        id = "qwen3-1.7b-q4_k_m",
+        displayName = "Qwen3 1.7B (Q4_K_M)",
+        // Official Qwen GGUF currently publishes Q8 only; use Unsloth's
+        // Apache-2.0 Q4_K_M quant pinned to an immutable revision + hash.
+        url = "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/" +
+            "cc27747d7419139e44ba97777c2f2fd5dca92ee1/Qwen3-1.7B-Q4_K_M.gguf",
+        fileName = "Qwen3-1.7B-Q4_K_M.gguf",
         version = "1.0",
         licenseId = "Apache-2.0",
         quantization = "Q4_K_M",
         architecture = "qwen3",
-        params = "4B",
+        params = "1.7B",
         family = "qwen3",
         pack = ModelPack.DEFAULT,
-        expectedBytes = 2_497_280_256L,
-        minRamMb = 4096,
+        expectedBytes = 1_107_409_376L,
+        expectedSha256 = "ba491cf470c3cadc624e4c8d6c9a27c998809e8ba8eb938d1689ae87e024b6b7",
+        minRamMb = 2048,
     )
 
     val OPTIONAL_1_5B = ModelProfile(

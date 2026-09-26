@@ -99,8 +99,18 @@ class ModelManagerTest {
 
     @Test
     fun catalogDefaultIsApache() {
-        assertEquals(ModelPack.DEFAULT, ModelCatalog.DEFAULT_MODEL.pack)
-        assertEquals("Apache-2.0", ModelCatalog.DEFAULT_MODEL.licenseId)
-        ModelLicenses.requireRedistributable(ModelCatalog.DEFAULT_MODEL.licenseId)
+        val bundled = ModelCatalog.DEFAULT_MODEL
+        assertEquals(ModelPack.DEFAULT, bundled.pack)
+        assertEquals("Apache-2.0", bundled.licenseId)
+        assertEquals("qwen3-1.7b-q4_k_m", bundled.id)
+        assertEquals("1.7B", bundled.params)
+        assertEquals(1_107_409_376L, bundled.expectedBytes)
+        assertEquals("ba491cf470c3cadc624e4c8d6c9a27c998809e8ba8eb938d1689ae87e024b6b7",
+            bundled.expectedSha256)
+        assertEquals(bundled.id, ModelStore.DEFAULT_MODEL.name)
+        assertEquals(bundled.url, ModelStore.DEFAULT_MODEL.url)
+        assertEquals(bundled.expectedBytes, ModelStore.DEFAULT_MODEL.expectedBytes)
+        assertEquals(bundled.expectedSha256, ModelStore.DEFAULT_MODEL.expectedSha256)
+        ModelLicenses.requireRedistributable(bundled.licenseId)
     }
 }

@@ -4,8 +4,10 @@ import android.content.Context
 import com.aicodemax.ai.runtime.AiRuntimeManager
 import com.aicodemax.ai.runtime.BuiltinModelParts
 import com.aicodemax.ai.runtime.Gguf
+import com.aicodemax.ai.runtime.ModelCatalog
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,8 +39,15 @@ class BuiltinAiProvisioner(
             aiRuntime.builtinMissing()
             return@launch
         }
-        // Already provisioned for THIS model? Load straight away.
+        val expected = ModelCatalog.DEFAULT_MODEL
+        if (manifest.modelId != expected.id || manifest.totalBytes != expected.expectedBytes ||
+            manifest.sha256 != expected.expectedSha256) {
+            aiRuntime.provisionFailed("โมเดลใน APK ไม่ตรงกับ Qwen3-1.7B ที่ตรวจสอบไว้ — ติดตั้ง APK ที่สมบูรณ์")
+            return@launch
+        }
+        // Already provisioned for THIS model? Never load the previous 4B by accident.
         if (isValid(destFile) && destFile.length() == manifest.totalBytes) {
+            removeOldBundledModels()
             aiRuntime.loadBuiltin(destFile.path)
             return@launch
         }
@@ -52,10 +61,14 @@ class BuiltinAiProvisioner(
             aiRuntime.builtinMissing()
             return@launch
         }
+        // Valid new APK and all parts present. Free the obsolete 2.5GB 4B
+        // provision before writing 1.1GB, or low-storage upgrades can fail.
+        removeOldBundledModels()
+        val tmp = File(destFile.path + ".part")
         // Local streaming join with progress (first launch only).
         try {
             destFile.parentFile?.mkdirs()
-            val tmp = File(destFile.path + ".part")
+            val digest = MessageDigest.getInstance("SHA-256")
             FileOutputStream(tmp).use { out ->
                 val buf = ByteArray(256 * 1024)
                 var done = 0L
@@ -64,6 +77,7 @@ class BuiltinAiProvisioner(
                         while (true) {
                             val n = input.read(buf)
                             if (n < 0) break
+                            digest.update(buf, 0, n)
                             out.write(buf, 0, n)
                             done += n
                             aiRuntime.setProvisionProgress((done.toFloat() / manifest.totalBytes).coerceIn(0f, 1f))
@@ -71,10 +85,16 @@ class BuiltinAiProvisioner(
                     }
                 }
             }
-            if (tmp.length() != manifest.totalBytes) {
+            val receivedBytes = tmp.length()
+            if (receivedBytes != manifest.totalBytes) {
                 tmp.delete()
-                aiRuntime.setProvisionProgress(null)
-                aiRuntime.provisionFailed("ไฟล์ AI ในตัวไม่ครบ (${tmp.length()}/${manifest.totalBytes} bytes)")
+                aiRuntime.provisionFailed("ไฟล์ AI ในตัวไม่ครบ ($receivedBytes/${manifest.totalBytes} bytes)")
+                return@launch
+            }
+            val actualHash = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            if (actualHash != manifest.sha256) {
+                tmp.delete()
+                aiRuntime.provisionFailed("ไฟล์โมเดลใน APK ไม่ผ่าน SHA-256 — หยุดโหลดเพื่อความปลอดภัย")
                 return@launch
             }
             if (!tmp.renameTo(destFile)) {
@@ -82,7 +102,7 @@ class BuiltinAiProvisioner(
                 tmp.delete()
             }
         } catch (e: Exception) {
-            aiRuntime.setProvisionProgress(null)
+            tmp.delete() // interrupted/corrupt local join must not consume another 1.1GB
             aiRuntime.provisionFailed("แตกไฟล์ AI ในตัวไม่สำเร็จ: ${e.message}")
             return@launch
         }
@@ -91,13 +111,14 @@ class BuiltinAiProvisioner(
             aiRuntime.provisionFailed("ไฟล์ AI ในตัวไม่สมบูรณ์หลังแตกไฟล์")
             return@launch
         }
-        // CP-147: model swap 0.5B -> Qwen3-4B — remove the orphaned legacy
-        // provision (~491MB) so upgraders don't lose storage to a dead file.
-        runCatching {
-            val legacy = destFile.resolveSibling("builtin-qwen2.5-0.5b-q4_k_m.gguf")
-            if (legacy.isFile && legacy.path != destFile.path) legacy.delete()
-        }
         aiRuntime.loadBuiltin(destFile.path)
+    }
+
+    private fun removeOldBundledModels() {
+        for (name in listOf("builtin-qwen3-4b-q4_k_m.gguf", "builtin-qwen2.5-0.5b-q4_k_m.gguf")) {
+            val legacy = destFile.resolveSibling(name)
+            if (legacy.path != destFile.path && legacy.isFile) runCatching { legacy.delete() }
+        }
     }
 
     private fun readManifest(): BuiltinModelParts.Manifest? = try {

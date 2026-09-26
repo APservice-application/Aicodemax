@@ -216,15 +216,15 @@ class ServiceLocator(context: Context) {
     private fun builtinIfReady(): LlmProvider? =
         builtinProvider.takeIf { aiRuntime.state.value == com.aicodemax.ai.runtime.AiRuntimeState.READY }
 
-    /** Planner/re-planner use BYOK when the large on-device brain cannot load. */
+    /** Planner/re-planner use BYOK when the on-device brain cannot load. */
     private fun actingProvider(): LlmProvider? = builtinIfReady() ?: llmProvider?.takeIf {
         it !== hostedBrain || hostedBrain.consent()
     }
 
-    private fun actingModel(): String = if (builtinIfReady() != null) "qwen3-4b-builtin" else llmModel
+    private fun actingModel(): String = if (builtinIfReady() != null) "qwen3-1.7b-builtin" else llmModel
 
     /** CP-144: built-in AI model file (bundled asset, provisioned on first launch). */
-    val builtinModelFile: File = File(storage.modelsDefault.path, "builtin-qwen3-4b-q4_k_m.gguf")
+    val builtinModelFile: File = File(storage.modelsDefault.path, "builtin-qwen3-1.7b-q4_k_m.gguf")
 
     /** CP-145: collects the built-in AI checklist inputs (cheap metadata calls only). */
     fun builtinAiReport(): com.aicodemax.ai.runtime.BuiltinAiReport {
@@ -235,9 +235,12 @@ class ServiceLocator(context: Context) {
             val manifest = appContext.assets.open(com.aicodemax.ai.runtime.BuiltinModelParts.MANIFEST_PATH).use { input ->
                 com.aicodemax.ai.runtime.BuiltinModelParts.parseManifest(input.bufferedReader().readText())
             }
-            manifest != null && com.aicodemax.ai.runtime.BuiltinModelParts.orderedParts(
-                manifest, appContext.assets.list(com.aicodemax.ai.runtime.BuiltinModelParts.ASSET_DIR)?.toList().orEmpty(),
-            ) != null
+            val expected = com.aicodemax.ai.runtime.ModelCatalog.DEFAULT_MODEL
+            manifest != null && manifest.modelId == expected.id &&
+                manifest.totalBytes == expected.expectedBytes && manifest.sha256 == expected.expectedSha256 &&
+                com.aicodemax.ai.runtime.BuiltinModelParts.orderedParts(
+                    manifest, appContext.assets.list(com.aicodemax.ai.runtime.BuiltinModelParts.ASSET_DIR)?.toList().orEmpty(),
+                ) != null
         } catch (_: Exception) {
             false
         }
@@ -503,8 +506,8 @@ class ServiceLocator(context: Context) {
         }
         webAiServer = WebAiBridgeServer(webAiAgents, webAiTokens)
         val manualBrain = makeLlmBrain({ llmProvider }, { llmModel })
-        // CP-148: on-device tool brain (embedded Qwen3) — acts with tools, no API key.
-        val builtinToolBrain = makeLlmBrain({ builtinIfReady() }, { "qwen3-4b-builtin" }, maxSteps = 4)
+        // CP-148: on-device tool brain (embedded Qwen3-1.7B) — acts with tools, no API key.
+        val builtinToolBrain = makeLlmBrain({ builtinIfReady() }, { "qwen3-1.7b-builtin" }, maxSteps = 4)
         // CP-148: LLM planner (rules first via CascadePlanner below; LLM catches the rest).
         val llmPlanner = LlmPlanner(
             { actingProvider() }, { actingModel() }, capabilities,

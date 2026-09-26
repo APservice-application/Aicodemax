@@ -23,7 +23,7 @@ import com.aicodemax.core.common.fold
 class BuiltinLlmProvider(
     private val generate: suspend (messages: List<ChatMessage>, maxTokens: Int) -> Outcome<String>,
     private val ready: () -> Boolean,
-    private val modelName: String = "qwen3-4b-builtin",
+    private val modelName: String = "qwen3-1.7b-builtin",
 ) : LlmProvider {
     override val id: String = "builtin"
 
@@ -58,7 +58,7 @@ class BuiltinLlmProvider(
         }
 
         /** Production wiring: generations go through the real runtime (thinking already stripped). */
-        fun fromManager(manager: AiRuntimeManager, modelName: String = "qwen3-4b-builtin"): BuiltinLlmProvider =
+        fun fromManager(manager: AiRuntimeManager, modelName: String = "qwen3-1.7b-builtin"): BuiltinLlmProvider =
             BuiltinLlmProvider(
                 generate = { messages, maxTokens ->
                     manager.chat(messages, GenParams(maxTokens = maxTokens)).fold(

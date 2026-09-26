@@ -1,6 +1,7 @@
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.net.URL
+import java.security.MessageDigest
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.Collections
@@ -153,15 +154,16 @@ dependencies {
 }
 
 // CP-146: BUILD-TIME AI EMBEDDING. Every assemble* on ANY machine produces an
-// APK with the engine + model inside. Nothing for the developer to run by hand,
-// nothing for the user to download/install. Internet is needed at BUILD time
-// only (one-time fetch, then cached next to the sources); the installed app
-// runs fully OFFLINE.
-val builtinModelUrl =
-    "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
-val builtinModelSize = 2497280256L // exact bytes (Qwen3-4B Q4_K_M, Apache-2.0)
-// CP-147: AGP compressDebugAssets buffers each asset in memory (2GB array
-// cap) — the 2.5GB model ships as 512MiB parts + manifest, joined on device.
+// APK with the engine + model inside. No download/API key on the installed app.
+// Qwen's official GGUF currently offers Q8; this Apache-2.0 Q4_K_M quant from
+// Unsloth is pinned by immutable revision, exact size and LFS SHA-256.
+val builtinModelId = "qwen3-1.7b-q4_k_m"
+val builtinModelUrl = "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/" +
+    "cc27747d7419139e44ba97777c2f2fd5dca92ee1/Qwen3-1.7B-Q4_K_M.gguf"
+val builtinModelSize = 1_107_409_376L
+val builtinModelSha256 = "ba491cf470c3cadc624e4c8d6c9a27c998809e8ba8eb938d1689ae87e024b6b7"
+// Keep the existing asset/manifest format to support all build environments;
+// AGP once failed on a single 2.5GB asset, so 512MiB parts are proven safe.
 val builtinModelPartSize = 536870912L
 val builtinModelAssetDir = file("src/main/assets/ai")
 val builtinModelManifest = file("src/main/assets/ai/builtin-model.manifest")
@@ -169,6 +171,19 @@ val builtinModelManifest = file("src/main/assets/ai/builtin-model.manifest")
 fun builtinModelParts(): List<File> {
     val n = ((builtinModelSize + builtinModelPartSize - 1) / builtinModelPartSize).toInt()
     return (0 until n).map { i -> File(builtinModelAssetDir, "builtin-model-part%02d.gguf".format(i)) }
+}
+
+fun sha256OfParts(parts: List<File>): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    val buffer = ByteArray(1024 * 1024)
+    for (part in parts) part.inputStream().use { input ->
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            digest.update(buffer, 0, count)
+        }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
 }
 
 fun builtinModelPartsValid(): Boolean {
@@ -180,14 +195,17 @@ fun builtinModelPartsValid(): Boolean {
     }.toMap()
     val parts = kv["parts"]?.toIntOrNull() ?: return false
     val total = kv["total"]?.toLongOrNull() ?: return false
-    if (total != builtinModelSize) return false
+    if (total != builtinModelSize || kv["model"] != builtinModelId ||
+        kv["sha256"] != builtinModelSha256) return false
     val expected = builtinModelParts()
     if (expected.size != parts) return false
     for (i in expected.indices) {
         val want = if (i < parts - 1) builtinModelPartSize else total - builtinModelPartSize * (parts - 1)
         if (!expected[i].isFile || expected[i].length() != want) return false
     }
-    return verifyGgufHeader(expected[0])
+    // Cached assets need a full digest too: length + magic cannot detect
+    // stale/tampered model weights, especially after switching from 4B to 1.7B.
+    return verifyGgufHeader(expected[0]) && sha256OfParts(expected) == builtinModelSha256
 }
 val ffmpegArm64Dir = file("src/main/jniLibs/arm64-v8a")
 
@@ -244,9 +262,17 @@ fun verifyGgufHeader(f: File): Boolean =
 tasks.register("fetchBuiltinModel") {
     description = "CP-147: fetches the pinned built-in GGUF as 512MiB asset parts + manifest (skipped when present + verified)."
     doLast {
-        // Legacy single-file asset from the older pipeline must not linger.
+        // Keep an upgraded local build small: old 4B parts 03/04 and stray
+        // .part files must never be silently included in the new 1.7B APK.
         val legacy = File(builtinModelAssetDir, "builtin-model.gguf")
-        if (legacy.exists()) legacy.delete()
+        if (legacy.exists() && !legacy.delete()) throw GradleException("Cannot remove obsolete model asset")
+        val currentNames = builtinModelParts().map { it.name }.toSet()
+        builtinModelAssetDir.listFiles().orEmpty().forEach { entry ->
+            if (entry.name.matches(Regex("""builtin-model-part\d{2}\.gguf(?:\.part)?""")) &&
+                entry.name !in currentNames && !entry.delete()) {
+                throw GradleException("Cannot remove obsolete model part ${entry.name}")
+            }
+        }
         if (builtinModelPartsValid()) {
             logger.lifecycle("fetchBuiltinModel: parts present + verified, skipping.")
             return@doLast
@@ -257,8 +283,9 @@ tasks.register("fetchBuiltinModel") {
         tmps.forEach { it.delete() }
         parts.forEach { it.delete() }
         builtinModelManifest.delete()
-        logger.lifecycle("fetchBuiltinModel: downloading built-in model 2.5GB as ${parts.size} parts (one-time, build-time only)...")
+        logger.lifecycle("fetchBuiltinModel: downloading Qwen3-1.7B Q4_K_M as ${parts.size} verified parts (build-time only)...")
         var total = 0L
+        val sourceHash = MessageDigest.getInstance("SHA-256")
         try {
             URL(builtinModelUrl).openStream().use { inp ->
                 val buf = ByteArray(8 * 1024 * 1024)
@@ -269,6 +296,7 @@ tasks.register("fetchBuiltinModel") {
                     while (true) {
                         val n = inp.read(buf)
                         if (n < 0) break
+                        sourceHash.update(buf, 0, n)
                         var off = 0
                         var left = n
                         while (left > 0) {
@@ -303,6 +331,11 @@ tasks.register("fetchBuiltinModel") {
             tmps.forEach { it.delete() }
             throw GradleException("CP-147: model size mismatch (got $total, want $builtinModelSize).")
         }
+        val actualHash = sourceHash.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        if (actualHash != builtinModelSha256) {
+            tmps.forEach { it.delete() }
+            throw GradleException("CP-147: model SHA-256 mismatch (build aborted).")
+        }
         if (!verifyGgufHeader(tmps[0])) {
             tmps.forEach { it.delete() }
             throw GradleException("CP-147: downloaded file is not GGUF.")
@@ -310,7 +343,11 @@ tasks.register("fetchBuiltinModel") {
         tmps.forEachIndexed { i, tmp ->
             if (!tmp.renameTo(parts[i])) throw GradleException("CP-147: cannot move part $i into assets.")
         }
-        builtinModelManifest.writeText("# written by fetchBuiltinModel - do not edit\nparts=${parts.size}\ntotal=$builtinModelSize\n")
+        builtinModelManifest.writeText(
+            "# written by fetchBuiltinModel - do not edit\n" +
+                "parts=${parts.size}\ntotal=$builtinModelSize\n" +
+                "model=$builtinModelId\nsha256=$builtinModelSha256\n",
+        )
         logger.lifecycle("fetchBuiltinModel: done (${parts.size} parts).")
     }
 }
@@ -372,7 +409,7 @@ tasks.register("verifyEmbeddedAi") {
             logger.lifecycle("verifyEmbeddedAi: no APK built, nothing to verify.")
             return@doLast
         }
-        // CP-147: model ships as parts + manifest (AGP cannot buffer one 2.5GB asset).
+        // CP-147: model ships as verified parts + manifest (2.5GB asset once failed in AGP).
         val required = listOf(
             "lib/arm64-v8a/libaicode_jni.so",
             "lib/arm64-v8a/libaicode_whisper.so",
@@ -390,6 +427,23 @@ tasks.register("verifyEmbeddedAi") {
                 val missing = required.filter { it !in names }
                 if (missing.isNotEmpty()) {
                     throw GradleException("CP-146 BUILD=FAIL: ${apk.name} lacks embedded AI: $missing")
+                }
+                val expectedParts = builtinModelParts().map { "assets/ai/${it.name}" }.toSet()
+                val actualParts = names.filter { it.matches(Regex("""assets/ai/builtin-model-part\d{2}\.gguf""")) }.toSet()
+                if (actualParts != expectedParts || expectedParts.any { name ->
+                        val partIndex = builtinModelParts().indexOfFirst { "assets/ai/${it.name}" == name }
+                        val expectedSize = minOf(builtinModelPartSize,
+                            builtinModelSize - partIndex * builtinModelPartSize)
+                        zip.getEntry(name).size != expectedSize
+                    }) {
+                    throw GradleException("CP-147 BUILD=FAIL: ${apk.name} has stale/wrong Qwen3-1.7B parts")
+                }
+                val embeddedManifest = zip.getInputStream(zip.getEntry("assets/ai/builtin-model.manifest"))
+                    .bufferedReader().use { it.readText() }
+                if (!embeddedManifest.contains("model=$builtinModelId\n") ||
+                    !embeddedManifest.contains("total=$builtinModelSize\n") ||
+                    !embeddedManifest.contains("sha256=$builtinModelSha256\n")) {
+                    throw GradleException("CP-147 BUILD=FAIL: ${apk.name} has the wrong model manifest")
                 }
                 val loose = names.filter { n -> forbidden.any { f -> n.endsWith("/$f") } }
                 if (loose.isNotEmpty()) {

@@ -24,7 +24,7 @@
 | ขั้นตอน | ทำโดย | เกิดเมื่อไหร่ |
 |---|---|---|
 | ติดตั้ง NDK + CMake | `ensureNativeBuildTools` | ขาดเมื่อไหร่ ติดตั้งให้ |
-| ดึงโมเดล Qwen3-4B (2.5GB) → assets แบบ 5 parts+manifest | `fetchBuiltinModel` | ครั้งเดียว แล้วแคชไว้ (AGP รับไฟล์เดี่ยวเกิน 2GB ไม่ได้ แอปต่อ parts เองตอนติดตั้งครั้งแรก) |
+| ดึงโมเดล Qwen3-1.7B Q4_K_M (1,107,409,376 ไบต์) → assets 3 ส่วน+manifest พร้อมตรวจ SHA-256 | `fetchBuiltinModel` | ครั้งเดียว แล้วแคชไว้ (ยังคงแยกส่วนเพราะ pipeline เดิมเคยชนข้อจำกัด AGP; แอปต่อส่วนแบบ streaming ตอนเปิดครั้งแรก) |
 | ดึง ffmpeg/ffprobe arm64 → jniLibs | `fetchFfmpegLibs` | ครั้งเดียว แล้วแคชไว้ |
 | compile llama.cpp + whisper.cpp + pty → `.so` | CMake/NDK (`externalNativeBuild`) | ทุกครั้งที่ซอร์สเปลี่ยน (incremental) |
 | แพ็กทุกอย่างเข้า APK | AGP (merge) | ทุกบิ้ว |
