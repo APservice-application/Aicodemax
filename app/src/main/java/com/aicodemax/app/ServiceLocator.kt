@@ -220,8 +220,15 @@ class ServiceLocator(context: Context) {
     /** CP-145: collects the built-in AI checklist inputs (cheap metadata calls only). */
     fun builtinAiReport(): com.aicodemax.ai.runtime.BuiltinAiReport {
         val assetPresent = try {
-            // CP-147: the model ships as parts + manifest (never one 2.5GB file).
-            appContext.assets.openFd(com.aicodemax.ai.runtime.BuiltinModelParts.MANIFEST_PATH).use { it.length > 0 }
+            // The small manifest may be compressed by AAPT (only .gguf is
+            // noCompress); openFd() would falsely claim the built-in AI is
+            // missing. Read the manifest as a stream and check every part name.
+            val manifest = appContext.assets.open(com.aicodemax.ai.runtime.BuiltinModelParts.MANIFEST_PATH).use { input ->
+                com.aicodemax.ai.runtime.BuiltinModelParts.parseManifest(input.bufferedReader().readText())
+            }
+            manifest != null && com.aicodemax.ai.runtime.BuiltinModelParts.orderedParts(
+                manifest, appContext.assets.list(com.aicodemax.ai.runtime.BuiltinModelParts.ASSET_DIR)?.toList().orEmpty(),
+            ) != null
         } catch (_: Exception) {
             false
         }
